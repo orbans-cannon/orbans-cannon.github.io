@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://orbans-cannon.github.io/sitemap-index.xml
