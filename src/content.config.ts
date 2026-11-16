@@ -15,6 +15,11 @@ export const collections = {
 				 */
 				takeaway: z.string().optional(),
 				/**
+				 * 搜尋結果與分頁顯示的 <title>（route-middleware.ts 套用）。頁面標題（h1、側欄）不變。
+				 * 寫成讀者會搜的說法；不含站名時會自動加上「 | 烏爾班大砲」。
+				 */
+				seoTitle: z.string().optional(),
+				/**
 				 * 本頁數學符號的意思（覆蓋 src/data/symbols.ts 的預設；空字串＝本頁不提示）。
 				 * 同一字母在本頁有兩種意思時，兩種都不要宣告。
 				 */

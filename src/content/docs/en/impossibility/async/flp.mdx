@@ -1,5 +1,6 @@
 ---
 title: "FLP: Impossibility in Asynchrony"
+seoTitle: "The FLP Impossibility Result: Proof and Intuition"
 description: "In a fully asynchronous system where even one process may stop, no deterministic consensus protocol can keep safety and also guarantee that every admissible run reaches a decision."
 takeaway: "In a fully asynchronous system you cannot tell whether another process has stopped or is just slow. A protocol that tolerates one stopped process by not waiting for it must decide with incomplete information. FLP shows that if even one process may stop, the schedule can keep postponing the step that is about to settle the outcome, and the resulting run is completely legal (messages are only late, and all are eventually delivered), so no deterministic protocol can guarantee both safety and liveness. The core of the proof is the bivalent configuration (both decisions still possible)."
 sidebar:
