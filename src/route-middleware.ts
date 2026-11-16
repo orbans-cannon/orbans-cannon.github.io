@@ -6,8 +6,19 @@
 import { defineRouteMiddleware } from '@astrojs/starlight/route-data';
 import { glossary, categoryLabel, categoryLabelEn, type Category } from './data/glossary';
 
+/**
+ * 只有章節標題或只有規劃的頁面（badge 是「大綱」「規劃中」）沒有正文，
+ * 讓搜尋引擎收錄只會拉低整站的品質印象，所以加 noindex。草稿以上的頁面正常收錄。
+ */
+const NOINDEX_BADGES = new Set(['大綱', '規劃中', 'Outline', 'Planned']);
+
 export const onRequest = defineRouteMiddleware((context) => {
   const route = context.locals.starlightRoute;
+  const badge = route.entry.data.sidebar?.badge;
+  const badgeText = typeof badge === 'string' ? badge : badge?.text;
+  if (badgeText && NOINDEX_BADGES.has(badgeText)) {
+    route.head.push({ tag: 'meta', attrs: { name: 'robots', content: 'noindex' }, content: '' });
+  }
   if (!route.toc) return;
   const isEn = route.id === 'en/intro/glossary';
   if (route.id !== 'intro/glossary' && !isEn) return;

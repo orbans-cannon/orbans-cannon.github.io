@@ -28,7 +28,7 @@ src/content/docs/
 
 ## 寫作規範
 
-- 每頁開頭標示核對狀態（草稿／已核對）。
+- 未完成的頁面在側欄標示狀態（大綱／規劃中／草稿／部分核對／已核對）；完成的頁面不顯示標籤。
 - 協議頁固定附模型卡：時序、密碼學假設、故障、確定性、問題。
 - 證明依「模型 → 性質 → 引理 → 證明 → 邊界」。
 - 複雜度數字註明單位與情境。
@@ -37,4 +37,8 @@ src/content/docs/
 
 ## 貢獻
 
-歡迎開 issue 或 PR 指出錯誤。見 [CONTRIBUTORS.md](CONTRIBUTORS.md)。
+歡迎開 [issue](https://github.com/orbans-cannon/orbans-cannon.github.io/issues) 或 PR 指出錯誤。見 [CONTRIBUTORS.md](CONTRIBUTORS.md)。
+
+流程：所有改動從 branch 開 PR，PR 以 squash merge 合併，不直接推 `main`。**commit message 與 PR 標題、描述用英文**（頁面內容用繁體中文）。
+
+網站：<https://orbans-cannon.github.io/>（GitHub Pages，推送到 `main` 後由 GitHub Actions 部署）。

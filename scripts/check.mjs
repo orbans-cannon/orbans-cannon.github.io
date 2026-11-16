@@ -104,6 +104,7 @@ if (runSource) {
   const enSubs = new Set(pages.filter((p) => p.isEn).map((p) => p.sub.slice(3).replace(/\.mdx?$/, '')));
   const missing = pages
     .filter((p) => !p.isEn)
+    .filter((p) => p.sub !== '404.md') // 404 是中英文同頁，不需要英文版
     .filter((p) => !enSubs.has(p.sub.replace(/\.mdx?$/, '')))
     .map((p) => p.sub);
   if (missing.length) {
@@ -152,8 +153,8 @@ if (runDist) {
       return idCache.get(htmlFile);
     };
     const dec = (s) => { try { return decodeURIComponent(s); } catch { return s; } };
-    // 404.html 是 Starlight 產生的頁面，裡面的語言切換連結指向不存在的 /404/，不是我們寫的內容
-    const htmlFiles = walk(DIST).filter((f) => f.endsWith('.html') && !f.endsWith(`${sep}404.html`));
+    // 404.html 與 en/404/ 是 Starlight 的 404 頁，語言切換連結指向不存在的 /404/，不是內容頁
+    const htmlFiles = walk(DIST).filter((f) => f.endsWith('.html') && !f.endsWith(`${sep}404.html`) && !f.endsWith(`${sep}404${sep}index.html`));
 
     // 對照：dist 頁面 → 原始碼檔
     const sourceFor = (distFile) => {

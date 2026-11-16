@@ -121,6 +121,7 @@ const brandFontHref =
 
 // https://astro.build/config
 export default defineConfig({
+  site: 'https://orbans-cannon.github.io',
   markdown: {
     remarkPlugins: [remarkMath],
     rehypePlugins: [rehypeKatex, rehypeHeadingMath],
@@ -129,6 +130,8 @@ export default defineConfig({
     starlight({
       title: { 'zh-TW': '烏爾班大砲', en: 'Orban’s Cannon' },
       description: '依時序模型分野的拜占庭容錯理論導讀',
+      social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/orbans-cannon/orbans-cannon.github.io' }],
+      editLink: { baseUrl: 'https://github.com/orbans-cannon/orbans-cannon.github.io/edit/main/' },
       defaultLocale: 'root',
       locales: {
         root: { label: '繁體中文', lang: 'zh-TW' },
