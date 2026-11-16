@@ -1,4 +1,25 @@
-本專案不可商用，請無償使用。授權分兩部分。
+This project is not for commercial use; please use it free of charge.
+The license has two parts. The linked license texts are the authoritative
+terms; this file only summarizes which part is under which license.
+
+1. Text content (the pages under src/content/)
+   Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0)
+   Full text: https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode
+   Attribution: Allan Yang
+
+2. Code (src/components/, src/lib/, src/widgets/, astro.config.mjs and all other files)
+   PolyForm Noncommercial License 1.0.0
+   Full text: https://polyformproject.org/licenses/noncommercial/1.0.0/
+   Required Notice: Copyright (c) 2026 Allan Yang
+
+The copyright of the papers discussed on this site belongs to their authors
+and publishers and is not covered by the licenses above. This project does
+not include the papers themselves.
+
+------------------------------------------------------------------------
+
+本專案不可商用，請無償使用。授權分兩部分。以連結中的授權全文為準，
+本檔只說明哪個部分適用哪一種授權。
 
 1. 文字內容（src/content/ 底下的頁面）
    Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0)
