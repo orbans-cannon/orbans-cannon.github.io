@@ -1,0 +1,37 @@
+---
+title: 通訊下界（Dolev–Reischuk）
+description: 確定性 Byzantine Agreement 的訊息數下界，通訊優化的天花板。
+sidebar:
+  order: 1
+  badge:
+    text: 規劃中
+    variant: note
+---
+
+import ModelCard from '../../../../components/ModelCard.astro';
+import Cite from '../../../../components/Cite.astro';
+import References from '../../../../components/References.astro';
+
+<ModelCard
+  status="planned"
+  timing="any"
+  crypto="any"
+  faults="byz"
+  determinism="det"
+  problem="BA"
+  result="訊息數 Ω(f²)（待核對）"
+  note="下界的精確敘述尚待對照原文。"
+/>
+
+本章尚未撰寫。原文見 <Cite id="dr1985" />。
+
+## 預計涵蓋
+
+- **結果的精確敘述**：下界針對整個執行的總通訊，單位是訊息還是 authenticator，會直接影響能否與 HotStuff 的 $O(n)$ 比較。
+- **證明的主要想法**：待讀原文後撰寫。
+- **與協議複雜度的關係**：HotStuff 的每 view 成本與這個下界不矛盾，原因在於兩者統計的範圍與單位不同。這是作者報告中被指出需要精確敘述的地方。
+- **邊界**：隨機化與適應性對手如何影響這個下界，銜接 Communication Complexity of BA, Revisited（PODC 2019）。
+
+## 參考文獻
+
+<References />

@@ -1,0 +1,182 @@
+---
+/**
+ * 章節首頁的路線：把「規劃章節」的清單畫成一條路線，每章前面一個狀態圓點（design.md §章節路線）。
+ * 用法（index.mdx）：
+ *   <PartRoute timing="partial">
+ *
+ *   1. **[PBFT](/partial-sync/pbft/)**：……
+ *   2. **HotStuff**：……
+ *
+ *   </PartRoute>
+ * 狀態從每一項裡「指向本部分底下頁面」的第一個連結讀出（該頁側欄 badge）；
+ * 沒有這種連結（還沒有頁面，或只連到別的部分，例如不可能性的下界頁）＝大綱。
+ * 所以新寫好一章時，記得在這裡把章名改成連結，狀態就會自動更新。
+ * 清單不能巢狀。
+ */
+import { getCollection } from 'astro:content';
+
+interface Props {
+  timing: 'sync' | 'partial' | 'async' | 'hybrid' | 'any';
+  /**
+   * 'status'（預設）：每章前面是頁面狀態圓點。
+   * 'model'：每章前面是模型色實心點（不顯示狀態，正式版去掉狀態標籤時用這個）；
+   *   每一項開頭用行內程式碼標模型，例如 `sync`、`partial`、`async`、`comm`、`any`。
+   */
+  mode?: 'status' | 'model';
+}
+const { timing, mode = 'status' } = Astro.props;
+const lang = Astro.locals.starlightRoute.lang?.startsWith('en') ? 'en' : 'zh';
+const L = (zh: string, en: string) => (lang === 'en' ? en : zh);
+
+const docs = await getCollection('docs');
+// 本部分的目錄，例如 partial-sync（只有連到這底下的頁面才算這一章）
+const base = Astro.locals.starlightRoute.id.replace(/^en\//, '').replace(/\/?index$/, '');
+const variantToStatus: Record<string, string> = {
+  default: 'outline',
+  note: 'planned',
+  caution: 'draft',
+  tip: 'partial',
+  success: 'verified',
+};
+const statusOf = (href: string) => {
+  const slug = href.split('#')[0].replace(/^\/(en\/)?/, '').replace(/\/$/, '');
+  const d = docs.find((x) => x.id === slug || x.id === `${slug}/index`);
+  const badge = d?.data.sidebar?.badge;
+  const variant = typeof badge === 'object' && badge && 'variant' in badge ? (badge.variant as string) : undefined;
+  return variant ? (variantToStatus[variant] ?? 'outline') : 'outline';
+};
+
+let html = await Astro.slots.render('default');
+if (/<li>[\s\S]*?<(ol|ul)>/.test(html)) {
+  throw new Error('<PartRoute>：清單不能巢狀');
+}
+const modelLabel: Record<string, string> = {
+  sync: L('同步', 'Synchrony'),
+  partial: L('部分同步', 'Partial synchrony'),
+  async: L('非同步', 'Asynchrony'),
+  comm: L('通訊與延遲', 'Communication & latency'),
+  any: L('不限模型', 'Any model'),
+};
+const usedModels: string[] = [];
+if (mode === 'model') {
+  html = html.replace(/<li>([\s\S]*?)<\/li>/g, (_, inner: string) => {
+    const m = inner.match(/^\s*<code[^>]*>(sync|partial|async|comm|any)<\/code>\s*/);
+    if (!m) throw new Error('<PartRoute mode="model">：每一項開頭要用行內程式碼標模型（sync／partial／async／comm／any）');
+    if (!usedModels.includes(m[1])) usedModels.push(m[1]);
+    const rest = inner.slice(m[0].length);
+    return `<li data-model="${m[1]}"><span class="pr-dot" aria-hidden="true"></span><div class="pr-text">${rest}</div></li>`;
+  });
+}
+if (mode === 'status') html = html.replace(/<li>([\s\S]*?)<\/li>/g, (_, inner: string) => {
+  const m = [...inner.matchAll(/href="(\/[^"]*)"/g)].find((x) => x[1].replace(/^\/en\//, '/').startsWith(`/${base}/`));
+  const status = m ? statusOf(m[1]) : 'outline';
+  return `<li data-status="${status}"><span class="bft-status" data-status="${status}" aria-hidden="true"></span><div class="pr-text">${inner}</div></li>`;
+});
+
+const legend = [
+  ['outline', L('大綱', 'Outline')],
+  ['planned', L('規劃中', 'Planned')],
+  ['draft', L('草稿', 'Draft')],
+  ['partial', L('部分核對', 'Partly verified')],
+  ['verified', L('已核對', 'Verified')],
+];
+---
+
+<div class={`bft-partroute pr-${timing}${mode === 'model' ? ' pr-by-model' : ''}`}>
+  <Fragment set:html={html} />
+  <p class="pr-legend">
+    {
+      mode === 'model' ? usedModels.map((k) => (
+        <span>
+          <span class="pr-dot" data-model={k} aria-hidden="true" />
+          {modelLabel[k]}
+        </span>
+      )) :
+      legend.map(([s, label]) => (
+        <span>
+          <span class="bft-status" data-status={s} aria-hidden="true" />
+          {label}
+        </span>
+      ))
+    }
+  </p>
+</div>
+
+<style is:global>
+  .bft-partroute {
+    --pr-line: var(--bft-any);
+  }
+  .bft-partroute.pr-sync { --pr-line: var(--bft-sync); }
+  .bft-partroute.pr-partial { --pr-line: var(--bft-partial); }
+  .bft-partroute.pr-async { --pr-line: var(--bft-async); }
+  .bft-partroute.pr-hybrid { --pr-line: var(--bft-hybrid); }
+
+  /* 一條模型色的直線把各章串起來；順序就是建議的閱讀順序，所以不再另外編號 */
+  .sl-markdown-content .bft-partroute > :is(ol, ul) {
+    position: relative;
+    margin: 1.25rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .sl-markdown-content .bft-partroute > :is(ol, ul)::before {
+    content: '';
+    position: absolute;
+    left: calc(0.31em - 1px);
+    top: 0.9em;
+    bottom: 0.9em;
+    width: 2px;
+    background: var(--pr-line);
+    opacity: 0.55;
+  }
+  .sl-markdown-content .bft-partroute li {
+    position: relative;
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+    margin: 0;
+    padding: 0.45rem 0;
+  }
+  /* 空的 inline-block 以底緣對齊基線，會把整列撐高；改成頂端對齊，再往下推到第一行文字的中線 */
+  .bft-partroute li > .bft-status {
+    margin-top: 0.62em;
+    background-color: var(--sl-color-bg);
+  }
+  .bft-partroute li[data-status='verified'] > .bft-status {
+    background-color: var(--bft-verified);
+  }
+  /* Starlight 會給 li 裡最後一個區塊加 margin-bottom，這裡擋掉（衝突清單 #12） */
+  .sl-markdown-content .bft-partroute li > .pr-text {
+    min-width: 0;
+    margin: 0;
+  }
+  /* mode="model"：線改中性灰（一條路線上有多種模型），點用各自的模型色 */
+  .sl-markdown-content .bft-partroute.pr-by-model > :is(ol, ul)::before {
+    background: var(--sl-color-gray-4);
+    opacity: 1;
+  }
+  .bft-partroute .pr-dot {
+    flex: none;
+    width: 0.62em;
+    height: 0.62em;
+    border-radius: 50%;
+    margin-top: 0.75em;
+    background: var(--bft-any);
+  }
+  .bft-partroute li[data-model='sync'] > .pr-dot, .bft-partroute .pr-dot[data-model='sync'] { background: var(--bft-sync); }
+  .bft-partroute li[data-model='partial'] > .pr-dot, .bft-partroute .pr-dot[data-model='partial'] { background: var(--bft-partial); }
+  .bft-partroute li[data-model='async'] > .pr-dot, .bft-partroute .pr-dot[data-model='async'] { background: var(--bft-async); }
+  .bft-partroute li[data-model='comm'] > .pr-dot, .bft-partroute .pr-dot[data-model='comm'] { background: var(--bft-comm); }
+  .bft-partroute .pr-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem 1rem;
+    margin-top: 1rem;
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-gray-3);
+  }
+  .bft-partroute .pr-legend > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35em;
+  }
+</style>

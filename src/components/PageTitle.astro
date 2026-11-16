@@ -1,0 +1,137 @@
+---
+/**
+ * 覆蓋 Starlight 的頁面標題：標題下方加「頁首重點」（frontmatter 的 takeaway）。
+ * 重點是一兩句話的結論，讓讀者先知道終點再讀推導（design.md §頁首重點）。
+ * 沒有 takeaway 的頁面只顯示標題，與 Starlight 預設相同。
+ */
+import Default from '@astrojs/starlight/components/PageTitle.astro';
+import { renderInline } from '../lib/inline-math';
+import { defaultSymbols } from '../data/symbols';
+
+const data = Astro.locals.starlightRoute.entry.data as { takeaway?: string; symbols?: Record<string, string> };
+const takeaway = data.takeaway;
+// 本頁的符號表：全站預設＋頁面宣告（空字串＝關掉）
+const symbols = Object.fromEntries(
+  Object.entries({ ...defaultSymbols, ...(data.symbols ?? {}) }).filter(([, v]) => v),
+);
+---
+
+<Default />
+{takeaway && <p class="bft-takeaway" set:html={renderInline(takeaway)} />}
+<script is:inline type="application/json" id="bft-symbols" set:html={JSON.stringify(symbols)} />
+
+<script>
+  // 浮出提示的位置校正（術語 .term、引用 .cite）：提示預設從觸發詞的左緣往右、往上展開，
+  // 觸發詞靠近螢幕右緣或頂端時會超出畫面。顯示時量一次，超出就往內推、或改成往下展開。
+  // 規則見 design.md §浮出提示。
+  const fit = (trigger: Element) => {
+    const pop = trigger.querySelector<HTMLElement>(':scope > .bft-pop');
+    if (!pop) return;
+    pop.style.left = '0px';
+    pop.style.top = '';
+    pop.style.bottom = '';
+    requestAnimationFrame(() => {
+      const r = pop.getBoundingClientRect();
+      if (!r.width) return;
+      const vw = document.documentElement.clientWidth;
+      let dx = 0;
+      if (r.right > vw - 8) dx = vw - 8 - r.right;
+      if (r.left + dx < 8) dx = 8 - r.left;
+      pop.style.left = dx + 'px';
+      if (r.top < 8) {
+        pop.style.bottom = 'auto';
+        pop.style.top = 'calc(100% + 0.4rem)';
+      }
+    });
+  };
+  for (const ev of ['mouseover', 'focusin', 'touchstart'] as const) {
+    document.addEventListener(
+      ev,
+      (e) => {
+        const t = (e.target as Element | null)?.closest?.('.term, .cite');
+        if (t) fit(t);
+      },
+      { passive: true },
+    );
+  }
+</script>
+
+<script>
+  // 數學符號提示：在正文的 KaTeX 裡找出符號表有的字元，滑過（或點一下）浮出意思。
+  // 用一個共用的浮出框（.bft-pop），避免每個符號各放一個。規則見 design.md §數學符號提示。
+  const el = document.getElementById('bft-symbols');
+  const table: Record<string, string> = el ? JSON.parse(el.textContent || '{}') : {};
+  const content = document.querySelector('.sl-markdown-content');
+  if (content && Object.keys(table).length) {
+    content.querySelectorAll<HTMLElement>('.katex-html .mord').forEach((s) => {
+      if (s.children.length) return;
+      const ch = s.textContent?.trim() ?? '';
+      if (table[ch]) s.dataset.sym = ch;
+    });
+    const pop = document.createElement('span');
+    pop.className = 'bft-pop bft-sympop';
+    pop.setAttribute('role', 'tooltip');
+    document.body.appendChild(pop);
+    const show = (t: HTMLElement) => {
+      const ch = t.dataset.sym!;
+      pop.innerHTML = '';
+      const b = document.createElement('strong');
+      b.textContent = ch;
+      pop.append(b, document.createTextNode('：' + table[ch]));
+      pop.style.display = 'block';
+      const r = t.getBoundingClientRect();
+      const w = pop.offsetWidth;
+      const left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8));
+      pop.style.left = left + 'px';
+      pop.style.top = r.top - pop.offsetHeight - 6 + 'px';
+    };
+    const hide = () => (pop.style.display = 'none');
+    content.addEventListener('mouseover', (e) => {
+      const t = (e.target as HTMLElement).closest<HTMLElement>('[data-sym]');
+      if (t) show(t);
+    });
+    content.addEventListener('mouseout', (e) => {
+      if ((e.target as HTMLElement).closest('[data-sym]')) hide();
+    });
+    // 觸控螢幕沒有滑過：點一下符號顯示，點別處收起
+    document.addEventListener('click', (e) => {
+      const t = (e.target as HTMLElement).closest<HTMLElement>('[data-sym]');
+      if (t) show(t);
+      else hide();
+    });
+    window.addEventListener('scroll', hide, { passive: true });
+  }
+</script>
+
+<style is:global>
+  /* 頁首重點：比內文大一級的引言，不加框、不加標籤；它就是這頁的論點 */
+  .bft-takeaway {
+    margin: 0.9rem 0 0.25rem;
+    font-size: 1.1875rem;
+    line-height: 1.8;
+    color: var(--sl-color-gray-2);
+    text-wrap: pretty;
+  }
+  .bft-takeaway strong {
+    color: var(--sl-color-white);
+    font-weight: 600;
+  }
+  /* 有提示的數學符號：游標變成問號，滑過時淡金底（金＝可以互動） */
+  .sl-markdown-content [data-sym] {
+    cursor: help;
+    border-radius: 2px;
+  }
+  .sl-markdown-content [data-sym]:hover {
+    background: color-mix(in srgb, var(--bft-gold) 22%, transparent);
+  }
+  .bft-sympop {
+    position: fixed;
+    bottom: auto;
+    max-width: min(18rem, 80vw);
+  }
+  @media (max-width: 50rem) {
+    .bft-takeaway {
+      font-size: 1.0625rem;
+    }
+  }
+</style>

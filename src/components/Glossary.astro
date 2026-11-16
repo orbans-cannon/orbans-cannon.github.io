@@ -1,0 +1,172 @@
+---
+const lang = Astro.locals.starlightRoute.lang?.startsWith('en') ? 'en' : 'zh';
+const L = (zh: string, en: string) => (lang === 'en' ? en : zh);
+/**
+ * 術語表頁的內容：依類別分組，列出 glossary.ts 的全部詞條。
+ * 每個詞條有錨點 #term-{id}，供 <Term> 連過來。
+ */
+import { glossary, categoryLabel, categoryLabelEn, capTerm } from '../data/glossary';
+import type { Category } from '../data/glossary';
+import { getCollection } from 'astro:content';
+
+// 「說明」連結顯示頁面標題，而不是網址路徑（/intro/models/ → 三種時序模型）
+const docs = await getCollection('docs');
+const pageTitle = (path: string) => {
+  const slug = path.replace(/^\/|\/$/g, '');
+  const id = lang === 'en' ? `en/${slug}` : slug;
+  return (docs.find((d) => d.id === id) ?? docs.find((d) => d.id === slug))?.data.title ?? path;
+};
+
+const categories = Object.keys(categoryLabel) as Category[];
+const shown = (t: { term: string; termEn?: string }) => (lang === 'en' ? (t.termEn ?? t.term) : t.term);
+const catLabel = (c: Category) => (lang === 'en' ? categoryLabelEn[c] : categoryLabel[c]);
+const groups = categories
+  .map((c) => ({
+    id: c,
+    label: catLabel(c),
+    items: Object.entries(glossary).filter(([, t]) => t.category === c),
+  }))
+  .filter((g) => g.items.length > 0);
+
+// 檢查 see 指向的詞是否存在，避免懸空連結。
+for (const [id, t] of Object.entries(glossary)) {
+  for (const s of t.see ?? []) {
+    if (!glossary[s]) throw new Error(`glossary.ts：「${id}」的 see 指向不存在的「${s}」`);
+  }
+}
+---
+
+<nav class="gl-jump not-content" aria-label={L('類別', 'Categories')}>
+  {groups.map((g) => <a href={`#gl-${g.id}`}>{g.label}{lang === 'en' ? ` (${g.items.length})` : `（${g.items.length}）`}</a>)}
+</nav>
+
+{
+  groups.map((g) => (
+    <section class="gl-group not-content" id={`gl-${g.id}`}>
+      <h2 class="gl-h">{g.label}</h2>
+      <dl class="gl-list">
+        {g.items.map(([id, t]) => (
+          <div class="gl-item" id={`term-${id}`}>
+            <dt>
+              <span class="gl-term">{capTerm(shown(t))}</span>
+              {t.abbr && <span class="gl-en">({t.abbr})</span>}
+              {t.en.toLowerCase() !== shown(t).toLowerCase() && <span class="gl-en">{t.en}</span>}
+              {t.zh && <span class="gl-zh">{t.zh}*</span>}
+            </dt>
+            <dd>
+              <p class="gl-def">{lang === 'en' ? t.defEn : t.def}</p>
+              {(t.see || t.where) && (
+                <p class="gl-meta">
+                  {t.where && (
+                    <span>
+                      {L('說明：', 'See page: ')}<a href={(lang === 'en' ? '/en' : '') + t.where}>{pageTitle(t.where)}</a>
+                    </span>
+                  )}
+                  {t.see && (
+                    <span>
+                      {L('相關：', 'Related: ')}
+                      {t.see.map((s, i) => (
+                        <>
+                          {i > 0 && L('、', ', ')}
+                          <a href={`#term-${s}`}>{capTerm(shown(glossary[s]))}</a>
+                        </>
+                      ))}
+                    </span>
+                  )}
+                </p>
+              )}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  ))
+}
+
+<style>
+  .gl-jump {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 1rem 0 1.5rem;
+  }
+  .gl-jump a {
+    padding: 0.2rem 0.7rem;
+    font-size: var(--sl-text-sm);
+    text-decoration: none;
+    color: var(--sl-color-gray-2);
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 999px;
+  }
+  .gl-jump a:hover {
+    color: var(--sl-color-white);
+    border-color: var(--sl-color-gray-3);
+  }
+  .gl-group {
+    margin: 0 0 2rem;
+    scroll-margin-top: 5rem;
+  }
+  .gl-h {
+    margin: 0 0 0.5rem;
+    padding-bottom: 0.25rem;
+    font-size: var(--sl-text-h3);
+    color: var(--sl-color-white);
+    border-bottom: 1px solid var(--sl-color-hairline);
+  }
+  .gl-list {
+    margin: 0;
+  }
+  .gl-item {
+    margin: 0;
+    padding: 0.6rem 0.5rem;
+    border-radius: 0.375rem;
+    scroll-margin-top: 5rem;
+  }
+  .gl-item:target {
+    background: var(--sl-color-bg-nav);
+    outline: 1px solid var(--sl-color-gray-4);
+  }
+  .gl-list dt {
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.25rem 0.75rem;
+  }
+  .gl-term {
+    font-weight: 700;
+    color: var(--sl-color-white);
+  }
+  .gl-en {
+    font-size: var(--sl-text-sm);
+    color: var(--sl-color-gray-2);
+  }
+  .gl-zh {
+    font-size: var(--sl-text-sm);
+    color: var(--sl-color-gray-1);
+  }
+  .gl-list dd {
+    margin: 0.2rem 0 0;
+  }
+  .gl-def {
+    margin: 0;
+  }
+  /* 術語表在 not-content 裡，不吃全站連結樣式；這裡照全站規則補上（正文色＋金色底線，design.md §顏色系統） */
+  .gl-meta a {
+    color: var(--sl-color-gray-2);
+    text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, var(--bft-gold) 70%, transparent);
+    text-underline-offset: 0.2em;
+  }
+  .gl-meta a:hover {
+    color: var(--bft-gold);
+  }
+  .gl-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 1.25rem;
+    margin: 0.3rem 0 0;
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-gray-3);
+  }
+</style>

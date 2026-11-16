@@ -1,0 +1,18 @@
+---
+const lang = Astro.locals.starlightRoute.lang?.startsWith('en') ? 'en' : 'zh';
+const L = (zh: string, en: string) => (lang === 'en' ? en : zh);
+import Default from '@astrojs/starlight/components/Footer.astro';
+---
+
+<Default {...Astro.props}><slot /></Default>
+<p class="site-credit">
+  {L('作者 Allan Yang · Cowork with Claude · 不可商用 · CC BY-NC-SA 4.0', 'By Allan Yang · Cowork with Claude · Non-commercial · CC BY-NC-SA 4.0')}
+</p>
+
+<style>
+  .site-credit {
+    margin-top: 1rem;
+    font-size: var(--sl-text-sm);
+    color: var(--sl-color-gray-3);
+  }
+</style>

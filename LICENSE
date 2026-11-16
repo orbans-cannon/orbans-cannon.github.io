@@ -1,0 +1,13 @@
+本專案不可商用，請無償使用。授權分兩部分。
+
+1. 文字內容（src/content/ 底下的頁面）
+   Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0)
+   全文：https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode
+   姓名標示：Allan Yang
+
+2. 程式碼（src/components/、src/lib/、src/widgets/、astro.config.mjs 等其餘檔案）
+   PolyForm Noncommercial License 1.0.0
+   全文：https://polyformproject.org/licenses/noncommercial/1.0.0/
+   Required Notice: Copyright (c) 2026 Allan Yang
+
+論文原文的著作權屬原作者與出版者，不在上述授權範圍內，本專案也不收錄論文檔案。

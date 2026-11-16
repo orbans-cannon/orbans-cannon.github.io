@@ -1,0 +1,35 @@
+---
+title: 延遲下界（Good-case Latency）
+description: 各模型下，誠實 leader 的好情況延遲的緊界。
+sidebar:
+  order: 2
+  badge:
+    text: 規劃中
+    variant: note
+---
+
+import ModelCard from '../../../../components/ModelCard.astro';
+import Cite from '../../../../components/Cite.astro';
+import References from '../../../../components/References.astro';
+
+<ModelCard
+  status="planned"
+  timing="any"
+  crypto="any"
+  faults="byz"
+  problem="BB"
+  note="原文：Abraham–Nayak–Ren–Xiang，PODC 2021。"
+/>
+
+本章尚未撰寫。原文見 <Cite id="goodcase2021" />。
+
+## 預計涵蓋
+
+- **Good-case latency 的定義**：發送者誠實時，誠實節點多快能輸出。
+- **各模型的緊界**：原文（PODC 2021）分類了各模型下的 good-case 延遲緊界。確切的數字待對照原文核對。
+- **用途**：作為後面 DAG 協議延遲演進的參照，例如判斷 Mysticeti 距離下界還差多少。
+- **邊界**：好情況與最壞情況的區分，以及 expected 與 worst-case 不能混用。
+
+## 參考文獻
+
+<References />

@@ -1,0 +1,73 @@
+---
+const lang = Astro.locals.starlightRoute.lang?.startsWith('en') ? 'en' : 'zh';
+const L = (zh: string, en: string) => (lang === 'en' ? en : zh);
+/**
+ * 頁尾參考文獻：彙整本頁所有 <Cite>，依年份、作者排序。
+ * 必須放在頁面最後（在所有 <Cite> 之後渲染）。
+ */
+import { refs } from '../data/refs';
+
+const locals = Astro.locals as unknown as { citedRefs?: Set<string> };
+const ids = [...(locals.citedRefs ?? [])].sort((a, b) => {
+  const ra = refs[a];
+  const rb = refs[b];
+  return ra.year - rb.year || ra.authors.localeCompare(rb.authors);
+});
+const hasUnverified = ids.some((id) => !refs[id].verified);
+---
+
+{
+  ids.length > 0 && (
+    <section class="references">
+      <ol>
+        {ids.map((id) => {
+          const r = refs[id];
+          return (
+            <li id={`ref-${id}`}>
+              <span class="ref-label">[{r.label}]</span> {r.authors}. <em>{r.title}</em>.{' '}
+              {r.venue}
+              {r.volume ? ` ${r.volume}` : ''}, {r.year}
+              {r.pages ? `, pp. ${r.pages}` : ''}.
+              {r.url && (
+                <>
+                  {' '}
+                  <a href={r.url}>{L('連結', 'Link')}</a>
+                </>
+              )}
+              {!r.verified && <span class="ref-unverified"> {L('† 尚未核對出版資訊', '† publication details not yet checked')}</span>}
+            </li>
+          );
+        })}
+      </ol>
+      {hasUnverified && (
+        <p class="ref-footnote">{L('† 標記的條目依記憶整理，尚未對照出版版本核對，引用前請自行確認。', '† Entries marked with † were compiled from memory and have not been checked against the published version; please verify before citing.')}</p>
+      )}
+    </section>
+  )
+}
+
+<style>
+  .references ol {
+    padding-left: 0;
+    list-style: none;
+  }
+  .references li {
+    margin: 0.5rem 0;
+    font-size: var(--sl-text-sm);
+    scroll-margin-top: 5rem;
+  }
+  .references li:target {
+    background: var(--sl-color-bg-nav);
+  }
+  .ref-label {
+    font-weight: 600;
+    margin-right: 0.25rem;
+  }
+  .ref-unverified {
+    color: var(--sl-color-gray-3);
+  }
+  .ref-footnote {
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-gray-3);
+  }
+</style>

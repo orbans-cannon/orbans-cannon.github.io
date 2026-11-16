@@ -1,0 +1,188 @@
+---
+const lang = Astro.locals.starlightRoute.lang?.startsWith('en') ? 'en' : 'zh';
+const L = (zh: string, en: string) => (lang === 'en' ? en : zh);
+/**
+ * 複雜度卡：強制每個複雜度敘述都帶齊「量測單位、範圍、情況、前提、是上界還是下界」。
+ * 缺欄位或填了不認得的值，建置直接失敗，避免寫出只有「O(n)」的模糊敘述。
+ *
+ * 對應「精確敘述訓練」：
+ *   - 每個複雜度數字都註明單位（訊息、authenticator、位元）。
+ *   - 每個複雜度數字都註明情境（leader 是否誠實、是否含 view synchronization、expected 或 worst-case）。
+ *
+ * value 是 LaTeX 字串（不含 $），例如 "O(n^2)"、"f+1"、"\\Omega(f^2)"。
+ */
+import katex from 'katex';
+import Cite from './Cite.astro';
+
+interface Props {
+  /** 這是協議達到的上界、任何協議都需要的下界，還是緊界 */
+  kind: 'upper' | 'lower' | 'tight';
+  /** 量測什麼 */
+  measure: 'messages' | 'authenticators' | 'bits' | 'rounds' | 'message-delays' | 'time';
+  /** 數值，LaTeX 字串 */
+  value: string;
+  /** 統計的範圍 */
+  scope: 'total' | 'per-decision' | 'per-view' | 'per-node' | 'per-tx';
+  /** 範圍的補充說明（可選） */
+  scopeNote?: string;
+  /** 最壞情況、期望值，或好情況 */
+  case: 'worst' | 'expected' | 'good';
+  /** 前提：在什麼條件下成立，例如「GST 之後、leader 誠實」 */
+  condition: string;
+  /** 不計入什麼，例如「不含 view synchronization」 */
+  excludes?: string;
+  /** 來源，refs.ts 的引用鍵 */
+  cite?: string;
+}
+
+const props = Astro.props;
+
+const kindLabel = { upper: L('上界', 'Upper bound'), lower: L('下界', 'Lower bound'), tight: L('緊界', 'Tight bound') };
+// 種類的白話說明（放在種類標籤後面的小字）
+const kindHint = { upper: L('協議達到', 'achieved by a protocol'), lower: L('任何協議都需要', 'needed by any protocol'), tight: L('上下界相符', 'upper and lower bounds match') };
+const measureLabel = {
+  messages: L('訊息數', 'Messages'),
+  authenticators: L('authenticator 數', 'Authenticators'),
+  bits: L('位元數', 'Bits'),
+  rounds: L('輪數', 'Rounds'),
+  'message-delays': L('訊息延遲數', 'Message delays'),
+  time: L('時間', 'Time'),
+};
+const scopeLabel = {
+  total: L('整個執行總計', 'Whole execution (total)'),
+  'per-decision': L('每個決定', 'Per decision'),
+  'per-view': L('每個 view', 'Per view'),
+  'per-node': L('每個節點', 'Per node'),
+  'per-tx': L('每筆交易（攤銷）', 'Per transaction (amortized)'),
+};
+const caseLabel = { worst: L('最壞情況', 'Worst case'), expected: L('期望值', 'Expected'), good: L('好情況（good-case）', 'Good case') };
+
+function must(field: string, table: Record<string, string>) {
+  const v = (props as Record<string, unknown>)[field] as string | undefined;
+  if (!v || !(v in table)) {
+    throw new Error(
+      `<Complexity>：「${field}」必填且必須是 ${Object.keys(table).join(' / ')} 之一，目前是 ${JSON.stringify(v)}`,
+    );
+  }
+  return table[v];
+}
+
+const kind = must('kind', kindLabel);
+const measure = must('measure', measureLabel);
+const scope = must('scope', scopeLabel);
+const caseText = must('case', caseLabel);
+
+if (!props.value) throw new Error('<Complexity>：「value」必填（LaTeX 字串）');
+if (!props.condition) throw new Error('<Complexity>：「condition」必填，要寫明前提');
+
+// 用關係符號表示上界／下界（design.md §複雜度敘述）：
+//   非漸進的數值：下界 ≥、上界 ≤、緊界 =；漸進記號（O、Ω、Θ、o、ω）本身已含方向，一律用 =。
+const asymptotic = /^\\?(O|Omega|Theta|o|omega)\b|^\\(Omega|Theta|omega)/.test(props.value.trim());
+const rel = asymptotic ? '=' : { lower: '\\ge', upper: '\\le', tight: '=' }[props.kind];
+const valueHtml = katex.renderToString(`${rel} ${props.value}`, { throwOnError: true });
+---
+
+<aside class={`cx not-content cx-${props.kind}`} aria-label={L('複雜度敘述', 'Complexity statement')}>
+  <p class="cx-claim">
+    <span class="cx-kind">{kind}<span class="cx-hint">{lang === 'en' ? ` (${kindHint[props.kind]})` : `（${kindHint[props.kind]}）`}</span></span>
+    <span class="cx-formula">
+      <span class="cx-measure">{measure}</span>
+      <span class="cx-value" set:html={valueHtml} />
+    </span>
+  </p>
+  <p class="cx-tags">
+    <span class="cx-tag">{caseText}</span>
+    <span class="cx-tag">{scope}{props.scopeNote ? (lang === 'en' ? ` (${props.scopeNote})` : `（${props.scopeNote}）`) : ''}</span>
+  </p>
+  <p class="cx-line">
+    <span class="cx-label">{L('前提', 'Condition')}</span>{props.condition}{props.cite && <> <Cite id={props.cite} /></>}
+  </p>
+  {
+    props.excludes && (
+      <p class="cx-line">
+        <span class="cx-label">{L('不計入', 'Excludes')}</span>
+        {props.excludes}
+      </p>
+    )
+  }
+</aside>
+
+<style>
+  /* 複雜度敘述是「結論」，和定理同一家族：無底色，上下細線（design.md §複雜度敘述）。
+     主角是「量 關係 數值」；情況與範圍是小標籤；前提是一句話，來源接在句尾。 */
+  .cx {
+    margin: 1.5rem 0;
+    padding: 0.75rem 0 0.85rem;
+    border-top: 1px solid var(--sl-color-gray-4);
+    border-bottom: 1px solid var(--sl-color-hairline);
+  }
+  .cx-tight {
+    border-top: 2px solid var(--sl-color-gray-2);
+  }
+  .cx p {
+    margin: 0;
+  }
+  .cx-claim {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.25rem 1rem;
+  }
+  .cx-kind {
+    font-weight: 700;
+    color: var(--sl-color-white);
+  }
+  .cx-hint {
+    font-weight: 400;
+    font-size: var(--sl-text-sm);
+    color: var(--sl-color-gray-3);
+  }
+  .cx-formula {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.5rem;
+  }
+  .cx-measure {
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--sl-color-white);
+  }
+  .cx-value {
+    font-size: 1.4rem;
+    color: var(--sl-color-white);
+  }
+  .cx .cx-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-top: 0.5rem;
+  }
+  .cx-tag {
+    padding: 0.05rem 0.55rem;
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-gray-2);
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 999px;
+  }
+  .cx .cx-line {
+    margin-top: 0.55rem;
+    font-size: var(--sl-text-sm);
+    line-height: 1.75;
+    color: var(--sl-color-gray-2);
+  }
+  /* not-content 裡不吃全站連結樣式（衝突清單 #11），引用連結在這裡補上 */
+  .cx-line :global(a) {
+    color: var(--sl-color-white);
+    text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, var(--bft-gold) 70%, transparent);
+    text-underline-offset: 0.2em;
+  }
+  .cx-line :global(a:hover) {
+    color: var(--bft-gold);
+  }
+  .cx-label {
+    margin-inline-end: 0.5rem;
+    font-weight: 700;
+    color: var(--sl-color-white);
+  }
+</style>

@@ -1,0 +1,242 @@
+---
+/**
+ * 首頁「本站的路線」：畫成路線圖（像地鐵圖／git graph）。
+ * 入門 → 不可能性與下界之後分成三條時序模型的支線；
+ * 部分同步與非同步在「合流：DAG-BFT」匯合，同步自成一章，最後到前沿。
+ * 線與站點的顏色用全站模型色。每一站連到該部分的首頁。
+ * 文字分繁中／英文，之後加英文版只要傳 lang="en"。
+ */
+type Lang = 'zh-TW' | 'en';
+interface Props {
+  lang?: Lang;
+}
+const { lang = 'zh-TW' } = Astro.props;
+const base = lang === 'en' ? '/en' : '';
+
+// 三條軌道的水平位置（px）：同步、主線／部分同步、非同步
+const X = { s: 10, m: 24, a: 38 } as const;
+type Lane = keyof typeof X;
+const C = {
+  any: 'var(--bft-any)',
+  sync: 'var(--bft-sync)',
+  partial: 'var(--bft-partial)',
+  async: 'var(--bft-async)',
+  hybrid: 'var(--bft-hybrid)',
+};
+
+const text = {
+  'zh-TW': {
+    intro: ['入門', '什麼是拜占庭、問題與性質、時序模型、密碼學假設與確定性。'],
+    impossibility: ['不可能性與下界', 'FLP、FLM、DLS、Dolev–Strong。每個模型下什麼做不到，最後收束成 Quorum 交集。'],
+    sync: ['同步', '簽章改變了什麼？'],
+    partial: ['部分同步', 'PBFT、HotStuff、pacemaker。'],
+    async: ['非同步', 'Bracha、common coin、MMR、VABA。中文資料最缺的一整條線。'],
+    convergence: ['合流：DAG-BFT', 'DAG Rider、Narwhal、Bullshark 與後續演進。'],
+    frontier: ['前沿', '2025–26 的新作與開放問題。'],
+  },
+  en: {
+    intro: ['Introduction', 'What Byzantine means, the problems and their properties, timing models, cryptography and determinism.'],
+    impossibility: ['Impossibility and lower bounds', 'FLP, FLM, DLS, Dolev–Strong: what each model rules out, closing with quorum intersection.'],
+    sync: ['Synchrony', 'What do signatures change?'],
+    partial: ['Partial synchrony', 'PBFT, HotStuff, pacemakers.'],
+    async: ['Asynchrony', 'Bracha, common coins, MMR, VABA.'],
+    convergence: ['Convergence: DAG-BFT', 'DAG Rider, Narwhal, Bullshark, and what came after.'],
+    frontier: ['Frontier', 'New work from 2025–26 and open problems.'],
+  },
+}[lang];
+
+/**
+ * 每一列：站點（lane、顏色、連結）＋經過這一列的其他軌道。
+ * inFrom／outTo 控制站點上下方是否有線（起點、終點）。
+ */
+type Pass = { lane: Lane; color: string };
+type StationRow = {
+  kind: 'station';
+  key: keyof typeof text;
+  href: string;
+  lane: Lane;
+  color: string;
+  lineIn: string | null; // 站點上方線段顏色；null 表示起點
+  lineOut: string | null; // 站點下方線段顏色；null 表示終點
+  pass: Pass[];
+};
+type JoinRow = { kind: 'join'; paths: { from: Lane; to: Lane; color: string }[] };
+type Row = StationRow | JoinRow;
+
+const rows: Row[] = [
+  { kind: 'station', key: 'intro', href: '/intro/about/', lane: 'm', color: C.any, lineIn: null, lineOut: C.any, pass: [] },
+  { kind: 'station', key: 'impossibility', href: '/impossibility/', lane: 'm', color: C.any, lineIn: C.any, lineOut: C.any, pass: [] },
+  {
+    kind: 'join',
+    paths: [
+      { from: 'm', to: 's', color: C.sync },
+      { from: 'm', to: 'm', color: C.partial },
+      { from: 'm', to: 'a', color: C.async },
+    ],
+  },
+  {
+    kind: 'station', key: 'sync', href: '/sync/', lane: 's', color: C.sync, lineIn: C.sync, lineOut: null,
+    pass: [{ lane: 'm', color: C.partial }, { lane: 'a', color: C.async }],
+  },
+  {
+    kind: 'station', key: 'partial', href: '/partial-sync/', lane: 'm', color: C.partial, lineIn: C.partial, lineOut: C.partial,
+    pass: [{ lane: 'a', color: C.async }],
+  },
+  {
+    kind: 'station', key: 'async', href: '/async/', lane: 'a', color: C.async, lineIn: C.async, lineOut: C.async,
+    pass: [{ lane: 'm', color: C.partial }],
+  },
+  {
+    kind: 'join',
+    paths: [
+      { from: 'm', to: 'm', color: C.hybrid },
+      { from: 'a', to: 'm', color: C.hybrid },
+    ],
+  },
+  { kind: 'station', key: 'convergence', href: '/convergence/', lane: 'm', color: C.hybrid, lineIn: C.hybrid, lineOut: C.any, pass: [] },
+  { kind: 'station', key: 'frontier', href: '/frontier/', lane: 'm', color: C.any, lineIn: C.any, lineOut: null, pass: [] },
+];
+---
+
+<ol class="route not-content" lang={lang}>
+  {
+    rows.map((r) =>
+      r.kind === 'join' ? (
+        <li class="route-join" aria-hidden="true">
+          <svg viewBox="0 0 48 100" preserveAspectRatio="none">
+            {r.paths.map((p) => (
+              <path
+                d={`M${X[p.from]} 0 C${X[p.from]} 50 ${X[p.to]} 50 ${X[p.to]} 100`}
+                stroke={p.color}
+                vector-effect="non-scaling-stroke"
+              />
+            ))}
+          </svg>
+        </li>
+      ) : (
+        <li class="route-station" style={`--dot:${r.color}`}>
+          <span class="route-rail" aria-hidden="true">
+            {r.pass.map((p) => (
+              <i class="seg" style={`left:${X[p.lane]}px;top:0;bottom:0;background:${p.color}`} />
+            ))}
+            {r.lineIn && <i class="seg" style={`left:${X[r.lane]}px;top:0;height:var(--dot-y);background:${r.lineIn}`} />}
+            {r.lineOut && <i class="seg" style={`left:${X[r.lane]}px;top:var(--dot-y);bottom:0;background:${r.lineOut}`} />}
+            <b class="dot" style={`left:${X[r.lane]}px`} />
+          </span>
+          <a class="route-title" href={`${base}${r.href}`}>{text[r.key][0]}</a>
+          <span class="route-desc">{text[r.key][1]}</span>
+        </li>
+      ),
+    )
+  }
+</ol>
+
+<style>
+  .route {
+    --dot-y: 1.35rem;
+    list-style: none;
+    margin: 1.25rem 0 0;
+    padding: 0;
+  }
+
+  .route-station {
+    position: relative;
+    display: grid;
+    grid-template-columns: 3rem minmax(0, 1fr);
+    grid-template-areas:
+      'rail title'
+      'rail desc';
+    column-gap: 0.75rem;
+    padding: 0.55rem 0.75rem 0.7rem 0;
+    border-radius: 0.5rem;
+    transition: background-color 150ms ease;
+  }
+  .route-station:hover {
+    background: var(--sl-color-gray-6);
+  }
+
+  .route-rail {
+    grid-area: rail;
+    position: relative;
+    align-self: stretch;
+    /* 讓軌道貼齊整列的上下緣，列與列之間的線才能接上 */
+    margin-block: -0.55rem -0.7rem;
+  }
+  .route-rail .seg {
+    position: absolute;
+    width: 2px;
+    margin-left: -1px;
+    border-radius: 1px;
+  }
+  .route-rail .dot {
+    position: absolute;
+    top: var(--dot-y);
+    width: 0.8rem;
+    height: 0.8rem;
+    margin: -0.4rem 0 0 -0.4rem;
+    background: var(--sl-color-black);
+    border: 3px solid var(--dot);
+    border-radius: 50%;
+    transition: transform 150ms ease;
+  }
+  .route-station:hover .dot {
+    transform: scale(1.2);
+  }
+
+  .route-title {
+    grid-area: title;
+    align-self: start;
+    font-weight: 600;
+    font-size: 1rem;
+    line-height: 1.6;
+    color: var(--sl-color-white);
+    text-decoration: none;
+  }
+  /* 整列都可以點 */
+  .route-title::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 0.5rem;
+  }
+  .route-title:focus-visible {
+    outline: none;
+  }
+  .route-title:focus-visible::after {
+    outline: 2px solid var(--sl-color-accent);
+    outline-offset: -2px;
+  }
+  .route-desc {
+    grid-area: desc;
+    font-size: var(--sl-text-sm);
+    line-height: 1.7;
+    color: var(--sl-color-gray-3);
+  }
+
+  .route-join {
+    height: 1.4rem;
+    padding: 0;
+  }
+  .route-join svg {
+    display: block;
+    width: 3rem;
+    height: 100%;
+    overflow: visible;
+  }
+  .route-join path {
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+  }
+
+  /* 寬螢幕：標題與說明同一列，像目錄 */
+  @media (min-width: 40rem) {
+    .route-station {
+      grid-template-columns: 3rem 9.5rem minmax(0, 1fr);
+      grid-template-areas: 'rail title desc';
+    }
+    .route-desc {
+      padding-top: 0.12rem;
+    }
+  }
+</style>

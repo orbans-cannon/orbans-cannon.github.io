@@ -1,0 +1,98 @@
+---
+title: "Model Overview: What Is Possible and What Is Not"
+description: "Resilience bounds of Byzantine Agreement along the axes timing × cryptographic assumption × determinism. This table is the map of the whole site."
+takeaway: "The resilience bound depends on three coordinates: timing, cryptographic assumption and determinism. Change one coordinate and the answer can go from $n\\ge 3f+1$ to any $f$, or to impossible."
+symbols:
+  t: Number of faulty nodes (DLS, Fitzi–Garay and others write t, the same as f on this site)
+sidebar:
+  order: 1
+  badge:
+    text: Draft
+    variant: caution
+---
+
+import Cite from '../../../../components/Cite.astro';
+import References from '../../../../components/References.astro';
+import Term from '../../../../components/Term.astro';
+import OverviewMatrix from '../../../../widgets/overview/OverviewMatrix.astro';
+import OverviewTable from '../../../../widgets/overview/OverviewTable.astro';
+
+<details>
+<summary>Verification status: Draft (open to read)</summary>
+
+The Chinese version of this page is verified; this English translation has not yet been reviewed by a person, so it is labeled Draft.
+
+</details>
+
+This table is the map of the whole site. Each later part expands some rows of it.
+
+## Resilience bounds under Byzantine faults
+
+<OverviewMatrix />
+
+<OverviewTable />
+
+The original sources and caveats of each row are in [the evidence at the bottom](#evidence-for-each-row).
+
+## How to read the table
+
+**1. The same word is a different problem in different rows.** Row 2 tolerates any $f$ and row 4 only $f<n/3$; both are called "<Term id="consensus">consensus</Term>", but the timing assumptions differ and the tools cannot be moved across. Row 2 is also restricted to the <Term id="bb">BB</Term> setting where the sender signs.
+
+**2. What <Term id="signature">signatures</Term> do depends on the model.** Compare rows 1 and 2: in the <Term id="sync">synchronous</Term> model, signatures push the bound from $n/3$ to any $f$. Compare row 4: in the <Term id="psync">partially synchronous</Term> model, the bound is $n\ge3f+1$ with or without signatures, which is an explicit conclusion of DLS.
+
+**3. The way out in the <Term id="async">asynchronous</Term> model is randomization, not a cleverer deterministic algorithm.** Row 5 is impossible; rows 6 to 8 use randomness to get around FLP. Rows 7 and 8 differ from row 6 in the **coin**: with only a local coin the expected time is exponential at high fault tolerance; only with a common coin can expected constant time be reached.
+
+**4. A common coin needs a setup.** The coin of CKS is based on <Term id="threshold-sig" />, and its setup phase uses a <Term id="trusted-dealer" />. So the difference between rows 7 and 8 is whether the part other than the coin uses signatures, not whether the whole protocol needs no setup at all.
+
+## How the site maps to this table
+
+| Part of this site | Rows |
+| --- | --- |
+| [Synchronous](/en/sync/) | 1, 2, 3 |
+| [Partially Synchronous](/en/partial-sync/) | 4 |
+| [Asynchronous](/en/async/) | 5, 6, 7, 8 |
+| [Convergence](/en/convergence/) | A mix of rows 6 to 8 and 4 |
+
+## Crash faults (for comparison)
+
+| Timing | Determinism | Resilience bound | Source |
+| --- | --- | --- | --- |
+| <span class="bft-timing" data-timing="sync">Synchronous</span> | Deterministic | Any $f$ | <Cite id="dls1988" loc="Table I" /> |
+| <span class="bft-timing" data-timing="partial">Partially synchronous</span> | Deterministic | $n\ge 2f+1$ | <Cite id="dls1988" loc="Table I" /> |
+| <span class="bft-timing" data-timing="async">Asynchronous</span> | Deterministic | Impossible | <Cite id="flp1985" /> |
+| <span class="bft-timing" data-timing="async">Asynchronous</span> | Randomized | $n\ge 2f+1$ | <Cite id="benor1983" loc="Thm. 1" /> (a decision is possible as long as a majority of processes keep running) |
+
+## Where $3f+1$ comes from
+
+:::note[This section is not a proof]
+What follows is a design-level explanation of where the $3f+1$ in each row comes from. Only the bound of row 1 is a proof in a paper; the <Term id="quorum">quorum</Term> argument for rows 4 and 6 to 8 is a design intuition, not a lower-bound proof from DLS or CKS.
+:::
+
+$3f+1$ appears again and again in rows 1, 4, 6, 7 and 8, but with different sources:
+
+- **Row 1**: the FLM proof uses a <Term id="covering">covering argument</Term>, and the key is the Fault axiom of the paper, that is, a <Term id="byzantine">Byzantine node</Term> can show different behavior to different neighbors (<Term id="equivocation">equivocation</Term>). FLM states explicitly that if unforgeable signatures are added and this axiom is substantially weakened, its impossibility result no longer holds. This is exactly why row 2 can break through $n/3$.
+- **Rows 4 and 6 to 8**: a common design intuition is that a quorum must satisfy both "can still be assembled when $f$ nodes are silent" and "the intersection of two quorums contains an <Term id="honest">honest node</Term>"; for the derivation see [Quorum Intersection](/impossibility/quorum/#thm-3f-plus-1) (Chinese only for now). This is a design-level explanation, not a lower-bound proof from DLS or CKS.
+
+## Evidence for each row
+
+The matrix and table above show only conclusions; the original source, the exact statement and the limits of each row are here.
+
+**Row 1.** FLM prove that tolerating $m$ Byzantine faults needs at least $3m+1$ nodes and a communication graph <Term id="connectivity">connectivity</Term> of at least $2m+1$ (<Cite id="flm1986" loc="Thm. 1" />). For sufficiency see <Cite id="psl1980" />: the abstract states that the problem is solvable "if and only if $n\ge3m+1$" ($m$ is the number of faults), and under a signature assumption it is solvable for any $n\ge m\ge0$; the oral messages algorithm of <Cite id="lsp1982" /> corresponds to the same bound. The $f+1$-round lower bound was first proved by <Cite id="fl1982" /> (for the case without signatures), and the introduction of Dolev–Strong states this explicitly.
+
+**Row 2.** <Cite id="ds1983" /> extends the $f+1$-round lower bound to any form of authentication and gives an algorithm with exactly $f+1$ rounds and $O(nf)$ messages. The phrase "can tolerate any number of faults" comes from the introduction of <Cite id="dls1988" /> (N-resilient), not from Dolev–Strong itself.
+
+**Row 3.** Table 1 of <Cite id="fitzi2003" /> gives the number of nodes needed for strong consensus in synchronous networks (the output must be the input of some honest node, i.e. condition C in the [validity comparison](/en/intro/problem/)): $n>\max(3,m)t$ for unconditional security (Neiger's lower bound), and **$n>mt$ for the computationally secure setting with signatures and PKI**, where $m$ is the size of the input domain; both lower bounds are matched by protocols. For binary values ($m=2$) condition C coincides with the usual strong <Term id="validity">validity</Term>, so binary <Term id="ba">BA</Term> with signatures needs $n>2t$, that is, $f<n/2$. This result has both a lower bound and a protocol, so it is no longer a "common claim". Note, however, that it is about strong consensus; for a value domain larger than two, a protocol achieving condition C also satisfies the weaker condition A, so $n>mt$ is still sufficient for A. A related remark of DLS still holds: in the synchronous model with signatures, strong unanimity tolerating any number of faults is possible only when one sender signs the initial value (<Cite id="dls1988" />, §6), so the "any $f$" of row 2 is a result in the BB setting.
+
+**Row 4.** Table I of DLS gives the minimum number of nodes under partially synchronous communication: $2t+1$ for crash and omission, and $3t+1$ for both Byzantine with signatures and Byzantine without signatures. The original states explicitly that "for partially synchronous communication, signatures do not improve fault tolerance" (<Cite id="dls1988" />).
+
+**Row 5.** FLP prove that no completely asynchronous consensus protocol can tolerate even one "unannounced process death", and their model does not consider Byzantine faults (<Cite id="flp1985" />). Because the faults only need to be crash, signatures play no role. To be precise, FLP keeps partial correctness and what is lost is termination.
+
+**Row 6.** The protocol of <Cite id="bracha1987" /> reaches the maximum fault tolerance $t<n/3$ and states that this answers the question left by Ben-Or (Ben-Or only reached $t<n/5$). Theorem 2 of <Cite id="benor1983" />: under Byzantine-type faults, a completely asynchronous protocol is possible when $5t<N$; he also points out that it is not known whether $N\ge 5t$ is necessary. As for the expected time, CKS write in the comparison in their technical report version that the protocol of Bracha needs exponential time when $t=\Theta(n)$ and has expected constant time only when $t=O(\sqrt n)$ (<Cite id="cks2000" />). **This sentence appears only in the technical report version and not in the PODC extended abstract, and it is CKS's comment on Bracha, not our check against the Bracha original.** The introduction of MMR has the same comment: local-coin algorithms such as those of Ben-Or and Bracha have an exponential expected number of rounds (unless $t=O(\sqrt n)$) (<Cite id="mmr2015" />). Both are third-party comments, not a derivation from the Bracha original. CKS also say that Rabin and Ben-Or were the first to use randomization to get around FLP, and their protocols assume a common coin.
+
+**Row 7.** The abstract of <Cite id="mmr2015" />: binary values, $t<n/3$, signature-free, based on a *weak common coin*; the expected number of rounds to decide is constant, with a constant number of communication steps per round and $O(n^2)$ messages. Note: the "expected $O(1)$ rounds" uses MMR's own definition of a round, not a uniform asynchronous round; that the total expected number of messages is $O(n^2)$ is an inference obtained by multiplying "expected constant rounds" by "$O(n^2)$ per round", and the original states them separately.
+
+**Row 8.** The abstract and introduction of CKS: completely asynchronous, computationally bounded adversary, tolerating the maximum number $t<n/3$, expected constant time, expected $O(n^2)$ messages, and a trusted dealer used only in the setup phase (<Cite id="cks2000" />). All of these points ($t<n/3$, expected constant time, expected $O(n^2)$ messages, trusted dealer only at setup) can be found in the abstract and introduction of the PODC extended abstract.
+
+## References
+
+<References />

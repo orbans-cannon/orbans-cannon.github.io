@@ -1,0 +1,48 @@
+---
+/**
+ * 引理 2 的互動圖：8 個初始配置排成一條鏈，讀者標價態，圖找出相鄰且結果相反的一對並走完論證，共 5 步。
+ * 畫圖都在 chain.ts（純函式，伺服器與瀏覽器共用）。沒有 JavaScript 時顯示最後一步（用多數決當範例標記）。
+ */
+import './flp.css';
+import StepBar from '../StepBar.astro';
+import { CHAIN, C } from './strings';
+import { renderSvg, renderDesc, hint, caption, exampleLab, LAST } from './chain';
+
+const lang = Astro.locals.starlightRoute.lang?.startsWith('en') ? 'en' : 'zh-TW';
+const T = CHAIN(lang);
+const K = C(lang);
+const state = { step: LAST, lab: exampleLab(), v: '1' as const, sel: null };
+const svg = renderSvg(state, 'wide', lang);
+const desc = renderDesc(state, lang);
+---
+
+<div class="flp-fig not-content" data-kind="chain" data-lang={lang} role="group" aria-label={T.aria}>
+  <StepBar prev={K.prev} next={K.next} progress={K.progress(LAST + 1, LAST + 1)} caption={caption(state, lang)} />
+  <div class="fp-bar">
+    <button type="button" data-act="example">{T.example}</button>
+    <button type="button" data-act="random">{T.random}</button>
+    <button type="button" data-act="clear">{T.clear}</button>
+  </div>
+  <div class="fp-bar fp-bar2" data-decide hidden>
+    <span>{T.decideLabel}</span>
+    <button type="button" data-act="v0" data-v="0">0</button>
+    <button type="button" data-act="v1" data-v="1">1</button>
+  </div>
+  <div class="fp-fig" data-fig set:html={svg} />
+  <p class="fp-hint" data-hint aria-live="polite">{hint(state, lang)}</p>
+  <p class="fp-legend">
+    <span><i class="lg lg-0"></i>{K.legend.v0}</span>
+    <span><i class="lg lg-1"></i>{K.legend.v1}</span>
+    <span><i class="lg lg-b"></i>{K.legend.vb}</span>
+    <span><i class="lg lg-q"></i>{K.legend.vq}</span>
+    <span><i class="lg lg-gold"></i>{K.legend.gold}</span>
+    <span><i class="lg lg-bad"></i>{K.legend.bad}</span>
+  </p>
+  <div class="fp-desc" data-desc aria-live="polite" set:html={desc} />
+</div>
+
+<script>
+  import { mount } from './controller';
+  import { chainModel } from './chain';
+  document.querySelectorAll<HTMLElement>('.flp-fig[data-kind="chain"]').forEach((r) => mount(r, chainModel));
+</script>

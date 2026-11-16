@@ -1,0 +1,107 @@
+---
+const lang = Astro.locals.starlightRoute.lang?.startsWith('en') ? 'en' : 'zh';
+const L = (zh: string, en: string) => (lang === 'en' ? en : zh);
+/**
+ * 定義、引理、定理等區塊。編號由 CSS counter 依頁面自動產生（各類型分開計數），
+ * 不需要手寫編號。可用 id 讓其他頁面以 #id 連結。
+ */
+interface Props {
+  kind: 'definition' | 'property' | 'lemma' | 'theorem' | 'corollary';
+  /** 括號內的名稱，例如「交集大小」 */
+  title?: string;
+  id?: string;
+}
+
+const { kind, title, id } = Astro.props;
+
+// 反向連結（design.md §被用在）：掃描全站原始碼，找出連到「這個頁面 #id」的其他頁面。
+// 只有給了 id 的定理區塊才會有；連結要寫成 [文字](/路徑/#id)。
+import { getCollection } from 'astro:content';
+const route = Astro.locals.starlightRoute;
+const here = '/' + route.id.replace(/\/?index$/, '') + '/';
+let usedBy: { href: string; title: string }[] = [];
+if (id) {
+  const docs = await getCollection('docs');
+  const target = `${here}#${id}`.replace(/^\/en\//, '/');
+  usedBy = docs
+    .filter((d) => d.id !== route.id && (d.id.startsWith('en/') === route.id.startsWith('en/')))
+    .filter((d) => (d.body ?? '').includes(`](${target})`) || (d.body ?? '').includes(`](${'/en' + target})`))
+    .map((d) => ({ href: '/' + d.id.replace(/\/?index$/, '') + '/', title: d.data.title }));
+}
+
+const label = {
+  definition: L('定義', 'Definition'),
+  property: L('性質', 'Property'),
+  lemma: L('引理', 'Lemma'),
+  theorem: L('定理', 'Theorem'),
+  corollary: L('推論', 'Corollary'),
+}[kind];
+---
+
+<section class={`thm thm-${kind}`} id={id}>
+  <p class="thm-head">
+    <span class="thm-label" data-kind={kind}>{label}</span>
+    {title && <span class="thm-title">{title}</span>}
+  </p>
+  <div class="thm-body"><slot /></div>
+  {
+    usedBy.length > 0 && (
+      <p class="thm-usedby">
+        {L('被用在：', 'Used in: ')}
+        {usedBy.map((u, i) => (
+          <>
+            {i > 0 && L('、', ', ')}
+            <a href={u.href}>{u.title}</a>
+          </>
+        ))}
+      </p>
+    )
+  }
+</section>
+
+<style>
+  /* 定理類區塊是正文的一部分，不做成卡片：無底色，上下細線（design.md 原則 4）。
+     種類靠標籤與線的粗細區分，不用模型色（模型色只代表時序模型）。 */
+  .thm {
+    margin: 1.5rem 0;
+    padding: 0.7rem 0 0.8rem;
+    border-top: 1px solid var(--sl-color-gray-4);
+    border-bottom: 1px solid var(--sl-color-hairline);
+  }
+  .thm-theorem {
+    border-top: 2px solid var(--sl-color-gray-2);
+    counter-increment: thm-theorem;
+  }
+  .thm-lemma { counter-increment: thm-lemma; }
+  .thm-corollary { counter-increment: thm-corollary; }
+  .thm-property { counter-increment: thm-property; }
+  /* 定義：左側細線＋縮排，讀起來像詞條，和需要證明的敘述區分 */
+  .thm-definition {
+    padding: 0.1rem 0 0.1rem 1rem;
+    border: 0;
+    border-inline-start: 2px solid var(--sl-color-gray-4);
+    counter-increment: thm-definition;
+  }
+
+  .thm-head {
+    margin: 0 0 0.35rem;
+    font-weight: 700;
+    color: var(--sl-color-white);
+  }
+  .thm-label[data-kind='definition']::after { content: ' ' counter(thm-definition); }
+  .thm-label[data-kind='property']::after { content: ' ' counter(thm-property); }
+  .thm-label[data-kind='lemma']::after { content: ' ' counter(thm-lemma); }
+  .thm-label[data-kind='theorem']::after { content: ' ' counter(thm-theorem); }
+  .thm-label[data-kind='corollary']::after { content: ' ' counter(thm-corollary); }
+  .thm-label::after { font-variant-numeric: tabular-nums; }
+
+  /* 小標題：粗體、不加括號，與前面的「定理 1」只隔一個空格（作者 2026-11-13 定） */
+  .thm-title { margin-inline-start: 0.5em; font-weight: 700; color: var(--sl-color-white); }
+  .thm-body :global(> :first-child) { margin-top: 0; }
+  .thm-body :global(> :last-child) { margin-bottom: 0; }
+  .thm-usedby {
+    margin: 0.5rem 0 0;
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-gray-3);
+  }
+</style>

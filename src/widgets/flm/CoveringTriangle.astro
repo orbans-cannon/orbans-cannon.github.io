@@ -1,0 +1,56 @@
+---
+/**
+ * FLM 定理 1（n=3、m=1）互動圖：覆蓋圖 S（圓桌）與現實 G（三角形）並列，共 8 步。
+ * 讀者可以把滑鼠移到 S 的節點看它在 G 的對應；排練那一步可以自己替每個節點填決定，
+ * 看哪一個真實執行被迫違反保證。所有繪圖都在 covering-triangle.ts（純函式，伺服器與瀏覽器共用）。
+ * 沒有 JavaScript 時顯示最後一步（結論）。設計說明見 CLAUDE.md §FLM 互動圖設計方向。
+ */
+import './covering.css';
+import StepBar from '../StepBar.astro';
+import { ctStrings, type Lang } from './strings';
+import { renderSvg, renderDesc, hintText, emptyDecisions, LAST_STEP } from './covering-triangle';
+
+const lang: Lang = Astro.locals.starlightRoute.lang?.startsWith('en') ? 'en' : 'zh-TW';
+const t = ctStrings[lang];
+const state = { step: LAST_STEP, dec: emptyDecisions(), sel: null, signed: false, m: 1 };
+const svg = renderSvg(state, 'wide', lang);
+const desc = renderDesc(state, lang);
+const hint = hintText(state, lang);
+const total = LAST_STEP + 1;
+---
+
+<div class="flm-ct not-content" data-kind="triangle" data-lang={lang} role="group" aria-label={t.aria}>
+  <StepBar prev={t.prev} next={t.next} progress={t.progress(total, total)} />
+  <div class="ct-bar">
+    <button type="button" data-act="random" hidden>{t.random}</button>
+    <button type="button" data-act="clear" hidden>{t.clear}</button>
+  </div>
+  <div class="ct-bar ct-bar2">
+    <label class="ct-sign" data-sign hidden><input type="checkbox" /> {t.signLabel}</label>
+    <span class="ct-m" data-m hidden>
+      {t.mLabel}
+      <button type="button" data-act="m-" aria-label={t.mMinus}>−</button>
+      <b data-mval>1</b>
+      <button type="button" data-act="m+" aria-label={t.mPlus}>+</button>
+    </span>
+  </div>
+  <div class="ct-fig" data-fig set:html={svg} />
+  <p class="ct-hint" data-hint aria-live="polite">{hint}</p>
+  <p class="ct-legend">
+    <span><i class="lg lg-in0"></i>{t.legend.in0}</span>
+    <span><i class="lg lg-in1"></i>{t.legend.in1}</span>
+    <span><i class="lg lg-faulty"></i>{t.legend.faulty}</span>
+    <span><i class="lg lg-frame"></i>{t.legend.frame}</span>
+    <span><i class="lg lg-dec">?</i>{t.legend.decision}</span>
+    <span><i class="lg lg-tag">1</i>{t.legend.tag}</span>
+  </p>
+  <div class="ct-desc" data-desc aria-live="polite" set:html={desc} />
+</div>
+
+
+
+<script>
+  import { mount } from './controller';
+  import { triangleModel } from './covering-triangle';
+  document.querySelectorAll<HTMLElement>('.flm-ct[data-kind="triangle"]').forEach((r) => mount(r, triangleModel));
+</script>

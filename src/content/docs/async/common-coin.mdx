@@ -1,0 +1,311 @@
+---
+title: Common coin 與 CKS：用門檻密碼學繞過 FLP
+description: Cachin–Kursawe–Shoup 用門檻簽章與一個可隨機存取的 coin，做出實用的非同步 Byzantine Agreement：容錯 t<n/3、期望常數輪、期望 O(n²) 訊息，而且只在 setup 用到 trusted dealer。
+takeaway: "CKS 的核心是一個「名稱到比特」的分散式函數：任何人只要集齊 n−t 份 coin share 就能算出某個名稱的 coin，但在誠實節點揭露足夠多份之前，對手猜中的機率不超過 1/2。ABBA 以它為基礎，每兩輪至少有一輪的結果在 coin 揭曉前就已定案，所以期望常數輪結束。"
+sidebar:
+  label: Common coin 與 CKS
+  order: 40
+  badge:
+    text: 草稿
+    variant: caution
+---
+
+import ModelCard from '../../../components/ModelCard.astro';
+import Thm from '../../../components/Thm.astro';
+import Boundary from '../../../components/Boundary.astro';
+import StructuredProof from '../../../components/StructuredProof.astro';
+import Step from '../../../components/Step.astro';
+import Term from '../../../components/Term.astro';
+import Check from '../../../components/Check.astro';
+import Cite from '../../../components/Cite.astro';
+import Complexity from '../../../components/Complexity.astro';
+import References from '../../../components/References.astro';
+
+<ModelCard
+  status="draft"
+  timing="async"
+  crypto="threshold"
+  faults="byz"
+  adversary="static"
+  determinism="rand"
+  problem="BA"
+  resilience="t < n/3"
+  note="內容依技術報告版（完整證明）整理。原文的腐化模型是靜態的，運算能力有限，並且在 random oracle model 下分析。本頁沿用原文的記號：t 是容錯上限，f（0 ≤ f ≤ t）是實際被腐化的個數。證明中標明「簡報」的例子來自作者的簡報，已對照協議逐步檢查。"
+/>
+
+FLP 之後，Rabin 與 Ben-Or 最早用隨機化繞過它，他們都假設一個 <Term id="common-coin">common coin</Term>：所有參與者都能看到的隨機源，但對手無法事先預測。之後大多數<Term id="async">非同步</Term>協議沿用這個抽象。<Cite id="cks2000tr" /> 回答的是一個實務問題：這個 coin 到底怎麼做出來？
+
+論文有兩個貢獻，且彼此依賴：
+
+1. **一個用密碼學實現的 common coin**：一個可以用「名稱」隨機存取的門檻 coin-tossing scheme，基於 Diffie–Hellman 問題。
+2. **ABBA（Asynchronous Binary <Term id="ba">Byzantine Agreement</Term>）**：用這個 coin 與門檻<Term id="signature">簽章</Term>建出的非同步二元 Byzantine Agreement。
+
+結果同時是實用的，也接近理論最優：容忍最大的 $t<n/3$、期望常數時間、期望 $O(n^2)$ 訊息、訊息大小約一到兩個 RSA 簽章，而且 <Term id="trusted-dealer">trusted dealer</Term> 只在 setup 階段使用，之後可以處理幾乎無限多筆交易。論文也自稱是第一個把 <Term id="random-oracle">random oracle model</Term> 用在拜占庭協議的工作。
+
+## 問題與模型
+
+### 系統與腐化模型
+
+- $n$ 個 party，一個最多腐化 $t$ 個的對手，以及一個 trusted dealer。實際被腐化的個數是 $f$，$0\le f\le t$。
+- **靜態腐化**：對手必須在執行一開始就決定腐化誰。原文不採用適應性腐化的模型，原因是這樣就不知道如何得到實用且可證明安全的密碼學積木。
+- **計算上有限**：所有 party、對手與 dealer 都只能做機率式多項式時間的計算。這和傳統分散式計算裡的「安全通道」模型不同，但在密碼學的設定下是必要且合適的。
+- **不安全的非同步網路**：網路完全被對手掌控，對手可以任意排程、修改或插入訊息。誠實的 party 是被動的，只回應對手送來的訊息。為了簡化，假設訊息是認證的：若誠實的 $P_i,P_j$，那麼對手送給 $P_j$ 的、標示來自 $P_i$ 的訊息，必定是 $P_i$ 之前產生過的（可以用 MAC 便宜地做到）。
+- **setup**：dealer 先為所有 party 產生初始狀態。對手拿到被腐化 party 的狀態，但得不到誠實 party 的任何資訊。
+
+### 協議要解決的問題
+
+每個決定都對應一個交易識別碼 $\mathrm{TID}$，由對手任意選擇。對手可以用 $(\mathrm{TID},\mathrm{activate},v)$ 啟動 $P_i$，$v\in\{0,1\}$，$P_i$ 最後輸出 $(\mathrm{TID},\mathrm{decide},b)$，同一個 TID 至多決定一次。這和 [FLP](/impossibility/async/flp/)、[DAG-Rider](/convergence/dag-rider/) 的設定不同：它是一個**交易處理服務**，同時可以有許多個協議實例並行。
+
+<Thm kind="definition" title="非同步 Byzantine Agreement（密碼學模型）" id="def-cks-ba">
+協議必須滿足：
+
+- **<Term id="agreement">Agreement</Term>**：任兩個對同一個 TID 做出決定的誠實 party，決定相同的值；精確地說，對手在計算上無法讓兩個誠實 party 決定不同的值。
+- **<Term id="validity">Validity</Term>**：若所有被啟動的誠實 party 在某個 TID 上的初始值相同，則任何做出決定的誠實 party 都決定這個值。
+- **Termination**，由兩個條件組成：
+  - **deadlock freeness**：對手在計算上無法造成這種情況：某個 TID 有誠實 party 還沒決定，但所有誠實 party 都已被啟動，且所有誠實 party 為這個 TID 產生的訊息都已送達。
+  - **fast convergence**：令 $X_s$ 為所有誠實 party 為第 $s$ 個 TID 產生的訊息總數。存在只依賴協議（與對手無關）的多項式 $B,C$，使得對所有 $s,m\ge 1$，$\Pr[X_s\ge mB+C]\le 2^{-m}+\epsilon$，$\epsilon$ 是可忽略函數。
+</Thm>
+
+這裡 Termination 的寫法與 FLP 風格的「最終會決定（以機率 1）」不同。原文的理由是：在計算上有限的設定下，考慮無限長的執行行不通，所以改用「只要對手送達訊息，誠實 party 就很快決定」的說法，並要求 $B,C$ 與對手無關，以排除「永遠不決定、但一直產生無用訊息」的平凡協議。
+
+這個版本的 Validity 是通常的定義。原文指出在某些應用裡可以放寬：若初始值帶有驗證資料（例如簽章），可以只要求「決定的值必須有對應的驗證資料」，這就是後來 external validity 的想法（見 <Cite id="ckps2001" />）。
+
+## 密碼學積木
+
+### 雙門檻簽章
+
+原文引入 $(n,k,t)$ **雙門檻**（dual-threshold）簽章：$n$ 個 party、至多 $t$ 個被腐化，各自持有簽章金鑰的份額，**恰好** $k$ 份簽章份額可以合成一個簽章，而且只要求 $t<k\le n-t$。以前的門檻簽章文獻都只考慮 $k=t+1$。份額的產生與驗證是**非互動**的，這在非同步協議裡是必要的。
+
+- **Robustness**：對手在計算上無法造出 $k$ 份有效份額，使合成演算法輸出無效的簽章。
+- **Non-forgeability**：對手在計算上無法輸出一則訊息的有效簽章，若這則訊息的簽章請求只被少於 $k-t$ 個誠實 party 收到。注意即使實際只腐化 $f<t$ 個，相關門檻仍是 $k-t$，不是 $k-f$。
+
+最直接的實現是 $k$ 個普通簽章，$n$ 小時完全夠用；Shoup 的 RSA 門檻簽章（<Cite id="cks2000tr" /> 引用其為 [38]）在 $n$ 大時效率好得多，合成出來的就是標準 RSA 簽章。協議用它的原因是：一個 party 可以用「一個」門檻簽章證明它的投票有理由，而不是附上 $n$ 個簽章，省下一個 $n$ 因子的位元複雜度。
+
+### 門檻 coin-tossing scheme
+
+這是本文的核心積木，也是 common coin 的精確定義。一個 $(n,k,t)$ 雙門檻 coin-tossing scheme 持有一個「不可預測的函數」$F$，把任意位元串的**名稱** $C$ 映到值 $F(C)\in\{0,1\}$。$n$ 個 party 各自持有 $F$ 的一份份額，**需要且只需要** $k$ 份 coin share 就能算出 $F(C)$；份額的產生與驗證同樣是非互動的。
+
+<Thm kind="definition" title="門檻 coin-tossing scheme 的安全性" id="def-threshold-coin">
+- **Robustness**：對手在計算上無法造出名稱 $C$ 與 $k$ 份有效的 share，使合成輸出不是 $F(C)$。
+- **Unpredictability**：對手互動結束時輸出一個名稱 $C$（它的 reveal 請求只被少於 $k-t$ 個誠實 party 收到）與一個位元 $b$；對手的優勢是 $\Pr[F(C)=b]$ 與 $1/2$ 的距離，這個優勢必須可忽略。
+</Thm>
+
+單獨一個 coin 的 Unpredictability，可以推廣成協議分析真正需要的形式：若對手依序預測 $q$ 個 coin，預測值與真值的錯誤向量，在計算上與隨機的 $q$ 位元向量無法區分。由此得到：對手猜對前 $m$ 個 coin 的機率至多是 $2^{-m}+\epsilon$（$\epsilon$ 可忽略）。
+
+這個定義有三個值得注意的地方：
+
+1. coin 是**可隨機存取**的：任何名稱都對應一個 coin，不像 Rabin 的 dealer 事先分發有限個。
+2. **門檻是 $k$ 與 $k-t$ 兩個數字**：集齊 $k$ 份才算得出值，但只要少於 $k-t$ 個誠實 party 揭露了份額，對手就無法預測。
+3. 它是一個**函數**，所以不同的名稱（交易、輪數）互相獨立，可以並行使用，沒有 interleaving 攻擊的問題。
+
+原文給出兩種實現。
+
+**從門檻簽章得到。** 若門檻簽章對每則訊息只有**一個**有效簽章（例如 RSA 型），把簽章的雜湊值當作 coin 值就可以。在 random oracle model 下這是安全的 coin-tossing scheme，而且允許「樂觀地」略過驗證，必要時再驗。
+
+**Diffie–Hellman 型（原文 §6）。** 取一個素數階 $q$ 的群 $G$，三個雜湊函數 $H:\{0,1\}^*\to G$、$H':G^6\to\mathbb{Z}_q$、$H'':G\to\{0,1\}$（分析時當作 random oracle）。
+
+- **dealer**：選一個次數小於 $k$ 的隨機多項式 $f$ 與隨機生成元 $g$。$x_i=f(i)$，$g_i=g^{x_i}$。$P_i$ 的秘密金鑰是 $x_i$，驗證金鑰是 $g_i$。
+- **coin $C$ 的值**：先算 $\tilde g=H(C)$，$\tilde g_0=\tilde g^{x_0}$，再令 $F(C)=H''(\tilde g_0)$。
+- **$P_i$ 的 share**：$\tilde g_i=\tilde g^{x_i}$，加上一個證明「$\log_{\tilde g}\tilde g_i=\log_g g_i$」的非互動證明（離散對數相等的互動證明，用 Fiat–Shamir 轉成非互動）。
+- **合成**：任取 $k$ 份有效 share，用 Lagrange 插值「在指數上」算出 $\tilde g_0=\prod_{\alpha\in S}\tilde g_\alpha^{\lambda_\alpha}$，再取 $H''$。
+
+<Thm kind="theorem" title="DH coin 的安全性" id="thm-dh-coin">
+在 random oracle model 下，上述 coin-tossing scheme 在 $k=t+1$ 時安全，若假設 CDH 問題困難；在 $k>t+1$ 時安全，若假設 DDH 問題困難。
+</Thm>
+
+Robustness 來自離散對數相等證明的 soundness。Unpredictability 用歸約證明：假設有對手能預測 coin，就能用它計算 DH（$k=t+1$）或區分 DDH 元組（$k>t+1$）。這個 scheme 基本上與 Naor–Pinkas–Reingold 的相同，差別是這裡的分析更精細：單一參數時只需較弱的假設，並且分析了雙門檻的情形。
+
+這也說明為什麼原文強調**雙門檻**比單門檻更強、也更難：弱版本（有些文獻採用）在只要有**一個**誠實 party 揭露份額後，安全性就消失；這裡的版本要等到 $k-t$ 個誠實 party 揭露才失效。
+
+## 協議 ABBA
+
+ABBA 使用 $(n,n-t,t)$ 門檻簽章 $\mathcal{S}$、$(n,t+1,t)$ 門檻簽章 $\mathcal{S}'$，以及 $(n,n-t,t)$ 門檻 coin-tossing scheme（以 $F(C)$ 表示 coin 值），要求 $n>3t$。
+
+### 一輪的結構
+
+協議先做一次前置處理（第 0 步），然後重複第 1 至 4 步（輪 $r=1,2,\dots$）：
+
+0. **前置處理**：每個 party 用 $\mathcal{S}'$ 簽自己的初始值並送給所有人；收到 $2t+1$ 份後，取過半（至少 $t+1$ 份）的值，把份額合成一個 $\mathcal{S}'$ 門檻簽章。這個值是第一輪的 pre-vote。若輸入值本來就附有驗證資料，這一步可以省。
+1. **pre-vote**：每個 party 對一個 $b\in\{0,1\}$ 投 pre-vote，附上用 $\mathcal{S}$ 簽的份額，並附上理由。第 $r=1$ 輪的值是前置處理的結果；之後（$r>1$）從上一輪收集 $n-t$ 個有理由的 main-vote：有 $0$ 的 main-vote 就投 $0$，有 $1$ 的就投 $1$，若**全部**是 abstain，就投 coin 值 $F(\mathrm{TID},r-1)$。
+2. **main-vote**：收集 $n-t$ 個有理由的 pre-vote。若這 $n-t$ 個全是 $b$，main-vote 就是 $b$；若 $0$ 與 $1$ 都出現，就是 abstain。
+3. **檢查是否決定**：收集 $n-t$ 個有理由的 main-vote；若這 $n-t$ 個**全部**是同一個 $b\in\{0,1\}$，就決定 $b$，但再多參與一輪；否則繼續。
+4. **common coin**：產生 coin $(\mathrm{TID},r)$ 的 share 送給所有人，收集 $n-t$ 份後合成 $F(\mathrm{TID},r)$，下一輪可能用到。
+
+**理由（justification）。** pre-vote 與 main-vote 都必須附上能驗證的理由，這是 <Term id="safety">safety</Term> 的來源。
+
+- 第 1 輪的 pre-vote，理由是前置處理合成的 $\mathcal{S}'$ 簽章。
+- 之後的 pre-vote 有兩種：**hard pre-vote** 為 $b$，理由是對「$(\mathrm{TID},\text{pre-vote},r-1,b)$」的 $\mathcal{S}$ 門檻簽章，表示它有上一輪對 $b$ 的實質證據；**soft pre-vote** 為 $b=F(\mathrm{TID},r-1)$，理由是對「$(\mathrm{TID},\text{main-vote},r-1,\text{abstain})$」的 $\mathcal{S}$ 門檻簽章，表示它只是在跟隨 coin，因為上一輪有互相衝突的票。
+- main-vote 為 $b$ 的理由是對「$(\mathrm{TID},\text{pre-vote},r,b)$」的 $\mathcal{S}$ 門檻簽章（用 $n-t$ 份 pre-vote 的簽章份額合成）；abstain 的理由是兩個互相衝突的 pre-vote 的理由。
+
+### 例：$n=4$，$t=1$
+
+這個例子來自作者的簡報，我對照上面的協議逐步檢查過。誠實的 $P_1,P_2,P_3$ 初始值是 $0,1,1$，$P_4$ 是拜占庭。
+
+1. **pre-vote**：每個人等 $n-t=3$ 份 pre-vote，對手決定先到哪三份。設 $P_1$ 看到 $0,0,1$，$P_2$ 看到 $1,1,1$，$P_3$ 看到 $1,0,1$。
+2. **main-vote**：全是同一個值才投那個值，否則 abstain。所以 $P_2$ 投 $1$，$P_1$ 與 $P_3$ 都投 abstain。
+3. **檢查**：每個人收 $3$ 份 main-vote。$P_1$ 看到 abstain、$1$、abstain，$P_2$ 看到 $1$、abstain、abstain，$P_3$ 看到三個 abstain，沒有人看到三票同值，所以第 1 輪沒人決定。
+4. **coin**：設 $F(\mathrm{TID},1)=1$。$P_1,P_2$ 各看到一個 $1$ 的 main-vote，所以第 2 輪以 $1$ 為 hard pre-vote；$P_3$ 只看到 abstain，所以用 coin 的值 $1$ 做 soft pre-vote。
+5. 第 2 輪所有誠實 party 都投 $1$，所以 pre-vote 與 main-vote 全是 $1$，決定 $1$。若 coin 是 $0$，$P_3$ 會 soft pre-vote $0$，而 $P_1,P_2$ 仍是 $1$，需要再進行下一輪；每一輪 coin 與對手期望的值一致的機率是 $1/2$。
+
+## 分析
+
+<Thm kind="theorem" title="ABBA 的正確性" id="thm-abba">
+假設門檻簽章、門檻 coin-tossing scheme 與訊息認證碼都是安全的，則 ABBA 在 $n>3t$ 時解決非同步 Byzantine Agreement。
+</Thm>
+
+Validity 直接檢查即可。Agreement 與 Termination 先對 $f=t$ 證明，再說明 $f<t$ 的修改。
+
+固定一個 TID，考慮第 $r\ge 1$ 輪誠實 party 投的 pre-vote。因為 $n>3t$，至多只有一個值 $b\in\{0,1\}$ 得到至少 $n-2t$ 張誠實 pre-vote，記為 $\rho_r$（若不存在就是未定義）。
+
+### 引理 2：每個票都與 $\rho_r$ 一致
+
+<Thm kind="lemma" title="一個輪的票只指向 ρ_r" id="lemma-abba-votes">
+對 $r\ge 1$，除了可忽略的機率之外：
+
+- (a) 若誠實 party 投出或接受第 $r$ 輪對 $b\in\{0,1\}$ 的 main-vote，則 $\rho_r$ 有定義且 $\rho_r=b$；
+- (b) 若誠實 party 投出或接受第 $r+1$ 輪對 $b\in\{0,1\}$ 的 hard pre-vote，則 $\rho_r$ 有定義且 $\rho_r=b$；
+- (c) 若誠實 party 投出或接受第 $r+1$ 輪的 abstain main-vote，則 $\rho_r$ 有定義且 $\rho_r=1-F(\mathrm{TID},r)$；
+- (d) 若 $r$ 是第一個有誠實 party 做出決定的輪，則所有最終決定的誠實 party，都在第 $r$ 或 $r+1$ 輪決定同一個值。
+</Thm>
+
+<StructuredProof assumes="門檻簽章的 non-forgeability；$n>3t$；先設 $f=t$">
+  <Step open>
+    <span slot="claim">**(a)**：main-vote $b$ 蘊含 $\rho_r=b$。</span>
+
+    被接受的 main-vote $b$ 必附有 $(\mathrm{TID},\text{pre-vote},r,b)$ 的 $\mathcal{S}$ 門檻簽章。由 non-forgeability，至少有 $(n-t)-t=n-2t$ 個誠實 party 投了 $b$ 的 pre-vote，所以 $\rho_r$ 有定義，且等於 $b$。
+  </Step>
+
+  <Step uses="(a)">
+    <span slot="claim">**(b)**：hard pre-vote $b$ 蘊含 $\rho_r=b$。</span>
+
+    第 $r+1$ 輪對 $b$ 的 hard pre-vote 的理由，就是第 $r$ 輪 main-vote $b$ 的那個門檻簽章，套用 (a)。
+  </Step>
+
+  <Step uses="(b)">
+    <span slot="claim">**(c)**：abstain 蘊含 $\rho_r=1-F(\mathrm{TID},r)$。</span>
+
+    第 $r+1$ 輪的 abstain，要附兩個互相衝突的 pre-vote（一個 $0$、一個 $1$）的理由。兩個不可能都是 soft pre-vote（soft 都等於 $F(\mathrm{TID},r)$），所以至少有一個是 hard，依 (b) 它指向 $\rho_r$。因此另一個必須是對 $1-\rho_r$ 的 soft pre-vote，也就是 $F(\mathrm{TID},r)=1-\rho_r$。
+  </Step>
+
+  <Step uses="(a)">
+    <span slot="claim">**(d)**：第一個決定的輪之後，所有決定都相同。</span>
+
+    <Step>
+      <span slot="claim">同一輪的決定相同。</span>
+
+      設 $P_i$ 在第 $r$ 輪決定 $b$，它接受了 $n-t$ 個 main-vote $b$。由 (a)，$b=\rho_r$，所以第 $r$ 輪任何決定的誠實 party 都決定 $\rho_r$。
+    </Step>
+
+    <Step>
+      <span slot="claim">第 $r+1$ 輪只有對 $b$ 的 hard pre-vote 可被接受。</span>
+
+      在 $P_i$ 接受的那 $n-t$ 張 main-vote $b$ 中，至少 $n-2t$ 張來自投 $b$ 的誠實 party。因為 $n>3t$，誠實 party 在整個執行中產生的 $(\mathrm{main\text{-}vote},r,\text{abstain})$ 簽章份額少於 $(n-t)-t=n-2t$ 份，所以第 $r+1$ 輪的 soft pre-vote 無法被證明合理。可被接受的 pre-vote 只剩 hard pre-vote，依 (b) 都是 $b$。
+    </Step>
+
+    <Step>
+      <span slot="claim">第 $r+1$ 輪所有被接受的 main-vote 都是 $b$。</span>
+
+      pre-vote 全是 $b$，所以 main-vote 只能是 $b$，沒有人能造出 abstain 的理由。所以其他誠實 party 在第 $r+1$ 輪若決定，就是決定 $b$。
+    </Step>
+  </Step>
+</StructuredProof>
+
+(a) 和簡報裡的 Lemma 1 是同一件事：被接受的 main-vote $b$ 唯一地決定了下一輪所有誠實 party 帶進去的值，因為兩個互相衝突的 <Term id="quorum">quorum</Term> 至少交於 $n-2t>t$ 個節點，裡面有誠實的（見 [Quorum 交集](/impossibility/quorum/)）。
+
+### 引理 3：ρ 在 coin 揭曉前就已定案
+
+Agreement 由引理 2(d) 得到；Termination 的 deadlock freeness 也從這個引理和「決定的 party 多參與一輪」得到。剩下 fast convergence，關鍵是要證明 $\rho_r$ 在 coin 揭曉之前就已經被決定，所以對手不能看到 coin 之後才反應。
+
+原文用「$\rho_r$ 在某個時間點被**決定**」來形式化：存在一個有效率的程序 $W$，輸入到該時刻為止的對手互動紀錄，輸出 $w\in\{0,1,?\}$；若 $w\ne ?$，則 $\rho_r$ 一旦有定義就必定等於 $w$。coin $(\mathrm{TID},r)$ 在某個誠實 party 產生它的第 $(n-2t)$ 份 share 的時刻被「揭曉」。
+
+<Thm kind="lemma" title="ρ 在 coin 之前定案" id="lemma-abba-determined">
+存在一個函數 $W$ 決定 $\rho_r$，使得對所有 $r\ge 1$，要嘛 $\rho_r$ 在 coin $(\mathrm{TID},r)$ 揭曉之前就已被決定，要嘛 $\rho_{r+1}$ 在 coin $(\mathrm{TID},r+1)$ 揭曉之前就已被決定。
+</Thm>
+
+<StructuredProof assumes="引理 2；$f=t$">
+  <Step open>
+    <span slot="claim">設某個誠實的 $P_i$ 正要在第 $r+1$ 輪的第 1 步產生 coin $(\mathrm{TID},r)$ 的第 $(n-2t)$ 份 share，即它「即將揭曉」coin。此時有一個至少 $n-2t$ 個誠實 party 的集合 $S$（包含 $P_i$）已進入第 $r+1$ 輪的第 1 步。</span>
+
+    $S$ 的其他成員都已經釋出自己的 share。
+  </Step>
+
+  <Step uses="步驟 1">
+    <span slot="claim">$S$ 在第 $r+1$ 輪的 pre-vote 與理由，幾乎都已經完全確定；唯一例外是 soft pre-vote，它們的值是還不知道的 $F(\mathrm{TID},r)$。</span>
+  </Step>
+
+  <Step uses="步驟 2">
+    <span slot="claim">情形一：$S$ 裡有人要投 hard pre-vote $b$。</span>
+
+    依引理 2(b)，$\rho_r=b$ 是唯一可能的值，所以 $\rho_r$ 在 coin $(\mathrm{TID},r)$ 揭曉前就已被決定。
+  </Step>
+
+  <Step uses="步驟 2">
+    <span slot="claim">情形二：$S$ 的所有成員都要投 soft pre-vote。</span>
+
+    這些 pre-vote 都等於 $F(\mathrm{TID},r)$，所以 $\rho_{r+1}$ 唯一可能的值是 $F(\mathrm{TID},r)$，在 $P_i$ 釋出份額的那一刻就被決定了。此時 coin $(\mathrm{TID},r+1)$ 還沒揭曉，因為進入第 $r+1$ 輪第 2 步以後的誠實 party 少於 $n-2t$ 個，所以 $\rho_{r+1}$ 在它的 coin 揭曉前就已被決定。
+  </Step>
+</StructuredProof>
+
+結合引理 3 與 coin 序列的 Unpredictability：每兩輪裡，至少有一輪的 $\rho$ 在 coin 揭曉前就已確定，對手必須在不知道 coin 的情況下猜它，所以猜對的機率至多是 $1/2$。於是任何誠實 party 前進超過 $2r+1$ 輪的機率至多是 $2^{-r}+\epsilon$，這就是 fast convergence。簡報的 Lemma 2 與 3（global preference 在 coin 揭曉前就固定，coin 與對手期望的值一致的機率至多 $1/2$）是這個論證的口語版。
+
+要形式化「對手不能事後選擇」，必須能明確地「預測」那個會拖延終止的 coin 值 $1-\rho_r$，這就是原文定義「決定」的原因。
+
+### 若 $f<t$
+
+若實際被腐化的 $f<t$，要補一個修改：因為合成一個簽章（或 coin）需要的份額數 $n-2t$，與真正能在 $n-t-f$ 份時合成之間有落差。原文的辦法是從 $H$ 中任選 $t-f$ 個「準腐化」的 party $Q$：分析協議時把它們視為誠實，分析門檻簽章與 coin 時把它們視為腐化（它們的秘密份額被交給對手，但行為仍是誠實的）。只數 $H\setminus Q$ 的票與 share，引理 2 與 3 的敘述不變。
+
+### 複雜度
+
+<Complexity
+  kind="upper"
+  measure="rounds"
+  value="O(1)"
+  scope="per-decision"
+  scopeNote="每個 TID 的 ABBA 實例；對任何 r，前進超過 2r+1 輪的機率至多 2^{-r} + ε"
+  case="expected"
+  condition="非同步、t < n/3、靜態腐化、計算上有限的對手、random oracle model；coin 用門檻 coin-tossing scheme"
+  cite="cks2000tr"
+/>
+
+<Complexity
+  kind="upper"
+  measure="messages"
+  value="O(n^2)"
+  scope="per-decision"
+  scopeNote="每個 TID；每輪每個 party 向所有人送 pre-vote、main-vote 與 coin share"
+  case="expected"
+  condition="同上；訊息大小約一到兩個 RSA 簽章（用 Shoup 的 RSA 門檻簽章）"
+  cite="cks2000tr"
+/>
+
+位元複雜度是 $O(n^2 l)$，$l$ 是一個 RSA 簽章的長度。這是原文的陳述；每輪 $O(n^2)$ 訊息的拆解（三個步驟每個 party 各送給所有人）是我依協議推出來的，原文只寫了總期望訊息數 $O(n^2)$。
+
+## 變體
+
+- **更果斷的終止**：原文的協議有些 party 決定後會「悄悄地」卡在等永遠不會來的訊息。修改成：決定 $b$ 的 party 把手上的簽章份額合成對 $(\text{main-vote},\mathrm{TID},r,b)$ 的 $\mathcal{S}$ 門檻簽章，送給所有人後停止；其他收到這個簽章的 party 也可以直接決定並停止。
+- **改用 $(n,t+1,t)$ 的 coin**：釋出 share 前先送一個不必簽章的 ready 訊息，並等 $n-t$ 個 ready。通訊變多，但 $(n,t+1,t)$ 的 coin 可以建立在較弱的困難性假設上。
+- **其他優化**：原文列了五點，例如上一輪沒有接受 abstain 就不必產生 coin share、收到衝突的 pre-vote 就不必再等 $n-t$ 個，以及合併第 4 步與第 1 步，讓輪數與訊息數減少 $1/3$，代價是位元與計算複雜度略升。
+
+<Check q="為什麼 ABBA 的 pre-vote 要區分 hard 與 soft？全部都用 coin 的值不行嗎？">
+不行。若一個 party 已經看到上一輪對 $b$ 的 main-vote，代表有 $n-2t$ 個誠實 party 都在 pre-vote 時看到 $b$，這是跨輪保留下來的證據，hard pre-vote 就是把這個證據帶到下一輪。只有看到全部 abstain 時，才沒有任何證據，這時才跟隨 coin。引理 2(d) 的證明靠的就是：一旦有人決定 $b$，下一輪就**無法**證明出合理的 soft pre-vote，所有可被接受的 pre-vote 都是對 $b$ 的 hard pre-vote。若所有人都跟 coin 走，已經決定 $b$ 的 party 的證據就會被 coin 蓋掉。
+</Check>
+
+## 邊界
+
+<Boundary>
+**拿掉 random oracle model：** 原文承認 random oracle 是啟發式工具，不是標準模型；它換來的是實用協議的嚴格證明。DH coin 的安全定理要靠它。
+
+**拿掉 trusted dealer：** 協議需要 dealer 做 setup，分發金鑰份額；之後可以處理幾乎無限多個交易，而不是每筆交易都要新的預先分發資料（Rabin 式 dealer 的問題：資料會耗盡，而且 party 必須對「用哪一份」達成<Term id="consensus">共識</Term>，這本身就是一個共識問題）。不需要 dealer 的做法是 Canetti–Rabin，但原文評為「多項式時間，但完全不實用」。DAG-Rider 一類的後續工作則是改用非同步的分散式金鑰生成來取代 dealer（見 [DAG-Rider](/convergence/dag-rider/)）。
+
+**靜態腐化：** 協議在靜態腐化下證明。原文不採用適應性腐化，因為屆時就不知道如何得到實用且可證明安全的密碼學積木。[Narwhal／Tusk](/convergence/narwhal-tusk/) 用的 coin 則要求自適應安全的門檻簽章。
+
+**safety 依賴簽章：** ABBA 的 safety 來自門檻簽章的 non-forgeability（理由的簽章），<Term id="liveness">liveness</Term> 來自 coin。這與 [DAG-Rider](/convergence/dag-rider/)（safety 完全不用簽章，coin 只影響 liveness）不同，所以 CKS 不是 post-quantum safe。原文認為「是否使用簽章」並不是協議之間根本的區別，但簽章確實影響計算模型、計算複雜度與位元複雜度。
+
+**只解決二元 BA：** 輸出是 $\{0,1\}$，Validity 是標準版本；多值與 external validity 需要另外的協議（如 <Cite id="ckps2001" />、VABA）。
+
+**與 Bracha 的對比：** <Cite id="bracha1987" /> 的協議同樣容忍 $t<n/3$，不需要 dealer、也不需要密碼學，但 CKS 的比較指出它在 $t=\Theta(n)$ 時期望時間是指數，只有在 $t=O(\sqrt n)$ 時才是期望常數；差別就在 coin：Bracha 用的是 local coin，CKS 用的是 common coin。這是 CKS 對 Bracha 的評述，不是我們對 Bracha 原文的核對。
+</Boundary>
+
+## 參考文獻
+
+<References />

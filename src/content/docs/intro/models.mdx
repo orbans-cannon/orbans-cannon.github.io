@@ -1,0 +1,105 @@
+---
+title: 三種時序模型
+description: 同步、部分同步、非同步的精確定義、並排比較與常見混淆。
+takeaway: "三個時序模型只差在一件事：$\\delta\\le\\Delta$ 什麼時候成立。同步一直成立，部分同步在 GST 之後成立，非同步沒有 $\\Delta$。所以部分同步協議的 safety 不能依賴時間，只有 liveness 可以等 GST。"
+sidebar:
+  order: 4
+---
+
+import Term from '../../../components/Term.astro';
+import Cite from '../../../components/Cite.astro';
+import Check from '../../../components/Check.astro';
+import References from '../../../components/References.astro';
+import Sidenote from '../../../components/Sidenote.astro';
+import TimingTimelines from '../../../widgets/timing-models/TimingTimelines.astro';
+
+時序模型只回答一件事：訊息從送出到送達，最多可以花多久。故障與對手見[什麼是拜占庭？](/intro/byzantine/)，<Term id="signature">簽章</Term>與隨機化見[密碼學假設與確定性](/intro/crypto/)。
+
+## 先分清 $\Delta$ 與 $\delta$
+
+設 $\delta(m)$ 為<Term id="honest">誠實節點</Term>之間某則訊息 $m$ 從送出到送達的**實際**延遲，$\Delta$ 為協議**事先假設**的延遲上界。
+
+- **$\Delta$**：寫在模型與協議裡的常數，用來設 timeout 或決定一輪有多長。它是一個**假設**。
+- **$\delta$**：某次執行中訊息真正花的時間，由網路決定，通常遠小於 $\Delta$。
+
+三個時序模型的差別，就在於對 $\delta$ 與 $\Delta$ 的關係保證了什麼：<Term id="sync">同步</Term>保證 $\delta\le\Delta$ 一直成立；<Term id="psync">部分同步</Term>保證 GST 之後 $\delta\le\Delta$；<Term id="async">非同步</Term>沒有 $\Delta$。
+
+<TimingTimelines />
+
+協議的速度取決於它「等什麼」：
+
+- 必須**等滿 $\Delta$** 才前進的協議，速度由 $\Delta$ 決定。例如同步 <Term id="bb">BB</Term> 把時間切成每輪長度為 $\Delta$ 的輪，每輪結束才處理這一輪收到的訊息；Sync HotStuff 在提交前等 $2\Delta$。
+- **收到足夠多回應就前進**的協議，速度由 $\delta$ 決定。這個性質稱為 <Term id="responsiveness" />。HotStuff 在 GST 後、<Term id="leader">leader</Term> 誠實時是 responsive 的（原文稱 optimistic responsiveness，<Cite id="hotstuff2019" />）；非同步協議天然 responsive。
+
+$\Delta$ 設太小，誠實節點的訊息會被誤判為沒送到，依賴 $\Delta$ 的協議可能出錯；設太大，協議就變慢。
+
+## 同步（Synchronous）
+
+存在**已知**的 $\Delta$，使得所有誠實節點之間的訊息都有 $\delta(m)\le\Delta$（論文通常還會多假設各節點的時鐘誤差有上限；有些論文則直接假設訊息按「同步回合」收發，見最後的常見混淆第 3 點）。
+
+結果：timeout 是可靠的。沒收到訊息，就代表對方有問題。協議可以用「等滿 $\Delta$」來判斷一則訊息有沒有被送出，進而做 <Term id="safety">safety</Term> 與 <Term id="liveness">liveness</Term> 的決定。
+
+## 部分同步（Partially Synchronous）
+
+這個模型由 Dwork、Lynch 與 Stockmeyer（簡稱 DLS）提出（<Cite id="dls1988" />）：存在一個**未知**的時間點 <Term id="gst" />（Global Stabilization Time），由對手選定。在 GST 之前，訊息可以被任意延遲；GST 之後，延遲有界。常見寫法：在時間 $t$ 送出的訊息，最晚於 $\max(t,\mathrm{GST})+\Delta$ 送達，其中 $\Delta$ 已知。
+
+<Sidenote title="DLS 的另一個版本">
+$\Delta$ 存在但未知，且從一開始就成立。DLS 對兩個版本給出相同的<Term id="resilience">容錯上界</Term>（<Cite id="dls1988" />，Table I）。
+</Sidenote>
+
+<Sidenote title="GST 前的訊息會遺失嗎">
+DLS 原文允許訊息在 GST 之前**遺失**（「late or not at all」）。許多現代論文改寫成「GST 之前延遲任意、但最終送達」，也就是本段的寫法。讀論文時要看它採哪一種。
+</Sidenote>
+
+
+
+**Safety 必須在所有時間行為下維持，只有 liveness 可以依賴 GST 之後的行為。** 這不只是設計偏好，DLS 證明了它和 GST 模型是等價的：
+
+- safety 的違反一定發生在某個**有限的時間點**（這個性質來自 safety 的形式定義，<Cite id="alpern1985" />）；
+- 而任何一次違反 safety 的執行，都有一個後續延續使 $\Delta$ 最終成立。
+
+所以，若一個演算法在「$\Delta$ 從某個 GST 起成立」的模型下是正確的，它即使面對完全非同步的網路，也不可能違反 safety（<Cite id="dls1988" />，§1.2）。反過來說，safety 一旦依賴時間假設，就一定存在一個合法的部分同步執行，把壞事安排在 GST 之前發生。
+
+因此，部分同步協議的 timeout 只能用來觸發換 leader，不能用來決定「對方一定有問題」。
+
+<Check q="部分同步協議能不能用 timeout 判斷某個節點是拜占庭？">
+不能。GST 之前，誠實節點的訊息可以被任意延遲，timeout 到了沒收到訊息，可能只是訊息還在路上。若協議根據 timeout 斷定對方有問題並據此做 safety 相關的決定，就存在一個合法的執行把延遲安排在 GST 之前，讓 safety 被破壞。所以部分同步協議的 timeout 只用來觸發換 leader。
+</Check>
+
+## 非同步（Asynchronous）
+
+訊息延遲**有限但沒有任何上界**，送達順序由對手決定，唯一保證是誠實節點間的訊息最終會送達。
+
+結果：無法分辨「對方很慢」與「對方掛了」，timeout 沒有意義。這是 FLP 不可能性的根源。
+
+**複雜度怎麼計？** 不能以秒數計，要以「輪」或「因果鏈長度」計，但**這些詞各論文的定義不同**：
+
+- Bracha 1987 的 round 是協議層的概念：每個 process 把訊息送給所有人，等到 $n-t$ 則同一輪的訊息，再改變狀態（<Cite id="bracha1987" />）。
+- MMR 2015 的時間複雜度是彼此有因果關係的最長訊息序列的長度，忽略本地計算（<Cite id="mmr2015" />）。
+- VABA 2019 的 running time 是整個執行的總時間，除以該執行中最長的訊息延遲（沿用 Canetti–Rabin 的定義），約等於把協議放進鎖步模型時的步數（<Cite id="vaba2019" />）。
+- Correia 等人把 asynchronous round 定義為：一個 process 送出訊息，並收到回應它的一或多則訊息（<Cite id="correia2004" />）。
+
+所以比較不同論文的「期望 $O(1)$ 輪」之前，要先確認它的輪是怎麼定義的。本站引用這類數字時會一併註明。
+
+## 三個模型並排
+
+| | 同步 | 部分同步 | 非同步 |
+| --- | --- | --- | --- |
+| 延遲上界 | 已知，一直成立 | GST 後成立 | 無 |
+| Safety 是否依賴時間 | 是 | **否** | **否** |
+| Liveness 是否依賴時間 | 是 | 是（GST 後） | 確定性協議：無法保證；隨機化協議：不依賴時間，以機率 1 成立 |
+| Timeout 的角色 | 可靠的故障偵測 | 僅用於觸發 <Term id="view">view</Term> change | 無意義 |
+| 確定性協議能否同時保證 safety 與 liveness | 可以 | 可以（liveness 在 GST 後） | **不行**（FLP：只要有一個 crash 故障即成立） |
+
+非同步的「同時」是關鍵字：確定性協議在非同步下可以只保證 safety（Paxos、PBFT 的 safety 不依賴時間），但若還要保證 liveness，連一個 crash 故障都容忍不了。各模型下能容忍多少故障，見[模型總覽](/impossibility/overview/)。
+
+## 四個常見混淆
+
+1. **「非同步」不是「網路很慢」。** 網路慢但終究會恢復，是部分同步。真正的非同步沒有任何時間假設，對手可以把任一則訊息延遲到任意（有限）久。
+2. **同步協議不能直接搬到部分同步。** 同步協議的 safety 依賴 $\Delta$；GST 前 $\Delta$ 不成立，safety 就可能被破壞。例如 Sync HotStuff 的提交規則要等待 $2\Delta$（<Cite id="synchs2020" />），只在同步模型下成立。
+3. **同步回合（lock-step rounds）是同步模型的特例。** 時間被切成一回合一回合，每個節點在每一回合依序做三件事：送出訊息、收下這一回合送來的訊息、處理；訊息保證在同一回合內送達。論文寫「同步」時，可能指這種回合制，也可能指「有已知的 $\Delta$ 加時鐘」，兩者的證明方式不同。
+4. **混合模型。** 有些協議在非同步下保證 safety，在同步期取得低延遲（例如 Bullshark 的 fast path）。這類協議在「合流」部分會專章說明，不能簡單歸為其中一類。
+
+## 參考文獻
+
+<References />

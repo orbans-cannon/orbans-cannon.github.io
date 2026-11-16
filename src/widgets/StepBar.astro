@@ -1,0 +1,30 @@
+---
+/**
+ * 步進圖共用的步進列：上一步、步數、下一步（可選：播放），底下一行是這一步的標題。
+ * 貼頂（sticky）：圖很高時，捲到圖的中間仍然按得到，也看得到目前是哪一步。
+ * 步進的行為由 stepper.ts 的 bindStepper 接上；其他圖專屬的按鈕放在圖自己的第二列。
+ */
+import './stepper.css';
+interface Props {
+  prev: string;
+  next: string;
+  /** 初始（沒有 JavaScript 時看到的）步數文字，例如「8 / 8」 */
+  progress: string;
+  /** 初始的步驟標題 */
+  caption?: string;
+  /** 有就顯示播放鈕 */
+  play?: { play: string; pause: string };
+}
+const { prev, next, progress, caption = '', play } = Astro.props;
+---
+
+<div class="stepbar">
+  <div class="sb-row">
+    <button type="button" class="sb-btn" data-act="prev" hidden>{prev}</button>
+    <span class="sb-progress" data-progress>{progress}</span>
+    <button type="button" class="sb-btn" data-act="next" hidden>{next}</button>
+    <span class="sb-sp"></span>
+    {play && <button type="button" class="sb-btn" data-act="play" data-label-play={play.play} data-label-pause={play.pause} hidden>{play.play}</button>}
+  </div>
+  <p class="sb-title" data-caption aria-live="polite">{caption}</p>
+</div>

@@ -1,0 +1,37 @@
+---
+title: Communication Lower Bound (Dolev–Reischuk)
+description: "A lower bound on the number of messages for deterministic Byzantine Agreement, the ceiling for communication optimization."
+sidebar:
+  order: 1
+  badge:
+    text: Planned
+    variant: note
+---
+
+import ModelCard from '../../../../../components/ModelCard.astro';
+import Cite from '../../../../../components/Cite.astro';
+import References from '../../../../../components/References.astro';
+
+<ModelCard
+  status="planned"
+  timing="any"
+  crypto="any"
+  faults="byz"
+  determinism="det"
+  problem="BA"
+  result="Ω(f²) messages (to be verified)"
+  note="The precise statement of the lower bound still has to be checked against the original."
+/>
+
+This chapter has not been written yet. For the source see <Cite id="dr1985" />.
+
+## Planned coverage
+
+- **The precise statement of the result**: the lower bound is on the total communication of the whole execution; whether the unit is messages or authenticators directly affects whether it can be compared with HotStuff's $O(n)$.
+- **The main idea of the proof**: to be written after reading the original.
+- **Relation to protocol complexity**: HotStuff's per-view cost does not contradict this lower bound, because the two count different scopes and units. This is a place the author's report was told to state precisely.
+- **Boundary**: how randomization and adaptive adversaries affect this lower bound, connecting to Communication Complexity of BA, Revisited (PODC 2019).
+
+## References
+
+<References />

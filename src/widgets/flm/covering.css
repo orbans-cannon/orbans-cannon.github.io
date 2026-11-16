@@ -1,0 +1,141 @@
+/* FLM 覆蓋圖互動圖（三角形與牆兩個元件）共用的樣式。顏色規則見 design.md §顏色系統。 */
+  .flm-ct {
+    margin: 1.5rem 0;
+    padding: 0.9rem 1rem 1rem;
+    border: 1px solid var(--sl-color-hairline);
+    border-radius: 0.5rem;
+    background: var(--sl-color-bg);
+    color: var(--sl-color-gray-1);
+    font-size: var(--sl-text-sm);
+  }
+  .flm-ct :is(h4, p, ul) { margin: 0; }
+
+  /* 控制列：互動控制用金色 */
+  .flm-ct .ct-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem; }
+  .flm-ct .ct-sp { flex: 1; }
+  .flm-ct .ct-bar button {
+    font: inherit;
+    padding: 0.3rem 0.85rem;
+    border: 1px solid var(--sl-color-gray-3);
+    border-radius: 0.3rem;
+    background: transparent;
+    color: var(--sl-color-white);
+    cursor: pointer;
+  }
+  .flm-ct .ct-bar button:hover:not(:disabled) { background: var(--sl-color-gray-6); border-color: var(--sl-color-gray-2); }
+  .flm-ct .ct-bar button:disabled { opacity: 0.4; cursor: default; }
+  .flm-ct button:focus-visible, .flm-ct [tabindex]:focus-visible { outline: 2px solid var(--bft-gold); outline-offset: 2px; }
+
+  .flm-ct .ct-svg { display: block; width: 100%; height: auto; max-width: 760px; margin: 0 auto; overflow: visible; }
+
+  /* 邊 */
+  .flm-ct .ct-edge { stroke: var(--sl-color-gray-3); stroke-width: 2; }
+  .flm-ct .ct-edge.ct-new { stroke: var(--sl-color-gray-1); stroke-width: 3.2; }
+  .flm-ct .ct-edge.ct-cut { stroke: var(--sl-color-gray-4); stroke-width: 1.6; stroke-dasharray: 4 4; }
+  .flm-ct .ct-note { fill: var(--sl-color-gray-3); font-size: 12px; }
+  .flm-ct .ct-note-new { fill: var(--sl-color-gray-1); font-weight: 600; }
+
+  /* 節點：輸入 0 空心、輸入 1 實心（不用模型色）；故障用紅 */
+  .flm-ct .ct-node circle:first-child { stroke-width: 2; }
+  .flm-ct .ct-node.in0 circle:first-child { fill: var(--sl-color-bg); stroke: var(--sl-color-gray-2); }
+  .flm-ct .ct-node.in1 circle:first-child { fill: var(--sl-color-gray-2); stroke: var(--sl-color-gray-2); }
+  .flm-ct .ct-node.in0 .ct-letter { fill: var(--sl-color-white); }
+  .flm-ct .ct-node.in1 .ct-letter { fill: var(--sl-color-bg); }
+  .flm-ct .ct-node.ctg-plain circle:first-child { fill: var(--sl-color-bg); stroke: var(--sl-color-gray-3); stroke-dasharray: 3 3; }
+  .flm-ct .ct-node.ctg-plain .ct-letter { fill: var(--sl-color-gray-2); }
+  .flm-ct .ct-node.ctg-faulty circle:first-child { fill: var(--bft-fault); stroke: var(--bft-fault); }
+  .flm-ct .ct-node.ctg-faulty .ct-letter { fill: var(--bft-chip-text); }
+  .flm-ct .ct-letter { font-size: 15px; font-weight: 700; pointer-events: none; }
+  .flm-ct .ct-node[data-node][tabindex] { cursor: pointer; outline: none; }
+  .flm-ct .ct-node[data-node]:focus-visible circle:first-child { stroke: var(--bft-gold); stroke-width: 3.5; }
+  .flm-ct .ct-name { fill: var(--sl-color-gray-2); font-size: 12.5px; }
+  .flm-ct .ct-name-faulty { fill: var(--bft-fault); font-weight: 600; }
+  .flm-ct .ct-title { fill: var(--sl-color-gray-2); font-size: 13px; font-weight: 600; }
+
+  /* 金色環：目前滑過／聚焦的節點與它在對方的對應節點；虛線環是鄰居 */
+  .flm-ct .ct-ring-c { fill: none; stroke: var(--bft-gold); stroke-width: 2.5; pointer-events: none; }
+  .flm-ct .ct-ring-nb .ct-ring-c { stroke-width: 1.6; stroke-dasharray: 3 3; }
+
+  /* 目前取出的一組：金色膠囊框 */
+  .flm-ct .ct-cap-o { stroke: var(--bft-gold); stroke-linecap: round; }
+  .flm-ct .ct-cap-i { stroke: var(--sl-color-bg); stroke-linecap: round; }
+  .flm-ct .ct-cap-soft .ct-cap-o { opacity: 0.12; }
+  .flm-ct .ct-cap-soft .ct-cap-i { display: none; }
+  .flm-ct .ct-tag { pointer-events: none; }
+  .flm-ct .ct-tag circle { fill: var(--bft-gold); }
+  .flm-ct .ct-tag text { fill: var(--sl-color-bg); font-size: 11px; font-weight: 700; }
+
+  /* 邊界訊息：S 裡框外送進來的邊，與 G 裡故障節點重播的邊，同色同標籤 */
+  .flm-ct .ct-msg { stroke: var(--bft-fault); stroke-width: 2; stroke-dasharray: 5 4; fill: none; }
+  .flm-ct .ct-arrow-head { fill: var(--bft-fault); }
+  .flm-ct .ct-msg-label { fill: var(--bft-fault); font-size: 12px; font-weight: 600; }
+
+  /* 決定的小圓牌 */
+  .flm-ct .ct-badge { pointer-events: none; }
+  .flm-ct .ct-badge circle { fill: var(--sl-color-bg); stroke: var(--sl-color-gray-3); stroke-width: 1.5; }
+  .flm-ct .ct-badge text { fill: var(--sl-color-gray-2); font-size: 12px; font-weight: 700; }
+  .flm-ct .ct-badge.decq text { fill: var(--sl-color-gray-3); font-weight: 500; }
+  .flm-ct .ct-badge.ct-editable circle { stroke: var(--bft-gold); stroke-dasharray: 2.5 2.5; }
+  .flm-ct .ct-badge.dec0 circle, .flm-ct .ct-badge.dec1 circle { stroke-dasharray: none; }
+
+  .flm-ct .ct-hint { min-height: 2.9em; margin: 0.2rem 0 0.4rem; color: var(--sl-color-gray-3); font-size: var(--sl-text-xs); line-height: 1.6; }
+
+  .flm-ct .ct-legend { display: flex; flex-wrap: wrap; gap: 0.3rem 1rem; margin-bottom: 0.8rem; color: var(--sl-color-gray-3); font-size: var(--sl-text-xs); }
+  .flm-ct .ct-legend > span { display: inline-flex; align-items: center; gap: 0.4em; }
+  .flm-ct .lg { display: inline-block; width: 0.9em; height: 0.9em; border-radius: 50%; box-sizing: border-box; font-style: normal; }
+  .flm-ct .lg-in0 { border: 2px solid var(--sl-color-gray-2); }
+  .flm-ct .lg-in1 { background: var(--sl-color-gray-2); }
+  .flm-ct .lg-faulty { background: var(--bft-fault); }
+  .flm-ct .lg-frame { width: 1.5em; border-radius: 0.5em; border: 2px solid var(--bft-gold); }
+  .flm-ct .lg-dec { width: 1.15em; height: 1.15em; border: 1.5px dashed var(--bft-gold); text-align: center; line-height: 1em; font-size: 0.75em; color: var(--sl-color-gray-3); }
+
+  .flm-ct .lg-tag { width: 1.15em; height: 1.15em; background: var(--bft-gold); color: var(--sl-color-bg); text-align: center; line-height: 1.15em; font-size: 0.72em; font-weight: 700; }
+
+  /* 說明 */
+  .flm-ct .ct-desc { padding-top: 0.7rem; border-top: 1px solid var(--sl-color-hairline); line-height: 1.75; }
+  .flm-ct .ct-h { margin-bottom: 0.35rem; font-size: var(--sl-text-base); font-weight: 700; color: var(--sl-color-white); }
+  .flm-ct .ct-desc p { margin: 0.4rem 0; }
+  .flm-ct .ct-lines { list-style: none; padding: 0; margin: 0.3rem 0; }
+  .flm-ct .ct-lines li { margin: 0.25rem 0; padding: 0; }
+  .flm-ct .ct-result { font-weight: 700; color: var(--sl-color-white); }
+  .flm-ct .ct-verdict { margin-top: 0.6rem; padding-left: 0.7rem; border-left: 3px solid var(--sl-color-gray-4); color: var(--sl-color-gray-2); }
+  .flm-ct .ct-verdict.bad { border-left-color: var(--bft-fault); color: var(--bft-fault); font-weight: 600; }
+
+  /* 串接：三個執行與共用的節點 */
+  .flm-ct .ct-chain { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.6rem; margin: 0.6rem 0; }
+  .flm-ct .ct-chip { display: flex; flex-direction: column; gap: 0.1rem; padding: 0.4rem 0.7rem; border: 1px solid var(--sl-color-gray-4); border-radius: 0.4rem; }
+  .flm-ct .ct-chip.bad { border-color: var(--bft-fault); }
+  .flm-ct .ct-chip em { font-style: normal; color: var(--bft-fault); font-weight: 600; font-size: var(--sl-text-xs); }
+  .flm-ct .ct-chip span { color: var(--sl-color-gray-3); font-size: var(--sl-text-xs); }
+  .flm-ct .ct-link-lbl { color: var(--sl-color-gray-3); font-size: var(--sl-text-xs); }
+
+.flm-ct .ct-name-sub { fill: var(--sl-color-gray-3); font-size: 11.5px; }
+/* 牆：灰色虛線框（不是「目前取出的一組」，所以不用金色） */
+.flm-ct .ct-wall .ct-cap-o { stroke: var(--sl-color-gray-4); stroke-dasharray: 4 5; stroke-linecap: round; }
+.flm-ct .ct-wall .ct-cap-i { stroke: var(--sl-color-bg); stroke-linecap: round; }
+
+.flm-ct [hidden] { display: none !important; }
+.flm-ct .ct-bar2 { margin: 0.2rem 0 0.2rem; font-size: var(--sl-text-xs); color: var(--sl-color-gray-2); gap: 0.4rem 1.2rem; }
+.flm-ct .ct-bar2:not(:has(> :not([hidden]))) { display: none; }
+.flm-ct .ct-sign { display: inline-flex; align-items: center; gap: 0.4em; cursor: pointer; }
+.flm-ct .ct-sign input { accent-color: var(--bft-gold); width: 1.05em; height: 1.05em; }
+.flm-ct .ct-m { display: inline-flex; align-items: center; gap: 0.5em; }
+.flm-ct .ct-m b { min-width: 1.2em; text-align: center; font-variant-numeric: tabular-nums; }
+.flm-ct .ct-bar2 button { padding: 0.05rem 0.55rem; font-size: var(--sl-text-sm); line-height: 1.4; }
+.flm-ct .ct-mult { fill: inherit; font-size: 9.5px; font-weight: 600; pointer-events: none; }
+.flm-ct .ct-node.in0 .ct-mult { fill: var(--sl-color-gray-2); }
+.flm-ct .ct-node.in1 .ct-mult { fill: var(--sl-color-bg); }
+.flm-ct .ct-node.ctg-faulty .ct-mult { fill: var(--bft-chip-text); }
+.flm-ct .ct-node.ctg-plain .ct-mult { fill: var(--sl-color-gray-3); }
+/* 簽章：重播做不到，故障節點送出的邊畫成灰色並打叉 */
+.flm-ct .ct-msg-x { stroke: var(--sl-color-gray-3); }
+.flm-ct .ct-msg-label-x { fill: var(--sl-color-gray-3); font-weight: 500; }
+.flm-ct .ct-x { fill: var(--sl-color-gray-2); font-size: 14px; font-weight: 700; }
+.flm-ct .ct-signnote { border-left-color: var(--sl-color-gray-3); font-weight: 400; }
+.flm-ct .ct-mnote { margin-top: 0.6rem; padding-left: 0.7rem; border-left: 3px solid var(--sl-color-gray-4); color: var(--sl-color-gray-2); }
+
+.flm-ct .ct-edge.ct-path { stroke: var(--sl-color-gray-1); stroke-width: 3.4; }
+
+/* 步進列（StepBar）以外的按鈕列：沒有可見按鈕時整列隱藏；圖左右並排時，標題已在圖旁邊的說明裡，不必在貼頂列重複 */
+.flm-ct .ct-bar:not(:has(> :not([hidden]))) { display: none; }
+.flm-ct[data-mode='wide'] .sb-title { display: none; }

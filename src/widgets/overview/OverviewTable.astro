@@ -1,0 +1,54 @@
+---
+/**
+ * 模型總覽的完整表格，資料來自 src/data/overview.ts（與 OverviewMatrix 共用）。
+ * 每個條目一個 <tbody id="ov-row-N">（矩陣的格子連到這個錨點；被連到時整個條目標亮），
+ * 裡面兩行：第一行放短欄位（#、時序、密碼學假設、確定性、問題），
+ * 第二行「容錯上界」占滿整行。這樣最重要的一欄不會被擠到螢幕外，也不需要橫向捲動。
+ * 框寬小於 34rem（手機、側欄打開的窄視窗）時，第一行改成「小標＋值」的流式排列。
+ * 樣式在 custom.css 的「模型總覽表」一節。
+ */
+import { overviewRows, overviewRowsEn, matrixTimingLabelEn } from '../../data/overview';
+import { renderInline } from '../../lib/inline-math';
+
+const en = Astro.locals.starlightRoute.lang?.startsWith('en');
+const L = (zh: string, e: string) => (en ? e : zh);
+const timingLabel = { sync: '同步', partial: '部分同步', async: '非同步' } as const;
+---
+
+<div class="bft-overview-table">
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>{L('時序', 'Timing')}</th>
+        <th>{L('密碼學假設', 'Crypto assumption')}</th>
+        <th>{L('確定性', 'Determinism')}</th>
+        <th>{L('問題', 'Problem')}</th>
+      </tr>
+    </thead>
+    {
+      overviewRows.map((r0) => { const r = en ? { ...r0, ...overviewRowsEn[r0.id] } : r0; return (
+        <tbody id={`ov-row-${r.id}`} class="ov-entry">
+          <tr class="ov-main">
+            <td data-label={L('列', 'Row')}>{r.id}</td>
+            <td data-label={L('時序', 'Timing')}>
+              <span class="bft-timing" data-timing={r.timing}>
+                {en ? matrixTimingLabelEn[r.timing] : timingLabel[r.timing]}
+              </span>
+            </td>
+            <td data-label={L('密碼學假設', 'Crypto assumption')} set:html={renderInline(r.crypto)} />
+            <td data-label={L('確定性', 'Determinism')} set:html={renderInline(r.determinism)} />
+            <td data-label={L('問題', 'Problem')} set:html={renderInline(r.problem)} />
+          </tr>
+          <tr class="ov-bound">
+            <td colspan="5">
+              <span class="ov-label">{L('容錯上界', 'Resilience bound')}</span>
+              {r.strong && <strong>{r.strong}</strong>}
+              <Fragment set:html={renderInline(r.bound)} />
+            </td>
+          </tr>
+        </tbody>
+      ); })
+    }
+  </table>
+</div>

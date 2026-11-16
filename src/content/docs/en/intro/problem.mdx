@@ -1,0 +1,197 @@
+---
+title: Byzantine Problems and Their Properties
+description: "Precise definitions of Byzantine Broadcast, Byzantine Agreement and state machine replication, a comparison of the names of validity versions, and the distinction between safety and liveness."
+takeaway: "Byzantine Broadcast (BB), Byzantine Agreement (BA) and state machine replication (SMR) are three different problems. The properties of each are either safety (the bad thing never happens) or liveness (the good thing eventually happens), and different timing models guarantee the two kinds differently."
+symbols:
+  t: Number of faulty nodes (DLS, Fitzi–Garay and others write t, the same as f on this site)
+sidebar:
+  order: 3
+  badge:
+    text: Draft
+    variant: caution
+---
+
+import Term from '../../../../components/Term.astro';
+import Cite from '../../../../components/Cite.astro';
+import Check from '../../../../components/Check.astro';
+import References from '../../../../components/References.astro';
+import Sidenote from '../../../../components/Sidenote.astro';
+
+<details>
+<summary>Verification status: Draft (open to read)</summary>
+
+The Chinese version of this page is verified; this English translation has not yet been reviewed by a person, so it is labeled Draft.
+
+</details>
+
+Every later chapter says "protocol P solves problem X". This page spells out X: it first fixes the shared setting and the two kinds of properties, then introduces the single-decision problems (<Term id="bb">BB</Term> and <Term id="ba">BA</Term>) and the ongoing services (broadcast and <Term id="smr">SMR</Term>), and finally explains how they relate.
+
+## 1. Setting
+
+There are $n$ nodes, at most $f$ of which are <Term id="byzantine" /> (they may deviate from the protocol arbitrarily and collude), and the rest are called <Term id="honest" /> (see [What Is Byzantine?](/en/intro/byzantine/)). Honest nodes follow the protocol exactly. All properties constrain only the behavior of honest nodes, so the text always says "all honest nodes" and never drops the word "honest".
+
+## 2. Safety and Liveness
+
+Every property of the problems below is labeled as one of these two kinds. The formal definitions come from Alpern and Schneider (<Cite id="alpern1985" />), who say that the two notions were first described by Lamport in 1977:
+
+- **<Term id="safety">Safety</Term>**: the bad thing never happens (<Term id="agreement">Agreement</Term>, Total order, and the "never outputs an illegal value" part of <Term id="validity">Validity</Term>). Formally, if a property is violated in an execution, there is a **finite prefix** in which the bad thing has already happened and cannot be undone.
+- **<Term id="liveness">Liveness</Term>**: the good thing eventually happens (Termination, a request is eventually committed). Formally, **every finite prefix can still be extended to an execution that satisfies the property**; that is, no finite prefix can prove that liveness is violated, and you have to look at an infinite execution to decide.
+
+They also prove that **every property is the intersection of some safety property and some liveness property**. So splitting a protocol's requirements into a safety part and a liveness part is not just a habit; it can always be done.
+
+This distinction is the main thread of the whole site because different models guarantee the two differently. When designing <Term id="psync">partially synchronous</Term> protocols, we require safety to hold no matter how messages are delayed, while liveness is guaranteed only after <Term id="gst" />. In the <Term id="async">asynchronous</Term> model, a deterministic protocol cannot guarantee both (FLP). The safety of a <Term id="sync">synchronous</Term> protocol depends on $\Delta$. The full comparison of the models is on the [next page](/en/intro/models/).
+
+### How Termination is written depends on the protocol
+
+Termination of a deterministic protocol is "every honest node eventually outputs". Randomization is the standard way around FLP, and an asynchronous randomized protocol cannot guarantee termination within a fixed number of steps, so Termination becomes:
+
+- terminates with probability 1;
+- and states the **expected** number of (asynchronous) rounds or messages.
+
+Terminating with probability 1 does not mean there is a worst-case bound: an individual execution can take arbitrarily long. So "expected $O(1)$ rounds" and "bounded number of rounds in the worst case" are different statements and must not be mixed. A bound like $O(f)$ rounds in the worst case is how deterministic protocols are described, for example synchronous deterministic protocols.
+
+<Check q="Is Termination a safety or a liveness property?">
+Liveness. Any finite prefix of an execution can still be extended to one in which every honest node eventually outputs, so no finite prefix can prove that Termination is violated; to decide a violation you have to look at an infinite execution. That is exactly the formal definition of liveness. By contrast, once Agreement is violated (two honest nodes output different values), the damage is already irreversible at some finite point in time, so it is safety.
+</Check>
+
+## 3. Single-decision problems: BB and BA
+
+### Byzantine Broadcast (BB)
+
+A designated sender $s$ holds an input $v$. Every honest node outputs a value.
+
+- **Agreement** (safety): any two honest nodes output the same value.
+- **Validity** (safety): if $s$ is honest, all honest nodes output $v$.
+- **Termination** (liveness): all honest nodes eventually output.
+
+This is the "commander" version of Lamport–Shostak–Pease (they call the two conditions of interactive consistency IC1 and IC2; <Cite id="lsp1982" />).
+
+### Byzantine Agreement (BA)
+
+Each node $i$ holds an input $v_i$.
+
+- **Agreement** and **Termination**: as above.
+- **Validity**: there are several versions of different strength, and **papers do not name them consistently**; see the next section.
+
+:::caution
+The version of validity changes the boundary of what is solvable. When stating a fault-tolerance bound, always say which validity is meant.
+:::
+
+### Names of the validity conditions
+
+Validity is a relation between outputs and inputs, and papers choose differently; even the names strong and weak are used for different conditions. To keep the later discussion unambiguous, this site labels each condition with a letter and then lists what each paper calls it.
+
+**Four conditions** ("input" always means each node's own initial value):
+
+| # | <span class="bft-nowrap">Condition</span> | Name on this site |
+| --- | --- | --- |
+| A | If the inputs of all honest nodes are $v$, honest nodes output $v$ | *Strong validity* |
+| B | If the execution has **no faults at all** (all nodes are honest) and all inputs are $v$, the output is $v$ | *Weak validity* |
+| C | The output must be **the input of some honest node** | *Correct-input validity* |
+| D | The output must satisfy an externally checkable predicate | *External validity* |
+
+**Strength relations.** C implies A, and A implies B: when all honest inputs are equal, C requires the output to be some honest input, which can only be that $v$; when there are no faults, all nodes are honest, so the premise of A holds. The converse does not hold: with only two possible input values A and C coincide, but with a larger domain A allows outputting a default value when the inputs disagree, and C does not. D is incomparable with A, B and C.
+
+**What each paper calls them**:
+
+| <span class="bft-nowrap">Condition</span> | Papers and terms |
+| --- | --- |
+| A | DLS calls it *strong unanimity* (<Cite id="dls1988" />); FLM calls it *Validity* (<Cite id="flm1986" />); Fitzi–Garay call the standard version *Validity* (<Cite id="fitzi2003" />); CKS calls it *Validity* and says this is "the usual definition in the literature" (<Cite id="cks2000" />); Civit et al. call it *Strong Validity* (<Cite id="civit2023" />); **VABA calls it *Weak validity* and cites Dolev–Strong as the source** (<Cite id="vaba2019" />; the Dolev–Strong paper itself is in the BB setting, so the attribution here is VABA's) |
+| B | Lamport's *weak Byzantine generals problem* (<Cite id="lamport1983" />); FLM's *weak agreement* (<Cite id="flm1986" />); DLS calls it *weak unanimity* (<Cite id="dls1988" />); Civit et al. call it *Weak Validity* |
+| C | Neiger calls it *Strong Validity*, defined in the synchronous-round model as "the output is the initial value of some honest node" (<Cite id="neiger1994" />); Fitzi–Garay keep this name (<Cite id="fitzi2003" />); Civit et al. call it *Correct-Proposal Validity* (<Cite id="civit2023" />) |
+| D | Cachin–Kursawe–Petzold–Shoup introduced *External validity*: the decided value must satisfy a global, polynomial-time computable predicate $Q$ known to all nodes and determined by the application (<Cite id="ckps2001" />, Definition 4); VABA keeps this name (<Cite id="vaba2019" />). CKS 2000 already had a precursor: they point out that initial values can carry verification data (for example a digital <Term id="signature">signature</Term>), so that honest nodes can only decide a value that has matching verification data, and therefore may decide 1 even if all honest nodes started with 0 (<Cite id="cks2000" />, the paragraph on Validity), but they did not name it. Civit et al. mention the notion but state that it is outside their scope (<Cite id="civit2023" />). Fitzi–Garay describe it more loosely (the output is a value proposed by some node, not necessarily an honest one); this site follows the predicate version of CKPS. |
+
+**Things to watch for when reading papers:**
+
+1. **The names of A and B may be reversed across the literature.** Most theory papers (DLS, FLM, Lamport, Civit and others) call A strong and B weak, but VABA calls A weak validity. When you read weak or strong, look at how it is defined rather than trusting the name.
+2. **C is stronger than A, not weaker than B.** Some secondary summaries call "the output must be the input of an honest node" weak validity, the opposite of the original usage: Neiger and Fitzi–Garay call it *Strong Validity*. **Note that the word strong also clashes here**: the Strong Validity of Civit et al. is A, and they call C Correct-Proposal Validity.
+3. **The "no faults" in B is a property of the execution.** Honest nodes do not know in advance whether this execution has faults, and they must still satisfy Agreement and Termination.
+4. **"Weak" does not mean more lenient fault tolerance.** Lamport proves that B still requires $n\ge 3f+1$ without signatures (the abstract says the number of tolerated faults must be less than one third, <Cite id="lamport1983" />).
+5. **The setting of B varies across papers.** Lamport and FLM use a version with a commander (BB type), while DLS uses a version in which every node has an input (BA type).
+6. **The difference between C and A changes the fault-tolerance bound.** Fitzi–Garay prove that strong <Term id="consensus">consensus</Term> (condition C) needs $n>\max(3,m)t$ (unconditional) or $n>mt$ (with signatures) in the synchronous model, where $m$ is the size of the value domain (<Cite id="fitzi2003" />). For binary values C and A coincide.
+7. **Blockchain protocols mostly use D.** Inputs come from different clients, so "everyone has the same input" almost never happens, and A guarantees nothing when inputs differ (the discussion in VABA: A allows outputting a default value or a value proposed by a Byzantine node).
+8. **The nontriviality of FLP is none of the above.** FLP only requires that both values are *possible* decision values (for different initial configurations) and does not call it validity (<Cite id="flp1985" />); it only rules out the trivial solution that always outputs the same value, and has no restriction to fault-free executions.
+
+<Sidenote title="Terminology differs across papers: DLS">
+The strong unanimity of DLS is conditioned on "all initial values are $v$", which is worded differently from "the inputs of all honest nodes"; when reading the original, check how it defines initial values. In addition, DLS points out that in the synchronous model with signatures, strong unanimity tolerating any number of faults is possible only when one sender signs the initial value, which is in fact the BB setting (<Cite id="dls1988" />).
+</Sidenote>
+
+## 4. Ongoing services: broadcast and SMR
+
+BB and BA both "decide once". Real systems keep receiving requests, so there are the following primitives.
+
+### Reliable Broadcast and Atomic Broadcast
+
+The following is Chandra–Toueg's formulation for the crash model (<Cite id="chandra1996" />); they say the Byzantine version was defined by Bracha–Toueg (<Cite id="bt1985" />).
+
+- **Reliable Broadcast**:
+  - *Validity* (liveness): if an honest sender broadcasts $m$, it eventually delivers $m$.
+  - *Agreement* (liveness): if some honest node delivers $m$, then all honest nodes eventually deliver $m$.
+  - *Uniform Integrity* (safety): every message is delivered at most once, and only if its sender really broadcast it.
+- **Atomic Broadcast (also called Total Order Broadcast)**: Reliable Broadcast plus *Total order* (safety): if two honest nodes both deliver $m$ and $m'$, they deliver the two messages in the same order.
+
+Note that the *Agreement* here contains "eventually", so it is liveness, unlike the Agreement of BB and BA (any two honest nodes output the same value, which is safety): the name is the same but the kind of property differs.
+
+The two differ in **order**: Reliable Broadcast only guarantees that everyone receives the same set of messages, while Atomic Broadcast also guarantees the same order. The Agreement and Total order of Atomic Broadcast together say "all honest nodes deliver the same sequence", which is SMR.
+
+### State Machine Replication (SMR)
+
+Nodes keep receiving client requests, and each outputs a sequence of requests (a log). The formulation adopted here follows Sync HotStuff (<Cite id="synchs2020" />):
+
+- **Safety (Total order)**: no two honest nodes commit different values at the same log position. If nodes commit in order of position, this is equivalent to "the logs of any two honest nodes are prefixes of each other".
+- **Liveness**: every client request is eventually committed by all honest nodes.
+
+For a request to be committed, it must at least reach one honest node; the requirements on clients differ across protocols (see the table below). SMR can be obtained by running BA repeatedly, but its efficiency and proof techniques differ a lot across models. The DAG protocols later are designed directly at the SMR level instead of calling single-shot BA repeatedly.
+
+**Different formulations of SMR.** The term "SMR" is written as different properties in different papers; the table lists how some papers state it:
+
+| Paper | Safety formulation | Liveness formulation |
+| --- | --- | --- |
+| Schneider (<Cite id="schneider1990" />) | *Order*: every non-faulty replica processes the requests it receives in the same relative order | *Agreement*: every non-faulty replica receives every request (this constrains how clients send requests to replicas) |
+| Chandra–Toueg Atomic Broadcast (<Cite id="chandra1996" />) | *Total order*, *Uniform Integrity* | *Validity* (a message broadcast by an honest sender is eventually delivered), *Agreement* (if some honest node delivers, all honest nodes eventually deliver) |
+| PBFT (<Cite id="pbft2002" />) | A kind of linearizability (the definition modified for Byzantine clients) | A client eventually receives a reply to its request (under the weak synchrony assumption $\mathrm{delay}(t)=o(t)$) |
+| Sync HotStuff (<Cite id="synchs2020" />) | Non-faulty replicas do not commit different values at the same log position | Every client request is eventually committed by all non-faulty replicas |
+| HotStuff (<Cite id="hotstuff2019" />) | (given in the safety proof of the protocol) | The client sends the command to **all** replicas and waits for $f+1$ replies |
+
+The differences are mainly in three places: whether safety is written in terms of "log positions", "order" or linearizability; whether liveness counts the behavior of clients (resending, how many nodes to send to); and that PBFT includes the reply in the specification while other protocols speak only of the log. This site adopts the Sync HotStuff formulation because it is closest to the log model used later.
+
+## 5. Relations between the problems
+
+Consensus is a general term that the literature uses for any of the problems above; this site says consensus when speaking generally and always writes BB, BA or SMR when being precise. There are reductions among them, but whether they are equivalent depends on the model and the validity, and cannot be said in general:
+
+| <span class="bft-nowrap">Relation</span> | Construction | Conditions and caveats |
+| --- | --- | --- |
+| <span class="bft-nowrap">BB → BA</span> | Each node broadcasts its input with one BB ($n$ BBs in parallel), then applies the same decision function (for example majority) to the whole vector received | Synchronous model. To get strong validity (condition A) the honest nodes must be a majority ($f<n/2$). This is the interactive consistency construction (<Cite id="psl1980" />) |
+| <span class="bft-nowrap">BA → BB</span> | The sender first sends $v$ to all nodes, and each node runs BA with the value it received as input | Synchronous model, one extra round. If the sender is faulty, the Agreement of BA still guarantees identical outputs; if the sender is honest, all honest nodes have the same input $v$, and strong validity gives $v$. **Does not hold in the asynchronous model**: when the sender is faulty nobody may receive a value, and Termination cannot be guaranteed |
+| <span class="bft-nowrap">BA → SMR</span> | Run one BA per log position to decide the content of that position | Needs a version such as external validity so that the output is a legal request |
+| <span class="bft-nowrap">SMR → BA</span> | Each node submits its input as a request, and the decision is the first legal value in the log | Same as above. Chandra–Toueg prove that in the asynchronous crash model atomic broadcast and consensus reduce to each other; a footnote in that paper says they are also equivalent in the Byzantine model but omits the proof (<Cite id="chandra1996" />) |
+| <span class="bft-nowrap"><Term id="rbc">RBC</Term></span> | Not equivalent; weaker than BB/BA | RBC can be solved by a deterministic protocol in the asynchronous model (such as Bracha), but when the sender is faulty it does not guarantee that anyone outputs; BA cannot be achieved by a deterministic algorithm in the same model |
+
+Two more points:
+
+- **The fault-tolerance bounds are not necessarily the same.** For example, in the synchronous model with signatures, BB can tolerate any $f$, but binary BA (without a designated sender) can only tolerate $f<n/2$ (see row 3 of the [model overview](/en/impossibility/overview/)). So "BB and BA can be reduced to each other" does not mean they have the same fault-tolerance ratio in every model.
+- **The names themselves are ambiguous.** The Byzantine Generals problem of Lamport–Shostak–Pease has a commander giving the order, which is strictly the BB setting; while Byzantine Agreement today mostly means BA in which each node has its own input. When reading a paper, check which one it actually defines.
+
+## Model card on later pages
+
+A <Term id="bft">BFT</Term> result holds only in a specific model. Every protocol page on this site shows the following model card, so that readers can look at the card first and then decide whether to read on. The fields are explained on these pages:
+
+| Field | Content | Which page |
+| --- | --- | --- |
+| Faults | crash / Byzantine, static / adaptive | [What Is Byzantine?](/en/intro/byzantine/) |
+| Problem | BB / BA / SMR | This page |
+| Timing | synchronous / partially synchronous / asynchronous | [Three Timing Models](/en/intro/models/) |
+| Cryptographic assumption, determinism | no signatures / signatures / threshold signatures + coin; deterministic / randomized | [Cryptographic Assumptions and Determinism](/en/intro/crypto/) |
+
+## Summary
+
+When stating any result, you should be able to answer these four questions:
+
+1. Which problem (BB, BA, SMR)? Which validity (which of A to D)?
+2. Which model (timing, cryptographic assumption, faults)?
+3. Is the guarantee safety or liveness? Is it unconditional or does it depend on assumptions?
+4. What are the unit and the setting of the complexity?
+
+## References
+
+<References />

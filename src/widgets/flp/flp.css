@@ -1,0 +1,158 @@
+/* FLP 互動圖（三個元件）共用的樣式。顏色規則見 design.md §顏色系統：價態用形狀；紅色只給矛盾；金色給選中與控制。 */
+.flp-fig {
+  margin: 1.5rem 0;
+  padding: 0.9rem 1rem 1rem;
+  border: 1px solid var(--sl-color-hairline);
+  border-radius: 0.5rem;
+  background: var(--sl-color-bg);
+  color: var(--sl-color-gray-1);
+  font-size: var(--sl-text-sm);
+}
+.flp-fig :is(h4, p, ul) { margin: 0; }
+.flp-fig [hidden] { display: none !important; }
+
+/* 控制列 */
+.flp-fig .fp-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem; }
+.flp-fig .fp-sp { flex: 1; }
+.flp-fig .fp-bar button, .flp-fig .fp-bar select {
+  font: inherit;
+  padding: 0.3rem 0.85rem;
+  border: 1px solid var(--sl-color-gray-3);
+  border-radius: 0.3rem;
+  background: transparent;
+  color: var(--sl-color-white);
+  cursor: pointer;
+}
+.flp-fig .fp-bar select { color: var(--sl-color-gray-1); background: var(--sl-color-bg); }
+.flp-fig .fp-bar button:hover:not(:disabled) { background: var(--sl-color-gray-6); border-color: var(--sl-color-gray-2); }
+/* 主要動作「下一步」：實心金；金色在圖內只留給「可以點的主要動作」與選中 */
+.flp-fig .fp-bar button:disabled { opacity: 0.4; cursor: default; }
+.flp-fig .fp-bar button[aria-pressed='true'] { background: var(--sl-color-accent-low); font-weight: 700; }
+.flp-fig .fp-bar2 { margin: 0.2rem 0 0.2rem; font-size: var(--sl-text-xs); color: var(--sl-color-gray-2); gap: 0.4rem 1.2rem; }
+.flp-fig .fp-bar2 button, .flp-fig .fp-bar2 select { padding: 0.15rem 0.6rem; font-size: var(--sl-text-xs); }
+.flp-fig .fp-bar2 b { min-width: 1.2em; text-align: center; font-variant-numeric: tabular-nums; }
+.flp-fig .fp-bar2 label { display: inline-flex; align-items: center; gap: 0.5em; }
+.flp-fig button:focus-visible, .flp-fig select:focus-visible, .flp-fig [tabindex]:focus-visible { outline: 2px solid var(--bft-gold); outline-offset: 2px; }
+
+.flp-fig .fp-svg { display: block; width: 100%; height: auto; max-width: 760px; margin: 0 auto; overflow: visible; }
+
+/* 價態符號：空心 0、實心 1、左空右實＝bivalent、虛線＝未標 */
+.flp-fig .fv-ring { fill: var(--sl-color-bg); stroke: none; }
+.flp-fig .fv-edge { fill: none; stroke: var(--sl-color-gray-2); stroke-width: 2; }
+.flp-fig .fv1 .fv-ring { fill: var(--sl-color-gray-2); }
+.flp-fig .fvB .fv-half { fill: var(--sl-color-gray-2); stroke: none; }
+.flp-fig .fvq .fv-edge { stroke: var(--sl-color-gray-3); stroke-dasharray: 3 3; }
+.flp-fig .fv-t { font-size: 14px; font-weight: 700; fill: var(--sl-color-white); pointer-events: none; }
+.flp-fig .fv1 .fv-t { fill: var(--sl-color-bg); }
+.flp-fig .fvq .fv-t { fill: var(--sl-color-gray-3); font-weight: 500; }
+.flp-fig .fv-bad .fv-edge { stroke: var(--bft-fault); stroke-width: 3; }
+
+/* 可點的節點 */
+.flp-fig [data-hit] { cursor: pointer; outline: none; }
+.flp-fig [data-hit]:focus-visible .fv-edge { stroke: var(--bft-gold); stroke-width: 3.5; }
+.flp-fig .fp-ring { fill: none; stroke: var(--bft-gold); stroke-width: 2.5; pointer-events: none; }
+.flp-fig .fp-cap { fill: none; stroke: var(--bft-gold); stroke-width: 2.2; stroke-linecap: round; pointer-events: none; }
+
+/* 箭頭與線 */
+.flp-fig .fp-arrow line { stroke: var(--sl-color-gray-3); stroke-width: 2; }
+.flp-fig .fp-arrow polygon { fill: var(--sl-color-gray-3); }
+.flp-fig .fp-arrow.fp-bad line { stroke: var(--bft-fault); stroke-width: 3; }
+.flp-fig .fp-arrow.fp-bad polygon { fill: var(--bft-fault); }
+.flp-fig .fp-link { stroke: var(--sl-color-gray-4); stroke-width: 1.6; stroke-dasharray: 3 4; }
+.flp-fig .fp-elabel { fill: var(--sl-color-gray-2); font-size: 12.5px; font-style: italic; }
+.flp-fig .fp-elabel.fp-new { fill: var(--sl-color-gray-1); font-weight: 600; }
+.flp-fig .fp-elabel.fp-bad { fill: var(--bft-fault); font-weight: 600; font-style: normal; }
+.flp-fig .fp-note { fill: var(--sl-color-gray-3); font-size: 12px; }
+.flp-fig .fp-note.fp-bad { fill: var(--bft-fault); font-weight: 600; }
+.flp-fig .fp-name { fill: var(--sl-color-gray-2); font-size: 12.5px; }
+.flp-fig .fp-name.fp-sel { fill: var(--bft-gold); font-weight: 700; }
+.flp-fig .fp-cloud { fill: none; stroke: var(--sl-color-gray-4); stroke-width: 1.6; stroke-dasharray: 5 5; }
+.flp-fig .fp-cloud-t { fill: var(--sl-color-gray-3); font-size: 12px; }
+.flp-fig .fp-x { fill: var(--bft-fault); font-size: 18px; font-weight: 700; }
+
+/* 圖 A：輸入與時間軸 */
+.flp-fig .fa-in { fill: var(--sl-color-bg); stroke: var(--sl-color-gray-2); stroke-width: 1.5; }
+.flp-fig .fa-in.one { fill: var(--sl-color-gray-2); }
+.flp-fig .fa-in.diff { stroke: var(--bft-gold); stroke-width: 2.5; }
+.flp-fig .fa-lane { stroke: var(--sl-color-gray-4); stroke-width: 1.4; }
+.flp-fig .fa-lane.stopped { stroke-dasharray: 4 5; }
+.flp-fig .fa-ev { fill: var(--sl-color-bg); stroke: var(--sl-color-gray-2); stroke-width: 1.6; }
+.flp-fig .fa-panel { fill: none; stroke: var(--sl-color-hairline); stroke-width: 1; }
+.flp-fig .fa-panel.bad { stroke: var(--bft-fault); stroke-width: 2; }
+.flp-fig .fa-bit { fill: var(--sl-color-gray-3); }
+.flp-fig .fa-bit.diff { fill: var(--bft-gold); font-weight: 700; }
+
+/* 圖 C：階段 */
+.flp-fig .fc-col { fill: var(--sl-color-gray-6, transparent); opacity: 0.5; }
+.flp-fig .fc-colh { fill: var(--sl-color-gray-3); font-size: 11.5px; }
+.flp-fig .fc-ev { fill: var(--sl-color-bg); stroke: var(--sl-color-gray-3); stroke-width: 1.4; }
+.flp-fig .fc-ev.head { stroke: var(--bft-gold); stroke-width: 2.4; }
+.flp-fig .fc-evt { fill: var(--sl-color-gray-2); font-size: 9.5px; pointer-events: none; }
+.flp-fig .fc-evt.head { fill: var(--sl-color-gray-1); font-weight: 600; }
+.flp-fig .fc-dot { fill: var(--sl-color-gray-3); }
+.flp-fig .fc-now { stroke: var(--bft-gold); stroke-width: 2; stroke-linecap: round; }
+
+.flp-fig .fp-hint { min-height: 2.6em; margin: 0.2rem 0 0.4rem; color: var(--sl-color-gray-3); font-size: var(--sl-text-xs); line-height: 1.6; }
+.flp-fig .fp-legend { display: flex; flex-wrap: wrap; gap: 0.3rem 1rem; margin-bottom: 0.8rem; color: var(--sl-color-gray-3); font-size: var(--sl-text-xs); }
+.flp-fig .fp-legend > span { display: inline-flex; align-items: center; gap: 0.4em; }
+.flp-fig .lg { display: inline-block; width: 0.95em; height: 0.95em; border-radius: 50%; box-sizing: border-box; border: 2px solid var(--sl-color-gray-2); }
+.flp-fig .lg-0 { background: var(--sl-color-bg); }
+.flp-fig .lg-1 { background: var(--sl-color-gray-2); }
+.flp-fig .lg-b { background: linear-gradient(90deg, var(--sl-color-bg) 50%, var(--sl-color-gray-2) 50%); }
+.flp-fig .lg-q { border-style: dashed; border-color: var(--sl-color-gray-3); background: var(--sl-color-bg); }
+.flp-fig .lg-gold { border-color: var(--bft-gold); background: var(--sl-color-bg); }
+.flp-fig .lg-bad { border-color: var(--bft-fault); background: var(--sl-color-bg); }
+
+/* 說明 */
+.flp-fig .fp-desc { padding-top: 0.7rem; border-top: 1px solid var(--sl-color-hairline); line-height: 1.75; }
+.flp-fig .fp-h { margin-bottom: 0.35rem; font-size: var(--sl-text-base); font-weight: 700; color: var(--sl-color-white); }
+.flp-fig .fp-desc p { margin: 0.4rem 0; }
+.flp-fig .fp-result { margin-top: 0.6rem; padding-left: 0.7rem; border-left: 3px solid var(--sl-color-gray-4); color: var(--sl-color-gray-1); font-weight: 600; }
+.flp-fig .fp-result.bad { border-left-color: var(--bft-fault); color: var(--bft-fault); }
+.flp-fig .fp-rows { list-style: none; padding: 0; margin: 0.5rem 0 0; display: grid; gap: 0.35rem; }
+.flp-fig .fp-chips { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.15rem; }
+.flp-fig .fp-chip { padding: 0 0.55em; border: 1px solid var(--sl-color-gray-4); border-radius: 1em; font-size: var(--sl-text-xs); color: var(--sl-color-gray-2); }
+.flp-fig .fp-chip.bad { border-color: var(--bft-fault); color: var(--bft-fault); font-weight: 600; }
+.flp-fig .fp-chip.head { border-color: var(--bft-gold); color: var(--sl-color-gray-1); font-weight: 600; }
+.flp-fig .fp-k { color: var(--sl-color-gray-3); font-size: var(--sl-text-xs); margin-right: 0.5em; }
+
+/* 證明裡的小標籤（FlpCheck） */
+.flp-check { display: inline-block; max-width: 100%; margin-inline-start: 0.5em; padding: 0 0.5em; border: 1px solid var(--sl-color-gray-4); border-radius: 0.8em; font-size: 0.78em; font-weight: 500; line-height: 1.5; white-space: normal; vertical-align: baseline; color: var(--sl-color-gray-2); }
+.flp-check[hidden] { display: none; }
+.flp-check.bad { border-color: var(--bft-fault); color: var(--bft-fault); font-weight: 700; }
+
+/* v2：大字結論、淡出、線條樣式、世界與卡片、未定區 */
+.flp-fig .fp-dim { opacity: 0.3; }
+.flp-fig .fp-arrow.k-e line { stroke: var(--sl-color-gray-1); stroke-width: 3.8; }
+.flp-fig .fp-arrow.k-e polygon { fill: var(--sl-color-gray-1); }
+.flp-fig .fp-arrow.k-ep line { stroke: var(--sl-color-gray-2); stroke-width: 2; }
+.flp-fig .fp-arrow.k-ep polygon { fill: var(--sl-color-gray-2); }
+.flp-fig .fp-arrow.k-sig line { stroke: var(--sl-color-gray-2); stroke-width: 2.4; stroke-dasharray: 7 5; }
+.flp-fig .fp-arrow.k-sig polygon { fill: var(--sl-color-gray-2); }
+.flp-fig .fp-arrow.fp-new line { stroke: var(--bft-gold); }
+.flp-fig .fp-arrow.fp-new polygon { fill: var(--bft-gold); }
+.flp-fig .fp-arrow.fp-bad line { stroke: var(--bft-fault); }
+.flp-fig .fp-arrow.fp-bad polygon { fill: var(--bft-fault); }
+.flp-fig .fp-elabel.k { font-size: 13px; }
+.flp-fig .lg-line { display: inline-block; width: 2.2em; height: 0; border-top: 2px solid var(--sl-color-gray-1); }
+.flp-fig .lg-line.k-e { border-top-width: 4px; }
+.flp-fig .lg-line.k-sig { border-top-style: dashed; }
+.flp-fig .lg-dot { display: inline-block; width: 0.95em; height: 0.95em; border-radius: 50%; background: var(--bft-gold); }
+.flp-fig .lg-danger { display: inline-block; width: 2em; height: 0; border-top: 2px dashed var(--sl-color-gray-3); }
+.flp-fig .fw-tok { fill: var(--sl-color-bg); stroke: var(--sl-color-gray-2); stroke-width: 2; }
+.flp-fig .fw-tok.sleep { stroke: var(--bft-fault); stroke-dasharray: 4 3; }
+.flp-fig .fw-t { fill: var(--sl-color-white); font-size: 14px; font-weight: 700; pointer-events: none; }
+.flp-fig .fw-t.sleep { fill: var(--bft-fault); }
+.flp-fig .fw-wall { stroke: var(--sl-color-gray-3); stroke-width: 1.6; stroke-dasharray: 5 5; }
+.flp-fig .fa-card { fill: none; stroke: var(--sl-color-gray-4); stroke-width: 1.2; }
+.flp-fig .fa-in.big { stroke-width: 2; }
+.flp-fig .fp-strong { fill: var(--sl-color-gray-1); font-weight: 700; }
+.flp-fig .fc-zone { fill: none; stroke: var(--sl-color-gray-4); stroke-width: 1.4; }
+.flp-fig .fc-band { fill: var(--sl-color-gray-6, transparent); stroke: var(--sl-color-gray-3); stroke-width: 1.4; stroke-dasharray: 6 5; opacity: 0.55; }
+.flp-fig .fc-path { fill: none; stroke: var(--sl-color-gray-1); stroke-width: 2.6; }
+.flp-fig .fc-danger { stroke: var(--sl-color-gray-3); stroke-width: 1.8; stroke-dasharray: 5 4; fill: none; }
+.flp-fig .fc-dx { fill: var(--sl-color-gray-2); font-size: 14px; font-weight: 700; }
+.flp-fig .fc-turn { fill: var(--bft-gold); }
+.flp-fig .fc-wait { fill: var(--sl-color-gray-4); }
+.flp-fig .fc-rowline { stroke: var(--sl-color-hairline); stroke-width: 1; }
+.flp-fig .fp-toggle[aria-pressed='true'] { background: var(--sl-color-accent-low); font-weight: 700; }

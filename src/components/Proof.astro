@@ -1,0 +1,49 @@
+---
+import { renderInline } from '../lib/inline-math';
+const lang = Astro.locals.starlightRoute.lang?.startsWith('en') ? 'en' : 'zh';
+const L = (zh: string, en: string) => (lang === 'en' ? en : zh);
+/**
+ * 證明區塊。結尾自動加 ∎。
+ * assumes：這段證明依賴的假設（一行），逼自己標明每個證明靠什麼成立。
+ */
+interface Props {
+  assumes?: string;
+}
+const { assumes } = Astro.props;
+---
+
+<div class="proof">
+  <p class="proof-head">
+    <strong>{L('證明.', 'Proof.')}</strong>
+    {assumes && <span class="proof-assumes">{L('依賴：', 'Depends on: ')}<Fragment set:html={renderInline(assumes)} /></span>}
+  </p>
+  <div class="proof-body"><slot /></div>
+</div>
+
+<style>
+  .proof {
+    margin: 0.75rem 0 1.75rem;
+    padding-left: 1rem;
+    border-left: 2px dashed var(--sl-color-gray-4);
+  }
+  .proof-head { margin: 0 0 0.3rem; }
+  .proof-assumes {
+    margin-left: 0.5rem;
+    font-size: var(--sl-text-sm);
+    color: var(--sl-color-gray-3);
+  }
+  .proof-body :global(> :first-child) { margin-top: 0; }
+  .proof-body :global(> :last-child) { margin-bottom: 0; }
+  /* ∎ 接在最後一行的行尾右側，不再單獨佔一行掛在最右邊 */
+  .proof-body :global(> :last-child)::after {
+    content: '∎';
+    float: right;
+    margin-inline-start: 1em;
+    color: var(--sl-color-gray-3);
+  }
+  .proof-body::after {
+    content: '';
+    display: block;
+    clear: both;
+  }
+</style>

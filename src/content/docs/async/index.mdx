@@ -1,0 +1,34 @@
+---
+title: 非同步模型
+description: FLP 之後，隨機化與可靠廣播如何建出不靠任何時間假設的 BFT。
+sidebar:
+  badge:
+    text: 大綱
+    variant: default
+  order: 30
+---
+import PartRoute from '../../../components/PartRoute.astro';
+import ModelCard from '../../../components/ModelCard.astro';
+
+<ModelCard status="outline" timing="async" crypto="any" faults="byz" determinism="rand" problem="BA-SMR" />
+
+:::note[大綱]
+本部分只有大綱，尚未撰寫。以下是規劃。這是本站的重點部分：中文資料裡，非同步 BFT 這一整條線幾乎沒有完整介紹。
+:::
+
+**開場問題**：FLP 說確定性不可能，那麼隨機化到底買到了什麼？
+
+## 規劃章節
+
+<PartRoute timing="async">
+
+1. **FLP 之後**：不可能性本身在[不可能性與下界](/impossibility/async/flp/)，本部分從它的邊界出發，問放寬哪個假設能繞過去。
+2. **Ben-Or**：隨機化繞過 FLP 的原型，local coin 與期望輪數。
+3. **Bracha 可靠廣播（RBC）**：免簽章、echo／ready 門檻，證明 totality。
+4. **[Common coin](/async/common-coin/)**：Cachin–Kursawe–Shoup 的門檻簽章實作，以及 DKG 的角色。
+5. **MMR ABA**：免簽章、$O(n^2)$ 訊息的現代非同步 BA。
+6. **VABA**：external validity與期望 $O(n^2)$ 通訊的 BA。
+7. **AVID**：非同步可驗證資料分散，Narwhal 類設計的底層。
+8. **HoneyBadgerBFT 與 Dumbo-NG**：從單次 BA 到實用的非同步 SMR。
+
+</PartRoute>

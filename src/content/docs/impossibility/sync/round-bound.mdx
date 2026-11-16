@@ -1,0 +1,60 @@
+---
+title: f+1 輪下界（Fischer–Lynch、Dolev–Strong）
+description: 同步下的 Byzantine Agreement 至少需要 f+1 輪，即使有簽章也一樣。
+sidebar:
+  label: f+1 輪下界
+  order: 2
+  badge:
+    text: 規劃中
+    variant: note
+---
+
+import ModelCard from '../../../../components/ModelCard.astro';
+import Cite from '../../../../components/Cite.astro';
+import References from '../../../../components/References.astro';
+import Complexity from '../../../../components/Complexity.astro';
+
+<ModelCard
+  status="planned"
+  timing="sync"
+  crypto="any"
+  faults="byz"
+  determinism="det"
+  problem="BB"
+  note="涵蓋 Fischer–Lynch 與 Dolev–Strong 兩篇對 f+1 輪下界的結果。"
+/>
+
+本章尚未撰寫。以下兩張卡是本章要證明與對照的結果，先以複雜度卡寫清楚單位與前提。
+
+<Complexity
+  kind="lower"
+  measure="rounds"
+  value="f+1"
+  scope="total"
+  scopeNote="從開始到所有誠實節點輸出"
+  case="worst"
+  condition="同步模型、確定性協議；訊息可以是任何形式，包含簽章等認證；至多 f 個拜占庭故障"
+  cite="ds1983"
+/>
+
+<Complexity
+  kind="upper"
+  measure="messages"
+  value="O(nf)"
+  scope="total"
+  case="worst"
+  condition="同步模型、帶認證、完全連線網路；使用恰好 f+1 輪的演算法（Dolev–Strong Theorem 6）"
+  excludes="拜占庭節點送出的訊息不計，只計正確節點送出的"
+  cite="ds1983"
+/>
+
+## 預計涵蓋
+
+- **無簽章的下界**：<Cite id="fl1982" /> 證明需要至少 $f+1$ 輪。
+- **推廣到任何認證**：<Cite id="ds1983" /> 把這個下界推廣到任何形式的認證與任何訊息型態，證明不依賴特定的認證協議。這是本章要精讀的證明。
+- **匹配的上界**：Dolev–Strong 給出恰好 $f+1$ 輪、$O(nf)$ 訊息的演算法。演算法本身留到同步部分講，本章只處理下界。
+- **邊界**：下界是針對最壞情況下的確定性協議。隨機化協議可以在期望意義下更快，這會在非同步部分遇到。
+
+## 參考文獻
+
+<References />

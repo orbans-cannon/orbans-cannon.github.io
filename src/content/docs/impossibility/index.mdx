@@ -1,0 +1,45 @@
+---
+title: 不可能性與下界
+description: 本站最硬的一部分：每個模型下什麼做不到，以及為什麼。
+takeaway: "每個模型都有做不到的事。這一部分證明這些極限，最後收束成一個引理：兩個 quorum 的交集必含誠實節點。"
+sidebar:
+  order: 0
+  badge:
+    text: 已核對
+    variant: success
+---
+
+import PartRoute from '../../../components/PartRoute.astro';
+import Term from '../../../components/Term.astro';
+
+這一部分把全站最難的幾篇論文集中處理：FLP、FLM、Fischer–Lynch 與 Dolev–Strong、DLS，以及通訊與延遲的下界。它們共同的特點是篇幅長、證明技巧各不相同，所以獨立成一個大項，每章可以寫得夠深。
+
+後面的<Term id="sync">同步</Term>、<Term id="psync">部分同步</Term>、<Term id="async">非同步</Term>三個部分，都會回頭引用這裡的結論。讀完這一部分，你會知道每個演算法在對抗什麼極限。
+
+## 怎麼讀
+
+1. 先看 [模型總覽](/impossibility/overview/)。這是一張地圖，標出每一格的<Term id="resilience">容錯上界</Term>與核對狀態。
+2. 依你關心的模型挑章節，章節地圖的色點就是該章所屬的模型。各章彼此獨立，可以不依序讀。
+3. 最後讀 [結論：Quorum 交集](/impossibility/quorum/)。它把各章零散的 $3f+1$ 收束成一個引理。
+
+## 章節地圖
+
+<PartRoute timing="any" mode="model">
+
+1. `any` **[3f+1 與連通度](/impossibility/sync/flm/)**：Fischer–Lynch–Merritt 1986。<Term id="covering">覆蓋圖論證</Term>，<Term id="ba">BA</Term> 所需的節點數與<Term id="connectivity">連通度</Term>，不限定時序模型。
+2. `async` **[FLP](/impossibility/async/flp/)**：Fischer–Lynch–Paterson 1985。非同步下確定性協議無法同時保證 <Term id="safety">safety</Term> 與 <Term id="liveness">liveness</Term>，用 bivalence 論證。
+3. `sync` **$f+1$ 輪下界**：Fischer–Lynch 1982；Dolev–Strong 1983。同步下的輪數下界，與<Term id="signature">簽章</Term>無關。
+4. `partial` **部分同步與 $3f+1$**：Dwork–Lynch–Stockmeyer 1988。safety 與 termination 的分解。
+5. `comm` **延遲下界（good-case latency）**：Abraham–Nayak–Ren–Xiang，PODC 2021。
+6. `comm` **通訊下界**：Dolev–Reischuk 1985。確定性 BA 的訊息數下界。
+7. `any` **[結論：Quorum 交集](/impossibility/quorum/)**：把各章零散的 $3f+1$ 收束成一個引理。
+
+</PartRoute>
+
+## 寫法
+
+這一部分的證明會比其他部分更嚴格，每章固定包含：
+
+- **模型卡**：時序、密碼學假設、故障、確定性、問題。
+- **證明的骨架**：先寫出分層的引理，再逐層展開。讀者可以只看最上層的結構，也可以展開細節。
+- **邊界**：拿掉哪個假設，結論就不成立，以及哪些後續工作正是靠放寬這個假設繞過去的。

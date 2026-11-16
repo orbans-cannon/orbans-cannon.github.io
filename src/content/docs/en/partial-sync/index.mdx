@@ -1,0 +1,33 @@
+---
+title: Partially Synchronous Model
+description: "Leader-based protocols from PBFT to HotStuff, when the bound holds only after GST."
+sidebar:
+  order: 20
+  badge:
+    text: Outline
+    variant: default
+---
+
+import PartRoute from '../../../../components/PartRoute.astro';
+import ModelCard from '../../../../components/ModelCard.astro';
+
+<ModelCard status="outline" timing="partial" crypto="any" faults="byz" determinism="det" problem="BA-SMR" />
+
+:::note[Outline]
+This part is only an outline and has not been written yet. Below is the plan.
+:::
+
+**Opening question**: Why must safety and liveness be handled separately?
+
+## Planned chapters
+
+<PartRoute timing="partial">
+
+1. **DLS and the practical side of GST**: the definition of partial synchrony and its lower bounds are in [Impossibility and Lower Bounds](/en/impossibility/partial-sync/dls/); this part goes on to how to design protocols: safety always holds, liveness depends on GST.
+2. **[PBFT](/en/partial-sync/pbft/)**: three phases, prepared and view change, and why removing the commit phase goes wrong (with a counterexample).
+3. **HotStuff**: linear view change, locking rule, responsiveness, and a precise statement of complexity.
+4. **Pacemaker and view synchronization**: Cogsworth and RareSync, filling in the black box HotStuff leaves.
+5. **Communication and latency**: the lower bounds are in [Impossibility and Lower Bounds](/en/impossibility/cost/dolev-reischuk/); this part compares how far each protocol is from them.
+6. **2-chain and simplification**: Jolteon / Ditto and Simplex.
+
+</PartRoute>

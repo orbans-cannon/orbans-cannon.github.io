@@ -1,0 +1,91 @@
+---
+title: 模型總覽：什麼可能，什麼不可能
+description: 以「時序 × 密碼學假設 × 確定性」為座標，整理 Byzantine Agreement 的容錯上界。這張表是全站的地圖。
+takeaway: "容錯上界取決於三個座標：時序、密碼學假設、確定性。換一個座標，答案就可能從 $n\\ge 3f+1$ 變成任意 $f$，或變成不可能。"
+symbols:
+  t: 故障節點數（DLS、Fitzi–Garay 等原文用 t，等同本站的 f）
+sidebar:
+  order: 1
+  badge:
+    text: 已核對
+    variant: success
+---
+
+import Cite from '../../../components/Cite.astro';
+import References from '../../../components/References.astro';
+import Term from '../../../components/Term.astro';
+import OverviewMatrix from '../../../widgets/overview/OverviewMatrix.astro';
+import OverviewTable from '../../../widgets/overview/OverviewTable.astro';
+
+這張表是全站的地圖。後面每一部分，就是在展開表中的某幾列。
+
+## 拜占庭故障下的容錯上界
+
+<OverviewMatrix />
+
+<OverviewTable />
+
+每一列的原文出處與限制見[最下面的依據](#各列的依據)。
+
+## 怎麼讀這張表
+
+**一、同一個詞，在不同列是不同的問題。** 第 2 列容忍任意 $f$，第 4 列只能容忍 $f<n/3$，兩者都叫「<Term id="consensus">共識</Term>」，但時序假設不同，工具不能搬。第 2 列還限定在有發送者簽署的 <Term id="bb">BB</Term> 設定。
+
+**二、<Term id="signature">簽章</Term>的作用因模型而異。** 比較第 1、2 列：<Term id="sync">同步</Term>下，簽章把上界從 $n/3$ 推到任意 $f$。比較第 4 列：<Term id="psync">部分同步</Term>下，有沒有簽章，上界都是 $n\ge3f+1$，這是 DLS 的明確結論。
+
+**三、<Term id="async">非同步</Term>的出路是隨機化，不是更聰明的確定性演算法。** 第 5 列不可能；第 6 至 8 列用隨機性繞過 FLP。第 6 列與第 7、8 列的差別在於 **coin**：只有 local coin 時，高容錯下期望時間是指數；有 common coin 才能做到期望常數時間。
+
+**四、common coin 需要 setup。** CKS 的 coin 基於<Term id="threshold-sig" />，setup 階段使用 <Term id="trusted-dealer" />。所以第 7、8 列的差別，是 coin 以外的部分是否使用簽章，不是整個協議是否完全不需要 setup。
+
+## 全站與這張表的對應
+
+| 本站部分 | 對應的列 |
+| --- | --- |
+| [同步](/sync/) | 1、2、3 |
+| [部分同步](/partial-sync/) | 4 |
+| [非同步](/async/) | 5、6、7、8 |
+| [合流](/convergence/) | 6 至 8 與 4 的混合 |
+
+## Crash 故障（對照用）
+
+| 時序 | 確定性 | 容錯上界 | 來源 |
+| --- | --- | --- | --- |
+| <span class="bft-timing" data-timing="sync">同步</span> | 確定性 | 任意 $f$ | <Cite id="dls1988" loc="Table I" /> |
+| <span class="bft-timing" data-timing="partial">部分同步</span> | 確定性 | $n\ge 2f+1$ | <Cite id="dls1988" loc="Table I" /> |
+| <span class="bft-timing" data-timing="async">非同步</span> | 確定性 | 不可能 | <Cite id="flp1985" /> |
+| <span class="bft-timing" data-timing="async">非同步</span> | 隨機化 | $n\ge 2f+1$ | <Cite id="benor1983" loc="Thm. 1" />（只要多數 process 持續運作即可決定） |
+
+## $3f+1$ 從哪裡來
+
+:::note[這一節不是證明]
+下面是設計上的解釋，說明各列的 $3f+1$ 從哪裡來。只有第 1 列的界是論文中的證明；第 4、6 至 8 列的 <Term id="quorum">quorum</Term> 說法是設計直覺，不是 DLS 或 CKS 的下界證明。
+:::
+
+在第 1、4、6、7、8 列，$3f+1$ 反覆出現，但來源不同：
+
+- **第 1 列**：FLM 的證明用 covering 論證，關鍵是原文的 Fault axiom，即<Term id="byzantine">拜占庭節點</Term>能對不同鄰居呈現不同的行為（<Term id="equivocation">equivocation</Term>）。FLM 明確指出，若加入不可偽造簽章而大幅削弱這條公理，其不可能性結果就不再成立。這正是第 2 列能突破 $n/3$ 的原因。
+- **第 4、6 至 8 列**：一個常見的設計直覺是 quorum 要同時滿足「在 $f$ 個節點沉默時仍可湊齊」與「兩個 quorum 的交集含<Term id="honest">誠實節點</Term>」，推導見 [Quorum 交集](/impossibility/quorum/#thm-3f-plus-1)。這是設計上的解釋，不是 DLS 或 CKS 的下界證明。
+
+## 各列的依據
+
+上面的矩陣與表格只放結論；每一列的原文出處、精確敘述與限制都在這裡。
+
+**第 1 列。** FLM 證明：容忍 $m$ 個拜占庭故障需要至少 $3m+1$ 個節點，且通訊圖<Term id="connectivity">連通度</Term>至少 $2m+1$（<Cite id="flm1986" loc="Thm. 1" />）。充分性見 <Cite id="psl1980" />：摘要明說問題「當且僅當 $n\ge3m+1$」可解（$m$ 為故障數），並在簽章假設下對任意 $n\ge m\ge0$ 可解；<Cite id="lsp1982" /> 的 oral messages 演算法對應同一個界。$f+1$ 輪下界最早由 <Cite id="fl1982" /> 證明（針對無簽章），Dolev–Strong 的引言明確指出此點。
+
+**第 2 列。** <Cite id="ds1983" /> 把 $f+1$ 輪下界推廣到任何形式的認證，並給出恰好 $f+1$ 輪、$O(nf)$ 訊息的演算法。「可容忍任意數量故障」這句出自 <Cite id="dls1988" /> 的引言（N-resilient），不是 Dolev–Strong 的原話。
+
+**第 3 列。** <Cite id="fitzi2003" /> 的 Table 1 給出同步網路下 strong consensus（輸出必為某個誠實節點的輸入，即 [validity 對照](/intro/problem/)中的條件 C）所需的節點數：無條件安全為 $n>\max(3,m)t$（Neiger 的下界），**有簽章與 PKI 的計算安全設定為 $n>mt$**，其中 $m$ 是輸入值域的大小；兩個下界都有達到它們的協議。二元時（$m=2$）條件 C 與常見的 strong <Term id="validity">validity</Term> 一致，所以有簽章時的二元 <Term id="ba">BA</Term> 是 $n>2t$，也就是 $f<n/2$。這是下界與協議兩邊都有的結果，不再是「常見說法」。但要注意：它針對 strong consensus；值域大於二時，達到條件 C 的協議也滿足較弱的條件 A，所以 $n>mt$ 對 A 仍是充分的。另外 DLS 的相關說明仍成立：同步加簽章下，容忍任意數量故障的 strong unanimity 只在有一個發送者簽署初始值時才可能（<Cite id="dls1988" />，§6），也就是第 2 列的「任意 $f$」是 BB 設定下的結果。
+
+**第 4 列。** DLS 的 Table I 給出部分同步通訊下的最小節點數：crash 與 omission 為 $2t+1$，帶簽章的拜占庭與無簽章的拜占庭皆為 $3t+1$。原文明說「對部分同步通訊，簽章不改善容錯」（<Cite id="dls1988" />）。
+
+**第 5 列。** FLP 證明：沒有任何完全非同步的共識協議能容忍一個「無預警的 process 死亡」，且其模型不考慮拜占庭故障（<Cite id="flp1985" />）。因為故障只需是 crash，簽章不起作用。精確地說，FLP 保留了 partial correctness，失去的是 termination。
+
+**第 6 列。** <Cite id="bracha1987" /> 的協議達到最大容錯 $t<n/3$，並說明這回答了 Ben-Or 留下的問題（Ben-Or 只做到 $t<n/5$）。<Cite id="benor1983" /> 的 Theorem 2：拜占庭型故障下，$5t<N$ 時完全非同步的協議可行；他也指出不知道 $N\ge 5t$ 是否必要。至於期望時間，CKS 在其技術報告版的比較中寫道：Bracha 的協議在 $t=\Theta(n)$ 時需要指數時間，只在 $t=O(\sqrt n)$ 時為期望常數（<Cite id="cks2000tr" />）。**這句話只出現在技術報告版，PODC 延伸摘要沒有，而且是 CKS 對 Bracha 的評述，不是我們對 Bracha 原文分析的核對。** MMR 的引言也有同樣的評述：Ben-Or 與 Bracha 這類 local coin 演算法，期望輪數是指數（除非 $t=O(\sqrt n)$）（<Cite id="mmr2015" />）。兩處都是第三方評述，不是對 Bracha 原文的推導。CKS 也稱 Rabin 與 Ben-Or 是最早用隨機化繞過 FLP 的協議，它們假設 common coin。
+
+**第 7 列。** <Cite id="mmr2015" /> 的摘要：二元值、$t<n/3$、免簽章、基於一個 *weak common coin*；期望決定輪數為常數，每輪常數個通訊步驟、$O(n^2)$ 訊息。注意：「期望 $O(1)$ 輪」是 MMR 自己定義的輪，不是統一的 asynchronous round；總訊息數期望為 $O(n^2)$ 是由「期望常數輪」乘上「每輪 $O(n^2)$」得到的推論，原文的表述是分開的。
+
+**第 8 列。** CKS 摘要與引言：完全非同步、計算有界的對手、容忍最大數量 $t<n/3$、期望常數時間、期望 $O(n^2)$ 訊息，且只在 setup 階段使用 trusted dealer（<Cite id="cks2000" />）。以上各點（$t<n/3$、期望常數時間、期望 $O(n^2)$ 訊息、setup 才用 trusted dealer）在 PODC 延伸摘要的摘要與引言中都找得到。
+
+## 參考文獻
+
+<References />

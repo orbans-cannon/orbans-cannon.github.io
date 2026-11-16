@@ -1,0 +1,265 @@
+---
+const lang = Astro.locals.starlightRoute.lang?.startsWith('en') ? 'en' : 'zh';
+const L = (zh: string, en: string) => (lang === 'en' ? en : zh);
+const faultKindLabel = lang === 'en' ? faultKindLabelEn : faultKindLabelZh;
+/**
+ * 反例區塊：把「執行追蹤」包成一個完整的反例，並在建置時強制檢查，
+ * 對應作者「精確敘述訓練」的反例檢查清單：
+ *   1. 故障預算：拜占庭加 crash 的總數不超過 f；誠實但被延遲的節點不算故障。
+ *   2. 訊息合法性：每一步都要標明是誠實依協議、故障任意行為、網路、逾時或結果；
+ *      標成故障行為的步驟，actor 必須是故障節點。
+ *   3. 模型一致：同步下不能有訊息延遲；部分同步下延遲只能發生在 GST 之前，
+ *      且 GST 前後的標記不能顛倒；非同步下不使用 GST 標記。
+ *   4. 狀態表：每一步之後各節點的狀態都列出來（由 <ExecutionTrace> 產生）。
+ *   5. 結論：必須有一步標為「違反」，且是「結果」類型；必須在 conclusion 插槽寫出結論。
+ * 任何一項不成立，建置直接失敗並指出哪一步。
+ *
+ * 插槽：
+ *   conclusion（必填）：明確指出違反了哪一條性質。
+ *   預設插槽（可選）：追蹤表之後的補充說明。
+ */
+import ExecutionTrace from './ExecutionTrace.astro';
+import { faultKindLabel as faultKindLabelZh, faultKindLabelEn, validateTrace, type FaultKind, type TraceStep } from '../lib/trace';
+
+interface Props {
+  title: string;
+  n: number;
+  f: number;
+  nodes: string[];
+  /** 故障節點與類型，例如 { B: 'byz' }；沒有故障就傳 {} */
+  faulty: Record<string, FaultKind>;
+  timing: 'sync' | 'partial' | 'async';
+  /** 時序模型的補充，例如「GST 之前訊息可任意延遲」 */
+  modelNote?: string;
+  /** 被違反的性質 */
+  violates: 'agreement' | 'validity' | 'termination' | 'total-order' | 'liveness';
+  violatesNote?: string;
+  initial: Record<string, string>;
+  steps: TraceStep[];
+  /** 這個反例本身是否已逐步驗證過 */
+  status?: 'draft' | 'verified';
+}
+
+const { title, n, f, nodes, faulty, timing, modelNote, violates, violatesNote, initial, steps, status = 'draft' } =
+  Astro.props;
+
+const fail = (msg: string): never => {
+  throw new Error(`<Counterexample>「${title}」：${msg}`);
+};
+
+// ---- 1. 故障預算 ----
+if (!Number.isInteger(n) || n < 1) fail(`n 必須是正整數，目前是 ${n}`);
+if (!Number.isInteger(f) || f < 0) fail(`f 必須是非負整數，目前是 ${f}`);
+if (nodes.length !== n) fail(`nodes 有 ${nodes.length} 個，但 n = ${n}`);
+for (const k of Object.keys(faulty)) {
+  if (!nodes.includes(k)) fail(`faulty 裡的「${k}」不在 nodes 裡`);
+  if (!(faulty[k] in faultKindLabel)) fail(`faulty.${k} 必須是 byz 或 crash，目前是 ${faulty[k]}`);
+}
+const faultyIds = Object.keys(faulty);
+if (faultyIds.length > f) {
+  fail(
+    `故障預算超過：故障節點 ${faultyIds.length} 個（${faultyIds.join('、')}）> f = ${f}。` +
+      `拜占庭加 crash 的總數不能超過 f；誠實但被延遲的節點不算故障`,
+  );
+}
+const honestIds = nodes.filter((x) => !(x in faulty));
+
+// ---- 2. 訊息合法性（kind 必填，並與 faulty 一致）----
+validateTrace('<Counterexample>「' + title + '」', nodes, initial, steps, faulty);
+steps.forEach((s, i) => {
+  const at = `第 ${i + 1} 步`;
+  if (!s.kind) fail(`${at}必須標明 kind（honest / faulty / network / timeout / result）`);
+  if ((s.kind === 'honest' || s.kind === 'timeout') && !s.actor) fail(`${at}是「${s.kind}」，必須填 actor`);
+  if (s.delay && s.kind !== 'network') fail(`${at}有訊息延遲，kind 必須是 network`);
+});
+
+// ---- 3. 模型一致 ----
+const timingLabel = { sync: L('同步', 'Synchronous'), partial: L('部分同步', 'Partially synchronous'), async: L('非同步', 'Asynchronous') } as const;
+if (!(timing in timingLabel)) fail(`timing 必須是 sync / partial / async，目前是 ${timing}`);
+let sawAfter = false;
+steps.forEach((s, i) => {
+  const at = `第 ${i + 1} 步`;
+  if (timing === 'sync' && s.delay) fail(`${at}有訊息延遲，但時序模型是同步：同步下訊息必須在 Δ 內送達`);
+  if (timing === 'async' && s.gst) fail(`${at}標了 GST，但非同步模型沒有 GST`);
+  if (timing === 'partial') {
+    if (s.delay && s.gst !== 'before') {
+      fail(`${at}有訊息延遲，部分同步下必須標 gst: 'before'：GST 之後訊息必須在 Δ 內送達`);
+    }
+    if (s.gst === 'after') sawAfter = true;
+    if (s.gst === 'before' && sawAfter) fail(`${at}標為 GST 之前，但前面已有步驟在 GST 之後：時間順序顛倒`);
+  }
+});
+
+// ---- 5. 結論 ----
+const violatesLabel = {
+  agreement: L('Agreement（誠實節點決定或執行了不同的內容）', 'Agreement (honest nodes decide or execute different things)'),
+  validity: 'Validity',
+  termination: 'Termination',
+  'total-order': L('Total order（誠實節點的日誌不互為前綴）', 'Total order (honest nodes\' logs are not prefixes of one another)'),
+  liveness: 'Liveness',
+} as const;
+if (!(violates in violatesLabel)) fail(`violates 必須是 ${Object.keys(violatesLabel).join(' / ')} 之一`);
+const violationSteps = steps.filter((s) => s.violation);
+if (violationSteps.length === 0) fail('必須有一步標 violation: true，指出性質在哪一步被違反');
+for (const s of violationSteps) if (s.kind !== 'result') fail('標為 violation 的步驟，kind 必須是 result（觀察到的結果）');
+if (!Astro.slots.has('conclusion')) fail('必須提供 conclusion 插槽，明確寫出違反了哪一條性質');
+---
+
+<section class="cex">
+  <div class="cex-head not-content">
+    <div class="cex-title">
+      <span class="cex-badge">{L('反例', 'Counterexample')}</span>
+      <strong>{title}</strong>
+      <span class="cex-status">
+        <span class="bft-status" data-status={status} aria-hidden="true"></span>
+        {status === 'verified' ? L('已逐步驗證', 'Verified step by step') : L('草稿：尚未逐步驗證', 'Draft: not yet verified step by step')}
+      </span>
+    </div>
+    <dl class="cex-grid">
+      <div>
+        <dt>{L('設定', 'Setup')}</dt>
+        <dd>n = {n}、f = {f}</dd>
+      </div>
+      <div>
+        <dt>{L('故障預算', 'Fault budget')}</dt>
+        <dd>{faultyIds.length} / {f}</dd>
+      </div>
+      <div class="cex-wide">
+        <dt>{L('故障節點', 'Faulty nodes')}</dt>
+        <dd>
+          {
+            faultyIds.length === 0 ? (
+              L('無', 'None')
+            ) : (
+              faultyIds.map((id) => (
+                <span class="cex-chip cex-chip-faulty">
+                  {id}{lang === 'en' ? ` (${faultKindLabel[faulty[id]]})` : `（${faultKindLabel[faulty[id]]}）`}
+                </span>
+              ))
+            )
+          }
+        </dd>
+      </div>
+      <div class="cex-wide">
+        <dt>{L('誠實節點', 'Honest nodes')}</dt>
+        <dd>
+          {honestIds.map((id) => <span class="cex-chip">{id}</span>)}
+          <span class="cex-hint">{L('被網路延遲的誠實節點仍是誠實節點，不算故障', 'An honest node whose messages are delayed is still honest and does not count as faulty')}</span>
+        </dd>
+      </div>
+      <div>
+        <dt>{L('時序模型', 'Timing model')}</dt>
+        <dd>{timingLabel[timing]}{modelNote ? `${L('：', ': ')}${modelNote}` : ''}</dd>
+      </div>
+      <div>
+        <dt>{L('要破壞的性質', 'Property violated')}</dt>
+        <dd>{violatesLabel[violates]}{violatesNote ? `${L('。', '. ')}${violatesNote}` : ''}</dd>
+      </div>
+    </dl>
+  </div>
+
+  <ExecutionTrace nodes={nodes} initial={initial} steps={steps} faulty={faulty} />
+
+  <div class="cex-body"><slot /></div>
+
+  <div class="cex-conclusion">
+    <strong>{L('結論.', 'Conclusion.')}</strong>
+    <slot name="conclusion" />
+  </div>
+</section>
+
+<style>
+  .cex {
+    margin: 1.5rem 0;
+  }
+  .cex-head {
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 0.5rem 0.5rem 0 0;
+    background: var(--sl-color-bg-nav);
+  }
+  .cex-title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.25rem 0.6rem;
+    margin: 0 0 0.6rem;
+  }
+  .cex-badge {
+    padding: 0.05rem 0.55rem;
+    font-size: var(--sl-text-xs);
+    font-weight: 700;
+    color: var(--bft-chip-text);
+    background: var(--bft-fault);
+    border-radius: 999px;
+  }
+  .cex-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
+    margin-inline-start: auto;
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-gray-2);
+  }
+  .cex-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.4rem 1.5rem;
+    margin: 0;
+  }
+  .cex-grid > div {
+    margin: 0; /* 擋掉 Starlight 對相鄰元素自動加的 margin-top */
+  }
+  .cex-wide {
+    grid-column: 1 / -1;
+  }
+  .cex-grid dt {
+    margin: 0;
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-gray-3);
+  }
+  .cex-grid dd {
+    margin: 0;
+    font-size: var(--sl-text-sm);
+    color: var(--sl-color-white);
+  }
+  .cex-chip {
+    display: inline-block;
+    margin: 0 0.35rem 0.15rem 0;
+    padding: 0 0.5rem;
+    font-weight: 600;
+    background: var(--sl-color-gray-5);
+    border-radius: 0.25rem;
+  }
+  .cex-chip-faulty {
+    color: var(--bft-chip-text);
+    background: var(--bft-fault);
+  }
+  .cex-hint {
+    margin-inline-start: 0.25rem;
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-gray-3);
+  }
+  /* 追蹤表緊接在標頭下方，圓角與邊框接起來 */
+  .cex :global(.et-wrap) {
+    margin: 0;
+    border-top: 0;
+    border-radius: 0 0 0.5rem 0.5rem;
+    border-color: var(--sl-color-gray-5);
+  }
+  .cex-body {
+    margin-top: 0.75rem;
+  }
+  .cex-conclusion {
+    margin-top: 0.75rem;
+    padding: 0.6rem 1rem;
+    border-left: 3px solid var(--bft-fault);
+    background: color-mix(in srgb, var(--bft-fault) 7%, transparent);
+    border-radius: 0 0.375rem 0.375rem 0;
+  }
+  @media (max-width: 36rem) {
+    .cex-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>

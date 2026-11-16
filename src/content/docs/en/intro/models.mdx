@@ -1,0 +1,113 @@
+---
+title: Three Timing Models
+description: "Precise definitions of synchronous, partially synchronous and asynchronous networks, a side-by-side comparison, and common confusions."
+takeaway: "The three timing models differ in one thing: when $\\delta\\le\\Delta$ holds. In the synchronous model it always holds; in the partially synchronous model it holds after GST; in the asynchronous model there is no $\\Delta$. So the safety of a partially synchronous protocol cannot depend on time; only liveness may wait for GST."
+sidebar:
+  order: 4
+  badge:
+    text: Draft
+    variant: caution
+---
+
+import Term from '../../../../components/Term.astro';
+import Cite from '../../../../components/Cite.astro';
+import Check from '../../../../components/Check.astro';
+import References from '../../../../components/References.astro';
+import Sidenote from '../../../../components/Sidenote.astro';
+import TimingTimelines from '../../../../widgets/timing-models/TimingTimelines.astro';
+
+<details>
+<summary>Verification status: Draft (open to read)</summary>
+
+The Chinese version of this page is verified; this English translation has not yet been reviewed by a person, so it is labeled Draft.
+
+</details>
+
+A timing model answers one question: how long can a message take from being sent to being delivered? For faults and adversaries, see [What Is Byzantine?](/en/intro/byzantine/); for <Term id="signature">signatures</Term> and randomization, see [Cryptographic Assumptions and Determinism](/en/intro/crypto/).
+
+## Telling $\Delta$ and $\delta$ apart
+
+Let $\delta(m)$ be the **actual** delay of a message $m$ between <Term id="honest">honest nodes</Term>, from sending to delivery, and let $\Delta$ be the delay bound that the protocol **assumes in advance**.
+
+- **$\Delta$**: a constant written into the model and the protocol, used to set timeouts or to decide how long a round lasts. It is an **assumption**.
+- **$\delta$**: how long a message really takes in one execution. It is decided by the network and is usually much smaller than $\Delta$.
+
+The three timing models differ in what they guarantee about $\delta$ and $\Delta$: the <Term id="sync">synchronous</Term> model guarantees $\delta\le\Delta$ at all times; the <Term id="psync">partially synchronous</Term> model guarantees it after GST; the <Term id="async">asynchronous</Term> model has no $\Delta$.
+
+<TimingTimelines />
+
+The speed of a protocol depends on what it waits for:
+
+- A protocol that must **wait the full $\Delta$** before moving on runs at a speed set by $\Delta$. For example, a synchronous <Term id="bb">BB</Term> protocol cuts time into rounds of length $\Delta$ and processes the messages of a round only when it ends; Sync HotStuff waits $2\Delta$ before committing.
+- A protocol that **moves on once enough replies arrive** runs at a speed set by $\delta$. This property is called <Term id="responsiveness" />. HotStuff is responsive after GST when the <Term id="leader">leader</Term> is honest (the paper calls this optimistic responsiveness, <Cite id="hotstuff2019" />); asynchronous protocols are responsive by nature.
+
+If $\Delta$ is set too small, messages from honest nodes are mistaken for undelivered ones and protocols that depend on $\Delta$ may fail; if it is set too large, the protocol becomes slow.
+
+## Synchronous
+
+There is a **known** $\Delta$ such that every message between honest nodes has $\delta(m)\le\Delta$. (Papers usually also assume that clock skew between nodes is bounded; some papers instead assume that messages are sent and received in "synchronous rounds"; see confusion 3 at the end of this page.)
+
+Consequence: timeouts are reliable. If no message arrives, the sender has a problem. A protocol can wait the full $\Delta$ to decide whether a message was sent, and use that for both <Term id="safety">safety</Term> and <Term id="liveness">liveness</Term> decisions.
+
+## Partially synchronous
+
+This model was proposed by Dwork, Lynch and Stockmeyer (DLS for short) (<Cite id="dls1988" />): there is an **unknown** point in time <Term id="gst" /> (Global Stabilization Time), chosen by the adversary. Before GST, messages can be delayed arbitrarily; after GST, delays are bounded. A common formulation: a message sent at time $t$ is delivered by $\max(t,\mathrm{GST})+\Delta$, where $\Delta$ is known.
+
+<Sidenote title="Another version in DLS">
+$\Delta$ exists but is unknown, and holds from the very start. DLS gives the same fault-tolerance bounds for both versions (<Cite id="dls1988" />, Table I).
+</Sidenote>
+
+<Sidenote title="Can messages be lost before GST?">
+The original DLS model allows messages to be **lost** before GST ("late or not at all"). Many modern papers instead say "arbitrary delay before GST, but eventually delivered", which is the formulation used in this section. When reading a paper, check which one it adopts.
+</Sidenote>
+
+**Safety must hold under all timing behaviors; only liveness may depend on behavior after GST.** This is not only a design preference. DLS proved that it is equivalent to the GST model:
+
+- a violation of safety always happens at some **finite point in time** (this follows from the formal definition of safety, <Cite id="alpern1985" />);
+- and any execution that violates safety has an extension in which $\Delta$ eventually holds.
+
+So if an algorithm is correct in the model where "$\Delta$ holds from some GST on", it cannot violate safety even in a fully asynchronous network (<Cite id="dls1988" />, §1.2). Conversely, once safety depends on a timing assumption, there is always a legal partially synchronous execution that arranges for the bad event to happen before GST.
+
+Therefore the timeouts of a partially synchronous protocol can only be used to trigger a leader change, never to decide that the other party is faulty.
+
+<Check q="Can a partially synchronous protocol use a timeout to decide that a node is Byzantine?">
+No. Before GST, messages from honest nodes can be delayed arbitrarily, so a timeout that expires without a message may only mean the message is still in flight. If a protocol concluded from a timeout that the other party is faulty and made a safety-relevant decision on that basis, there would be a legal execution that places the delay before GST and breaks safety. So in a partially synchronous protocol a timeout is used only to trigger a leader change.
+</Check>
+
+## Asynchronous
+
+Message delays are **finite but have no bound at all**, the delivery order is chosen by the adversary, and the only guarantee is that messages between honest nodes are eventually delivered.
+
+Consequence: you cannot tell "the other party is slow" from "the other party is dead", so timeouts are meaningless. This is the root of the FLP impossibility.
+
+**How is complexity counted?** Not in seconds, but in "rounds" or "length of causal chains". **But the definition differs from paper to paper:**
+
+- In Bracha 1987, a round is a protocol-level notion: each process sends a message to everyone, waits for $n-t$ messages of the same round, and then changes its state (<Cite id="bracha1987" />).
+- In MMR 2015, time complexity is the length of the longest sequence of causally related messages, ignoring local computation (<Cite id="mmr2015" />).
+- In VABA 2019, the running time is the total time of the execution divided by the longest message delay in that execution (following Canetti–Rabin), which roughly equals the number of steps when the protocol is run in a lock-step model (<Cite id="vaba2019" />).
+- Correia et al. define an asynchronous round as: a process sends a message and receives one or more messages that respond to it (<Cite id="correia2004" />).
+
+So before comparing "expected $O(1)$ rounds" across papers, check how each defines a round. This site states the definition whenever it quotes such a number.
+
+## The three models side by side
+
+| | Synchronous | Partially synchronous | Asynchronous |
+| --- | --- | --- | --- |
+| Delay bound | Known, always holds | Holds after GST | None |
+| Does safety depend on time? | Yes | **No** | **No** |
+| Does liveness depend on time? | Yes | Yes (after GST) | Deterministic protocols: cannot be guaranteed; randomized protocols: independent of time, holds with probability 1 |
+| Role of timeouts | Reliable fault detection | Only to trigger a <Term id="view">view</Term> change | Meaningless |
+| Can a deterministic protocol guarantee both safety and liveness? | Yes | Yes (liveness after GST) | **No** (FLP: holds with even one <Term id="crash">crash fault</Term>) |
+
+The key word in the asynchronous case is "both": a deterministic protocol in an asynchronous network can guarantee safety alone (the safety of Paxos and PBFT does not depend on time), but if it must also guarantee liveness, it cannot tolerate even one crash fault. For how many faults each model can tolerate, see the [model overview](/en/impossibility/overview/).
+
+## Four common confusions
+
+1. **"Asynchronous" does not mean "the network is slow".** A network that is slow but eventually recovers is partially synchronous. A truly asynchronous network has no timing assumption at all, and the adversary can delay any message by an arbitrary (but finite) amount.
+2. **A synchronous protocol cannot simply be moved to the partially synchronous model.** The safety of a synchronous protocol depends on $\Delta$; before GST $\Delta$ does not hold, so safety may break. For example, the commit rule of Sync HotStuff waits $2\Delta$ (<Cite id="synchs2020" />) and holds only in the synchronous model.
+3. **Lock-step rounds are a special case of the synchronous model.** Time is cut into rounds, and in each round every node does three things in order: send messages, receive the messages sent in this round, and process them; messages are guaranteed to arrive within the same round. When a paper says "synchronous", it may mean this round-based setting or "a known $\Delta$ plus clocks", and the two are proved differently.
+4. **Hybrid models.** Some protocols guarantee safety in asynchrony and get low latency in synchronous periods (for example the fast path of Bullshark). The part on convergence covers such protocols in a dedicated chapter; they cannot simply be placed in one of the categories.
+
+## References
+
+<References />

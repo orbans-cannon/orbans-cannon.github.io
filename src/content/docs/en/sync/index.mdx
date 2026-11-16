@@ -1,0 +1,31 @@
+---
+title: Synchronous Model
+description: "What signatures change when message delay has a known bound Δ."
+sidebar:
+  order: 10
+  badge:
+    text: Outline
+    variant: default
+---
+
+import PartRoute from '../../../../components/PartRoute.astro';
+import ModelCard from '../../../../components/ModelCard.astro';
+
+<ModelCard status="outline" timing="sync" crypto="any" faults="byz" determinism="det" problem="BB-BA" />
+
+:::note[Outline]
+This part is only an outline and has not been written yet. Below is the plan.
+:::
+
+**Opening question**: What do signatures change? (The limits are in [Impossibility and Lower Bounds](/en/impossibility/).)
+
+## Planned chapters
+
+<PartRoute timing="sync">
+
+1. **The limits of this part**: the impossibility results and lower bounds for synchrony are collected in [Impossibility and Lower Bounds](/en/impossibility/) ($3f+1$ and connectivity, $f+1$ rounds). This part cites their conclusions directly.
+2. **Dolev–Strong**: with signatures, BB in $f+1$ rounds tolerating any $f<n$.
+3. **Sync HotStuff**: $f<n/2$, commit latency about $2\Delta$, and why it cannot be moved to partial synchrony.
+4. **Communication lower bound under synchrony**: Dolev–Reischuk's $\Omega(f^2)$ and the matching result of Momose–Ren.
+
+</PartRoute>

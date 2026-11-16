@@ -1,0 +1,151 @@
+---
+title: "Conclusion: Quorum Intersection"
+description: "The closing of this part: any two quorums intersect in an honest node, and how 3f+1 follows from this lemma."
+takeaway: "Two quorums of size $q$ intersect in at least $2q-n$ nodes. Requiring the intersection to contain an honest node, while still being able to form a quorum when $f$ nodes stay silent, can both hold if and only if $n\\ge 3f+1$."
+sidebar:
+  order: 90
+  badge:
+    text: Draft
+    variant: caution
+---
+
+import ModelCard from '../../../../components/ModelCard.astro';
+import Thm from '../../../../components/Thm.astro';
+import Proof from '../../../../components/Proof.astro';
+import Boundary from '../../../../components/Boundary.astro';
+import StructuredProof from '../../../../components/StructuredProof.astro';
+import Step from '../../../../components/Step.astro';
+import Term from '../../../../components/Term.astro';
+import Cite from '../../../../components/Cite.astro';
+import Check from '../../../../components/Check.astro';
+import References from '../../../../components/References.astro';
+
+<details>
+<summary>Verification status: Draft (open to read)</summary>
+
+The Chinese version of this page is verified; this English translation has not yet been reviewed by a person, so it is labeled Draft.
+
+</details>
+
+<ModelCard
+  status="draft"
+  timing="any"
+  crypto="any"
+  faults="byz"
+  problem="tool"
+  cells={['partial:det-nosig', 'partial:det-sig', 'async:rand-local', 'async:rand-common']}
+  resilience="n ≥ 3f+1 (quorum-based protocols)"
+  note="Applies to quorum-based protocols in partial synchrony and asynchrony. The lemma is a standard result on Byzantine quorum systems; the arithmetic on this page has been checked step by step and compared with the originals of PBFT, Bracha and Malkhi–Reiter."
+/>
+
+The previous chapters proved lower bounds for $3f+1$. This page looks at the same number from the side of algorithms: why a <Term id="quorum" />-based protocol needs $n\ge 3f+1$. The argument already appears in the PBFT paper, and the quorum properties it relies on come from the Byzantine quorum systems of Malkhi and Reiter (<Cite id="mr1997" />): any two quorums intersect in an honest node (intersection), and there is always a quorum free of faulty nodes (availability).
+
+## Model
+
+There are $n$ nodes, at most $f$ of them Byzantine. A **quorum** is a set of $q$ nodes. The protocol proceeds to its next step only after receiving responses from $q$ nodes.
+
+<Thm kind="lemma" title="Intersection size" id="lemma-intersection-size">
+Any two quorums $Q_1, Q_2$ of size $q$ satisfy $|Q_1\cap Q_2|\ge 2q-n$.
+</Thm>
+
+<Proof assumes="Set theory only; independent of timing and cryptographic assumptions">
+$|Q_1\cap Q_2| = |Q_1|+|Q_2|-|Q_1\cup Q_2| \ge 2q-n$, because $|Q_1\cup Q_2|\le n$.
+</Proof>
+
+<Thm kind="lemma" title="Intersection containing an honest node" id="lemma-honest-intersection">
+If $2q-n\ge f+1$, then the intersection of any two quorums contains at least one <Term id="honest" />.
+</Thm>
+
+<Proof assumes="Lemma 1; at most f Byzantine nodes">
+By Lemma 1, the intersection has at least $f+1$ nodes. At most $f$ of them are <Term id="byzantine">Byzantine nodes</Term>, so at least $(f+1)-f=1$ of them is honest.
+</Proof>
+
+## Two Conditions Pulling Against Each Other
+
+For a quorum-based protocol to keep both <Term id="safety" /> and <Term id="liveness" />, the following must hold together:
+
+1. **Intersection condition (safety)**: $2q-n\ge f+1$, that is, $q\ge \dfrac{n+f+1}{2}$.
+2. **Availability condition (liveness)**: $f$ nodes may be silent, so a quorum must be formable from the remaining $n-f$ nodes, that is, $q\le n-f$.
+
+<Thm kind="theorem" title="Where 3f+1 comes from" id="thm-3f-plus-1">
+Let $n, f\ge 0$ be integers. There is an integer $q$ satisfying both the intersection condition $2q-n\ge f+1$ and the availability condition $q\le n-f$ if and only if $n\ge 3f+1$.
+</Thm>
+
+<StructuredProof assumes="Lemma 2 connects the intersection condition to honest nodes; the rest is arithmetic">
+  <Step open>
+    <span slot="claim">**Necessity**: if such a $q$ exists, then $n\ge 3f+1$.</span>
+
+    <Step uses="intersection condition, availability condition">
+      <span slot="claim">$\dfrac{n+f+1}{2}\le q\le n-f$.</span>
+
+      The intersection condition $2q-n\ge f+1$ is equivalent to $q\ge\dfrac{n+f+1}{2}$, and the availability condition is $q\le n-f$; chain the two.
+    </Step>
+
+    <Step uses="1.1">
+      <span slot="claim">$\dfrac{n+f+1}{2}\le n-f$.</span>
+
+      Take the two ends of the chain in 1.1.
+    </Step>
+
+    <Step uses="1.2">
+      <span slot="claim">$n\ge 3f+1$.</span>
+
+      Multiplying both sides by $2$ gives $n+f+1\le 2n-2f$; rearranging gives $3f+1\le n$.
+    </Step>
+  </Step>
+
+  <Step>
+    <span slot="claim">**Sufficiency**: if $n\ge 3f+1$, then $q=n-f$ satisfies both conditions.</span>
+
+    <Step>
+      <span slot="claim">The availability condition holds.</span>
+
+      $q=n-f$, so equality holds.
+    </Step>
+
+    <Step uses="assumption $n\ge 3f+1$">
+      <span slot="claim">The intersection condition holds.</span>
+
+      $2q-n=2(n-f)-n=n-2f$. And $n-2f\ge f+1$ is equivalent to $n\ge 3f+1$, which is the assumption.
+    </Step>
+  </Step>
+
+  <Step uses="steps 1, 2">
+    <span slot="claim">Both directions hold, so the theorem holds.</span>
+  </Step>
+</StructuredProof>
+
+When $n=3f+1$, $q=n-f=2f+1$, and the intersection has at least $2(2f+1)-(3f+1)=f+1$ nodes.
+
+**Correspondence with the originals.** PBFT explains the necessity of $3f+1$ in the same way: for liveness, a service may have to proceed after only $n-f$ replies; of those $n-f$, up to $f$ may be faulty, so the intersection of two reply sets is only guaranteed to contain $n-3f$ honest nodes, and at least one requires $n>3f$ (<Cite id="pbft2002" />). The dissemination quorum systems of Malkhi and Reiter state the two properties as a general definition: the intersection of any two quorums is not contained in any set of possibly faulty nodes, and for every set of possibly faulty nodes there is a quorum disjoint from it. Under the threshold assumption that any $f$ nodes may be faulty, such a quorum system exists if and only if $n>3f$ (<Cite id="mr1997" />). The theorem on this page is the special case of this result where all quorums have the same size.
+
+The dissemination version targets self-verifying data (for example, signed values), and the original explicitly makes no synchrony assumption about the network, so this threshold still holds with signatures, provided one does not rely on synchrony. DLS makes the same point: under <Term id="psync">partial synchrony</Term>, signatures do not improve fault tolerance, which stays at $n\ge 3f+1$, and the bound can be relaxed only in the synchronous model (<Cite id="dls1988" />).
+
+<Boundary>
+**What happens with one node fewer.** Take $n=3f$ and $q=2f$ (the largest value allowed by the availability condition). The intersection of two quorums may have only $2q-n=f$ nodes, and all $f$ of them may be Byzantine. Then there can be two quorums unaware of each other, each reaching <Term id="consensus">consensus</Term> on a different value, and <Term id="agreement">Agreement</Term> is violated.
+
+This is only a design intuition for quorum-based protocols. The rigorous lower bound uses the <Term id="covering">covering argument</Term> (<Cite id="flm1986" />; see [3f+1 and Connectivity](/en/impossibility/sync/flm/#thm-flm-bound)).
+</Boundary>
+
+<Check q="If $n=3f$ and $q=2f$, is the intersection of two quorums guaranteed to contain an honest node?">
+No. By Lemma 1, the intersection has at least $2q-n=4f-3f=f$ nodes, and all $f$ of them may be Byzantine. This is exactly the situation in the Boundary above: the two quorums may reach different decisions. For the intersection to have at least $f+1$ nodes (the condition of Lemma 2) under the restriction $q\le n-f$, we need $n\ge 3f+1$.
+</Check>
+
+## Why Synchrony Plus Signatures Escapes This Limit
+
+The conflict between the intersection and availability conditions comes from "$f$ nodes may be silent, so we cannot wait for them". In the <Term id="sync">synchronous</Term> model, a node can wait for $\Delta$ and then judge who is silent; with <Term id="signature">signatures</Term>, each node's behavior leaves transferable evidence. A protocol then no longer needs quorum intersection for safety, and the limit can be relaxed.
+
+How far it can be relaxed depends on the problem: <Term id="bb">Byzantine Broadcast</Term> with a signing sender tolerates any $f$ (<Cite id="ds1983" />; its $f+1$-round result assumes $n>f+1$), while binary <Term id="ba">BA</Term> without a designated sender still needs $n>2f$. For the full comparison see rows 2 and 3 of the [model overview](/en/impossibility/overview/). This section is an intuition, not a theorem.
+
+## Where This Lemma Appears
+
+- PBFT: $n=3f+1$ and quorums of size $2f+1$; any two quorums intersect in at least $f+1$ nodes, at least one of them honest; the correctness of prepared certificates and of <Term id="view">view</Term> change rests on this (see [partial synchrony](/en/partial-sync/), <Cite id="pbft2002" />).
+- HotStuff: a <Term id="qc">QC</Term> consists of $n-f$ votes, with $n-f=2f+1$, and the locking rule relies on the same intersection (<Cite id="hotstuff2019" />).
+- Bracha <Term id="rbc">RBC</Term>: the echo threshold is receiving more than $(n+f)/2$ echoes, which is equivalent to $2q-n\ge f+1$, the condition of Lemma 2; its proof also derives a contradiction from "some honest node sent two different echoes" (see [asynchrony](/en/async/), <Cite id="bracha1987" />).
+- DAG protocols: a Narwhal certificate of availability contains $2f+1$ signatures, and quorum intersection ensures the availability and integrity of each block; the safety argument of Tusk uses an asymmetric form, where $2f+1$ blocks in a round always intersect any quorum of $f+1$ blocks; Bullshark's commit rule also relies on quorum intersection, and requires $2f+1$ strong paths rather than $f+1$ for exactly this reason (see [convergence](/en/convergence/), <Cite id="narwhal2022" />, <Cite id="bullshark2022" />).
+
+When you meet these protocols later, the first step is usually to find which two quorums it uses and what information the honest node in their intersection carries.
+
+## References
+
+<References />

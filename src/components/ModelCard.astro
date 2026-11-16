@@ -1,0 +1,291 @@
+---
+const lang = Astro.locals.starlightRoute.lang?.startsWith('en') ? 'en' : 'zh';
+const L = (zh: string, en: string) => (lang === 'en' ? en : zh);
+const ANY = L('不限', 'Any');
+/**
+ * 模型卡：每個協議／定理頁頂端固定使用，標出該結論成立的模型。
+ * 所有欄位的標籤與顏色集中在這裡，確保全站一致。
+ */
+interface Props {
+  /** 時序模型 */
+  timing: 'sync' | 'partial' | 'async' | 'hybrid' | 'any';
+  /** 密碼學假設：簽章與加密 */
+  crypto: 'none' | 'sig' | 'threshold' | 'any';
+  /** 故障類型 */
+  faults?: 'byz' | 'crash';
+  /** 對手：靜態或適應性 */
+  adversary?: 'static' | 'adaptive' | 'any';
+  /** 確定性或隨機化 */
+  determinism?: 'det' | 'rand' | 'any';
+  /** 解決的問題 */
+  problem: 'BB' | 'BA' | 'SMR' | 'RBC' | 'coin' | 'tool' | 'BB-BA' | 'BA-SMR';
+  /** 容錯條件，例如 "n ≥ 3f+1"（純文字）。只寫「容忍多少故障」，不要寫輪數或訊息數 */
+  resilience?: string;
+  /** 主要結果（不可能性與下界頁用，例如「訊息數 Ω(f²)」）；有複雜度卡時不必填 */
+  result?: string;
+  /** 核對狀態 */
+  status?: 'outline' | 'planned' | 'draft' | 'partial' | 'verified';
+  /** 補充備註（一行） */
+  note?: string;
+  /**
+   * 在模型總覽矩陣中的位置，例如 ['async:rand-common']。
+   * 不填時由 timing／crypto／determinism 推算；推算結果是整張矩陣（等於沒資訊）時不顯示。
+   * 欄的鍵見 src/data/overview.ts 的 matrixColumns。
+   */
+  cells?: string[];
+}
+
+const {
+  timing,
+  crypto,
+  faults = 'byz',
+  adversary,
+  determinism = 'any',
+  problem,
+  resilience,
+  result,
+  status = 'draft',
+  note,
+  cells,
+} = Astro.props;
+
+// ---- 迷你矩陣：這頁落在模型總覽矩陣的哪幾格（design.md §迷你矩陣） ----
+import { matrixColumns } from '../data/overview';
+type ColKey = (typeof matrixColumns)[number]['key'];
+const mxRows = ['sync', 'partial', 'async'] as const;
+const mxRowLabel = { sync: L('同步', 'Sync'), partial: L('部分同步', 'Partial'), async: L('非同步', 'Async') };
+const colLabel: Record<ColKey, string> = {
+  'det-nosig': L('確定性・無簽章', 'deterministic, no signatures'),
+  'det-sig': L('確定性・簽章', 'deterministic, signatures'),
+  'rand-local': L('隨機化・local coin', 'randomized, local coin'),
+  'rand-common': L('隨機化・common coin', 'randomized, common coin'),
+};
+let lit: Set<string>;
+if (cells) {
+  for (const c of cells) {
+    const [r, k] = c.split(':');
+    if (!mxRows.includes(r as any) || !matrixColumns.some((x) => x.key === k))
+      throw new Error(`<ModelCard>：cells 的「${c}」不是合法的格子（時序:欄，例如 async:rand-common）`);
+  }
+  lit = new Set(cells);
+} else {
+  const rowsLit = timing === 'any' ? [...mxRows] : timing === 'hybrid' ? [] : [timing];
+  const det = determinism !== 'rand';
+  const rnd = determinism !== 'det';
+  const colsLit: ColKey[] = [];
+  if (det) {
+    if (crypto === 'none' || crypto === 'any') colsLit.push('det-nosig');
+    if (crypto !== 'none') colsLit.push('det-sig');
+  }
+  if (rnd) {
+    if (crypto === 'threshold') colsLit.push('rand-common');
+    else colsLit.push('rand-local', 'rand-common');
+  }
+  lit = new Set(rowsLit.flatMap((r) => colsLit.map((c) => `${r}:${c}`)));
+}
+const showMatrix = lit.size > 0 && lit.size < mxRows.length * matrixColumns.length;
+const mxLabel =
+  L('在模型總覽中的位置：', 'Position in the model overview: ') +
+  [...lit]
+    .map((c) => {
+      const [r, k] = c.split(':') as [keyof typeof mxRowLabel, ColKey];
+      return `${mxRowLabel[r]}・${colLabel[k]}`;
+    })
+    .join(L('；', '; '));
+
+const timingLabel = {
+  sync: L('同步', 'Synchronous'),
+  partial: L('部分同步', 'Partially synchronous'),
+  async: L('非同步', 'Asynchronous'),
+  hybrid: L('混合', 'Hybrid'),
+  any: ANY,
+}[timing];
+
+const cryptoLabel = {
+  none: L('無簽章', 'No signatures'),
+  sig: L('簽章（PKI）', 'Signatures (PKI)'),
+  threshold: L('門檻簽章＋coin', 'Threshold signatures + coin'),
+  any: ANY,
+}[crypto];
+
+const faultLabel = { byz: L('拜占庭', 'Byzantine'), crash: 'Crash' }[faults];
+
+const advLabel = adversary
+  ? { static: L('靜態', 'Static'), adaptive: L('適應性', 'Adaptive'), any: ANY }[adversary]
+  : undefined;
+
+const detLabel = {
+  det: L('確定性', 'Deterministic'),
+  rand: L('隨機化', 'Randomized'),
+  any: ANY,
+}[determinism];
+
+const problemLabel = {
+  BB: 'BB（Byzantine Broadcast）',
+  BA: 'BA（Byzantine Agreement）',
+  'BB-BA': 'BB／BA',
+  'BA-SMR': 'BA／SMR',
+  SMR: L('SMR（狀態機複製）', 'SMR (State Machine Replication)'),
+  RBC: L('RBC（可靠廣播）', 'RBC (Reliable Broadcast)'),
+  coin: 'Common coin',
+  tool: L('通用工具', 'General tool'),
+}[problem];
+
+const statusLabel = {
+  outline: L('大綱：尚未撰寫', 'Outline: not written yet'),
+  planned: L('規劃中：尚無完整正文', 'Planned: no full text yet'),
+  draft: L('草稿：尚未逐條對照原文', 'Draft: not yet checked against the original'),
+  partial: L('部分核對：未核對處見頁面標示', 'Partially verified: unchecked parts are marked on the page'),
+  verified: L('已核對', 'Verified'),
+}[status];
+---
+
+<aside class={`model-card not-content timing-${timing}`} aria-label={L('模型卡', 'Model card')}>
+  <div class="mc-head">
+    <span class="mc-left">
+      <span class="mc-chip">{timingLabel}</span>
+      {
+        showMatrix && (
+          <a class="mc-where" href={`${lang === 'en' ? '/en' : ''}/impossibility/overview/#ov-matrix`} aria-label={mxLabel} title={mxLabel}>
+            <span class="mc-mini" aria-hidden="true">
+              {mxRows.map((r) =>
+                matrixColumns.map((c) => (
+                  <span class:list={['mc-mini-cell', `mc-mini-${r}`, lit.has(`${r}:${c.key}`) && 'mc-mini-on']} />
+                )),
+              )}
+            </span>
+            <span class="mc-where-text">{L('總覽位置', 'Overview')}</span>
+          </a>
+        )
+      }
+    </span>
+    <span class="mc-status"><span class="bft-status" data-status={status} aria-hidden="true"></span>{statusLabel}</span>
+  </div>
+  <dl class="mc-grid">
+    <div><dt>{L('密碼學假設', 'Cryptography')}</dt><dd>{cryptoLabel}</dd></div>
+    <div>
+      <dt>{L('故障', 'Faults')}</dt>
+      <dd>{faultLabel}{advLabel && advLabel !== ANY ? (lang === 'en' ? ` (${advLabel})` : `（${advLabel}）`) : ''}</dd>
+    </div>
+    <div><dt>{L('確定性', 'Determinism')}</dt><dd>{detLabel}</dd></div>
+    <div><dt>{L('問題', 'Problem')}</dt><dd>{problemLabel}</dd></div>
+    {resilience && <div class="mc-key"><dt>{L('容錯', 'Resilience')}</dt><dd>{resilience}</dd></div>}
+    {result && <div class="mc-key"><dt>{L('結果', 'Result')}</dt><dd>{result}</dd></div>}
+  </dl>
+  {note && <p class="mc-note">{note}</p>}
+</aside>
+
+<style>
+  /* 模型卡是整頁的背景資料（像論文的關鍵字），不是結論：做成標題下方的一條規格列，
+     不加底色與外框，只用底線和正文分開（design.md §模型卡規格列）。唯一的色彩是時序徽章與迷你矩陣。 */
+  .model-card {
+    --mc-accent: var(--bft-any);
+    margin: 0 0 2rem;
+    padding: 0 0 1rem;
+    border-bottom: 1px solid var(--sl-color-hairline);
+  }
+  .timing-sync { --mc-accent: var(--bft-sync); }
+  .timing-partial { --mc-accent: var(--bft-partial); }
+  .timing-async { --mc-accent: var(--bft-async); }
+  .timing-hybrid { --mc-accent: var(--bft-hybrid); }
+
+  .mc-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.6rem;
+  }
+  .mc-chip {
+    background: var(--mc-accent);
+    color: var(--bft-chip-text);
+    font-weight: 600;
+    font-size: var(--sl-text-sm);
+    padding: 0.12rem 0.7rem;
+    border-radius: 999px;
+  }
+  .mc-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-gray-2);
+  }
+
+  /* 規格：一對對「小標 值」排成一行，放不下就換行 */
+  .mc-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem 1.4rem;
+    margin: 0;
+  }
+  .mc-grid > div {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.45rem;
+    margin: 0;
+  }
+  .mc-grid dt {
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-gray-3);
+  }
+  .mc-grid dd {
+    margin: 0;
+    font-size: var(--sl-text-sm);
+    font-weight: 500;
+    color: var(--sl-color-white);
+  }
+  /* 容錯與結果是這頁最關鍵的數字，獨立一行、字重加粗 */
+  .mc-grid > .mc-key {
+    flex-basis: 100%;
+  }
+  .mc-key dd {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .mc-note {
+    margin: 0.5rem 0 0;
+    font-size: var(--sl-text-xs);
+    line-height: 1.7;
+    color: var(--sl-color-gray-3);
+  }
+
+  /* 迷你矩陣：3 列（時序）× 4 欄，和總覽矩陣同一個版面；點了跳到總覽 */
+  .mc-left {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.9rem;
+  }
+  .mc-where {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 2px 4px;
+    border-radius: 4px;
+    text-decoration: none;
+    color: var(--sl-color-gray-3);
+    font-size: var(--sl-text-xs);
+  }
+  .mc-where:hover .mc-where-text {
+    color: var(--bft-gold);
+  }
+  .mc-where:focus-visible {
+    outline: 2px solid var(--sl-color-accent);
+    outline-offset: 1px;
+  }
+  .mc-mini {
+    display: inline-grid;
+    grid-template-columns: repeat(4, 0.75rem);
+    gap: 2px;
+  }
+  .mc-mini-cell {
+    height: 0.45rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 1px;
+  }
+  .mc-mini-on { border-color: transparent; }
+  .mc-mini-sync.mc-mini-on { background: var(--bft-sync); }
+  .mc-mini-partial.mc-mini-on { background: var(--bft-partial); }
+  .mc-mini-async.mc-mini-on { background: var(--bft-async); }
+</style>

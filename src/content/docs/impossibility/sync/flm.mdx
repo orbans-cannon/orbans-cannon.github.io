@@ -1,0 +1,306 @@
+---
+title: 3f+1 與連通度（FLM）
+description: 用覆蓋圖論證證明：容忍 f 個拜占庭故障需要至少 3f+1 個節點，且通訊圖連通度至少 2f+1。
+takeaway: "把 3 個節點的系統「展開」成 6 個節點的環，讓同一個誠實節點在環上不同位置看見互相矛盾的世界；Agreement 與 Validity 同時要求，就推出矛盾。"
+sidebar:
+  order: 1
+  badge:
+    text: 已核對
+    variant: success
+---
+
+import ModelCard from '../../../../components/ModelCard.astro';
+import Thm from '../../../../components/Thm.astro';
+import Proof from '../../../../components/Proof.astro';
+import Boundary from '../../../../components/Boundary.astro';
+import StructuredProof from '../../../../components/StructuredProof.astro';
+import Step from '../../../../components/Step.astro';
+import Term from '../../../../components/Term.astro';
+import Check from '../../../../components/Check.astro';
+import Cite from '../../../../components/Cite.astro';
+import References from '../../../../components/References.astro';
+import CoveringTriangle from '../../../../widgets/flm/CoveringTriangle.astro';
+import DecCheck from '../../../../widgets/flm/DecCheck.astro';
+import CoveringWall from '../../../../widgets/flm/CoveringWall.astro';
+
+<ModelCard
+  status="verified"
+  timing="any"
+  crypto="none"
+  faults="byz"
+  determinism="det"
+  problem="BA"
+  resilience="n ≥ 3f+1；連通度 ≥ 2f+1"
+  note="定理與證明依原文第 2、3 節整理。原文的模型不綁定時序，只要求 Locality 與 Fault 兩條公理，所以時序一欄是「不限」。"
+/>
+
+<Cite id="flm1986" /> 的目標，是用很簡單的證明取代過去繁瑣的歸納構造。原文用同一個技巧處理了五個問題，它們的界都一樣：容忍 $m$ 個故障，節點數至少要 $3m+1$，通訊圖的<Term id="connectivity">連通度</Term>至少要 $2m+1$。FLM 最困難的是理解覆蓋圖如何對應到現實架構，本頁將從 <Term id="ba">BA</Term> 問題著手呈現其對應方法，其他四個問題留待有興趣的讀者自行閱讀。
+
+| 問題 | 原文位置 | 本頁 |
+| --- | --- | --- |
+| Byzantine agreement | §3，Theorem 1 | 處理 |
+| Weak agreement | §4，Theorem 2 | 不處理 |
+| Byzantine firing squad | §5，Theorem 4 | 不處理 |
+| Approximate agreement | §6，Theorems 5、6 | 不處理 |
+| Clock synchronization | §7，Theorem 8 | 不處理 |
+
+五個問題的界雖然相同，各自需要的模型假設卻不一樣：BA 與 approximate agreement 幾乎在任何合理的計算模型下都成立，weak agreement 需要額外限制資訊傳遞的速度，clock synchronization 則需要關於時間測量的假設，所以「界一樣」不表示問題等價。
+
+## 問題與模型
+
+### 系統與兩條公理
+
+原文先抽象出一個很小的模型，證明只用到其中的兩條性質。這個模型有三個概念：
+
+- **通訊圖** $G$：節點之間的每條連線，都由方向相反的一對邊組成，所以兩個方向的通訊可以分開描述。
+- **系統**：在通訊圖上替每個節點指定一個**裝置**（device）和一個**輸入**。裝置是未定義的原始物件，模型不規定它內部如何運作。
+- **行為與情景**：一個系統恰好有一個系統行為，記錄每個節點與每條邊上發生的事；只看其中子圖 $G_U$ 的那一部分，就得到 $G_U$ 的**情景**。
+
+<Thm kind="property" title="Locality 公理" id="axiom-locality">
+設兩個系統各有一個同構的子系統。若這兩個子系統的邊界輸入邊（從子圖外面進來的邊）上的行為完全相同，則這兩個子系統的情景也完全相同。
+</Thm>
+
+換句話說，一個局部的行為只取決於它自己的裝置、輸入，以及從外面傳進來的訊息；若沒有這條，節點就能直接讀別人的輸入，<Term id="agreement">Agreement</Term> 也就變得太容易。
+
+<Thm kind="property" title="Fault 公理" id="axiom-fault">
+設裝置 $A$ 在某些系統行為中，從它的各條出邊分別送出了行為 $E_1,\dots,E_d$（這些行為可以來自不同的系統行為）。則存在一個裝置 $F$，只要節點跑 $F$，它的第 $i$ 條出邊就會表現出 $E_i$。
+</Thm>
+
+換句話說，<Term id="byzantine" />節點可以同時說出「在不同世界裡會對不同鄰居說的話」，每個鄰居各自只聽到屬於自己的那一份，這就是原文對故障節點偽裝能力的刻畫。
+
+裝置內部如何運作，原文完全不規定，既不假設狀態的形式，也不假設訊息或時序，所以模型卡的時序一欄是「不限」。
+
+### BA 的問題定義
+
+通訊圖 $G$ 有 $n$ 個節點，每個節點上跑一個裝置，輸入是一個位元，最後要決定 $0$ 或 $1$。若某個節點跑的正是原本指定給它的裝置，就稱它是**正確的**；一次執行只要至少有 $n-m$ 個正確節點，就稱為**正確的執行**，而正確的執行必須滿足兩個條件：
+
+- **Agreement**：所有正確節點決定同一個值。
+- **Validity**：如果所有正確節點的輸入都相同，它們決定的值就必須是這個輸入。
+
+這裡的 Validity 只在正確節點的輸入全部一致時才有要求，是 <Term id="validity" /> 的其中一種形式，本站各種版本的對照見[拜占庭問題與性質](/intro/problem/)。
+
+### 覆蓋圖
+
+圖 $S$ **覆蓋**圖 $G$，是指存在一個節點對應 $\varphi:\text{nodes}(S)\to\text{nodes}(G)$ 保持鄰居：$S$ 裡的節點 $u$ 若有鄰居 $v_1,\dots,v_d$，則 $\varphi(u)$ 在 $G$ 裡恰有 $d$ 個鄰居 $x_1,\dots,x_d$，而且 $\varphi(v_i)=x_i$。直覺上，從任何一個節點看出去，$S$ 的局部都和 $G$ 一模一樣。
+
+<Term id="covering" en /> 論證的做法是：假設某組裝置能在 $G$ 上解決問題，就把同一組裝置裝進更大的覆蓋圖 $S$ 跑一次，再從 $S$ 的行為裡切出幾個片段，證明每個片段都剛好是 $G$ 上某個合法執行的情景。
+
+## 證明：節點數
+
+BA 的下界有兩半：節點數與連通度。這一節先證節點數，從最小的情形 $n=3$、$m=1$ 開始，再推廣到一般的 $n\le 3m$；連通度留到下一節，用同樣的方法處理。
+
+### 證明的形狀
+
+原文在證完 BA 的兩個下界之後指出，這類結果的證明都是同一個形狀，下面把它寫成五步，後面每一段都是這五步的實例。
+
+1. **覆蓋**：造一個局部看起來和 $G$ 一模一樣的圖 $S$，可以把它想成一張圓桌。
+2. **排練**：把裝置裝進 $S$，給定輸入，讓所有節點都誠實地跑。$S$ 不是 $G$ 的系統，所以 Agreement 與 Validity 在 $S$ 上沒有任何保證，但系統是確定性的，每個節點仍會決定出某個固定的值，只是我們還不知道是什麼。
+3. **投影回現實**：在 $S$ 裡取出相鄰的一小組節點，讓 $G$ 裡剩下的節點由一個故障節點扮演，它對一邊的鄰居重播 $S$ 裡某個節點說的話，對另一邊的鄰居重播另一個節點說的話，這就成為 $G$ 上一個合法的執行，而故障節點正是讓這個投影成立的許可證。**$S$ 裡從頭到尾沒有任何節點說謊，說謊只發生在投影回 $G$ 的時候，由故障節點負責扮演。**
+4. **串接與釘住**：相鄰的投影共用一些正確節點，Agreement 把它們的決定串成同一個值，兩端的 Validity 卻把決定釘在不同的值上。
+5. **矛盾**：所以至少有一個真實執行違反了保證，至於是哪一個，取決於演算法本身，證明從頭到尾都不需要知道。
+
+### 最小情形：$n=3,\ m=1$
+
+設 $G$ 是由 $a,b,c$ 三個節點兩兩相連組成的三角形，分別跑裝置 $A,B,C$，假設它們能解決 BA，我們要推出矛盾。覆蓋圖 $S$ 是由六個節點繞成的環 $u$–$v$–$w$–$x$–$y$–$z$–$u$，裝置依序是 $A,B,C,A,B,C$，其中 $u,v,w$ 的輸入是 $0$，$x,y,z$ 的輸入是 $1$，映射 $\varphi$ 把 $u,x$ 對到 $a$，$v,y$ 對到 $b$，$w,z$ 對到 $c$。每個節點在 $S$ 裡的兩個鄰居，分別跑另外兩種裝置，所以從任何一個節點看出去，$S$ 與 $G$ 沒有差別。
+
+下面這張圖把覆蓋圖 $S$ 和現實 $G$ 並排，一步一步走完這個證明。從第 3 步起，把滑鼠移到 $S$ 的節點上（或用 Tab 聚焦），可以看到它在 $G$ 裡對應的節點與鄰居；第 4 步排練時，可以點節點替它填一個決定；第 5 到 7 步依序取出三組相鄰的節點，用金色的框與虛線連到 $G$ 裡扮演它們的正確節點，紅色虛線則是故障節點重播的訊息。
+
+<CoveringTriangle />
+
+同樣的論證寫成分層的證明如下，可以和上圖對照。證明推出某個節點必須決定的值，旁邊會顯示你在上圖排練時替它填的值，不符就標紅，所以節點填完之後，一定有一處被標紅。
+
+<StructuredProof assumes="Locality 公理、Fault 公理；假設 {A,B,C} 在三角形上解決 BA，至多 1 個故障">
+  <Step open>
+    <span slot="claim">$S$ 上的情景 $\mathcal S_{vw}$ 中，$v$ 與 $w$ 都決定 $0$。<DecCheck kind="triangle" node="v" forced="0" /><DecCheck kind="triangle" node="w" forced="0" /></span>
+
+    <Step>
+      <span slot="claim">$\mathcal S_{vw}$ 等於三角形上某個正確執行 $\mathcal E_1$ 的片段。</span>
+
+      在 $\mathcal E_1$ 中，$b$、$c$ 是正確節點而且輸入都是 $0$，$a$ 是故障節點，它對 $b$ 重播 $u$ 對 $v$ 說的話，對 $c$ 重播 $x$ 對 $w$ 說的話，依 Fault 公理這樣的裝置存在。$b,c$ 收到的邊界訊息與 $v,w$ 在 $S$ 裡收到的完全相同，所以由 Locality，兩邊的情景相同。
+    </Step>
+
+    <Step uses="1.1">
+      <span slot="claim">在 $\mathcal E_1$ 中 $b,c$ 決定 $0$。</span>
+
+      $\mathcal E_1$ 只有 $a$ 一個故障節點，是正確的執行，而 $b,c$ 這兩個正確節點的輸入都是 $0$，所以由 Validity 它們決定 $0$。
+    </Step>
+
+    <Step uses="1.1, 1.2">
+      <span slot="claim">$S$ 裡的 $v,w$ 決定 $0$。<DecCheck kind="triangle" node="v" forced="0" /><DecCheck kind="triangle" node="w" forced="0" /></span>
+
+      情景相同，所以 $v,w$ 的行為與 $b,c$ 在 $\mathcal E_1$ 中完全一樣。
+    </Step>
+  </Step>
+
+  <Step uses="1">
+    <span slot="claim">$S$ 裡的 $x$ 決定 $0$。<DecCheck kind="triangle" node="x" forced="0" /></span>
+
+    <Step>
+      <span slot="claim">$\mathcal S_{wx}$ 等於正確執行 $\mathcal E_2$ 的片段。</span>
+
+      在 $\mathcal E_2$ 中，$c$ 跑 $C$ 且輸入 $0$（扮演 $w$），$a$ 跑 $A$ 且輸入 $1$（扮演 $x$），故障的 $b$ 對 $c$ 重播 $v$ 對 $w$ 說的話，對 $a$ 重播 $y$ 對 $x$ 說的話。
+    </Step>
+
+    <Step uses="步驟 1、2.1">
+      <span slot="claim">在 $\mathcal E_2$ 中 $c$ 決定 $0$，由 Agreement，$a$ 也決定 $0$。</span>
+
+      $c$ 的行為與 $S$ 裡的 $w$ 相同，而 $w$ 決定 $0$（步驟 1）；$\mathcal E_2$ 是正確的執行，所以正確節點 $a,c$ 必須決定同一個值。
+    </Step>
+
+    <Step uses="2.2">
+      <span slot="claim">$S$ 裡的 $x$ 決定 $0$。</span>
+
+      $x$ 的行為與 $\mathcal E_2$ 中的 $a$ 相同。
+    </Step>
+  </Step>
+
+  <Step>
+    <span slot="claim">$S$ 裡的 $x$ 決定 $1$。<DecCheck kind="triangle" node="x" forced="1" /></span>
+
+    <Step>
+      <span slot="claim">$\mathcal S_{xy}$ 等於正確執行 $\mathcal E_3$ 的片段。</span>
+
+      在 $\mathcal E_3$ 中，$a,b$ 是正確節點而且輸入都是 $1$，故障的 $c$ 對 $a$ 重播 $w$ 對 $x$ 說的話，對 $b$ 重播 $z$ 對 $y$ 說的話。
+    </Step>
+
+    <Step uses="3.1">
+      <span slot="claim">$a,b$ 決定 $1$，所以 $x,y$ 決定 $1$。<DecCheck kind="triangle" node="x" forced="1" /><DecCheck kind="triangle" node="y" forced="1" /></span>
+
+      兩個正確節點的輸入都是 $1$，由 Validity 它們決定 $1$。
+    </Step>
+  </Step>
+
+  <Step uses="步驟 2、3">
+    <span slot="claim">$x$ 同時決定 $0$ 與 $1$，矛盾，所以 $n=3,m=1$ 時 BA 不可能。</span>
+  </Step>
+</StructuredProof>
+
+三個情景各自只涉及兩個節點，其餘一個節點由 Fault 公理補成故障者；每個 $\mathcal E_i$ 都只有一個故障節點，也就是恰有 $n-m$ 個正確節點，所以都是合法的執行，而相鄰的執行共用的節點，讓兩端的 Validity 要求被串在一起。換句話說，$A,B,C$ 欠我們三個保證，矛盾說明這三個保證不可能全部兌現，但究竟是哪一個失敗，取決於裝置怎麼寫，證明並不需要知道。
+
+### 推廣到 $n\le 3m$
+
+一般的情形把 $G$ 的節點分成三組 $\alpha,\beta,\gamma$，每組至少有 $1$ 個、至多有 $m$ 個節點，所以任兩組合起來至少有 $n-m$ 個節點。接著把三角形論證裡的每個節點換成一組節點：$S$ 由兩份 $G$ 組成，兩組之間的邊同樣交叉重接，每個情景取兩組節點，另一組整組當成故障節點，因為至多只有 $m$ 個，沒有超出故障預算，其餘的論證完全相同。
+
+<Check q="證明裡 $\mathcal E_2$ 的故障節點 $b$ 對 $c$ 與對 $a$ 說的話不同，這在現實上做得到嗎？如果做不到，證明的哪一步會壞？">
+Fault 公理正是承認這件事做得到：故障節點可以對不同的鄰居呈現不同的行為。如果鄰居能核對對方轉述的內容（例如用不可偽造的<Term id="signature">簽章</Term>），故障節點就不能隨意編造「$v$ 對 $w$ 說的話」，Fault 公理便不成立，構造 $\mathcal E_2$ 的那一步就會壞掉，詳見下面的邊界。
+</Check>
+
+## 連通度
+
+上一節證明了節點數不足時 BA 不可能。BA 下界的另一半是連通度：就算節點數足夠，只要通訊圖能被少數節點切成兩半，BA 一樣不可能。這一節先說連通度到底在衡量什麼，再用同樣的覆蓋圖論證證明。
+
+### 連通度是什麼
+
+連通度可以用一個更白話的說法解釋：它等於兩點 $a$ 與 $c$ 之間，彼此不共用中間節點的路最多有幾條（整張圖的連通度則取所有成對節點中最小的那個數字；這是 Menger 定理，屬於標準的圖論結果，FLM 原文並沒有用到，這裡只是用來幫助理解）。
+
+想像 $a$ 想知道 $c$ 的輸入，但兩者不直接相連，只能靠中間的節點轉述。如果 $a$ 與 $c$ 之間有 $2m+1$ 條互不相交的路，把消息沿每一條路各送一份，叛徒最多弄壞其中 $m$ 條，至少還有 $m+1$ 條是誠實的，用多數決就能還原真相（假設 $c$ 誠實地送出）。反過來，如果只有 $2m$ 條路，叛徒弄壞 $m$ 條，剩下的 $m$ 條誠實的路就會和被弄壞的 $m$ 條打成平手，$a$ 手上是兩種互相矛盾的版本，卻沒有任何依據判斷哪一個才是真的。
+
+下面的 $G$ 就是 $m=1$ 的最小例子：$a$ 到 $c$ 只有 $a$–$b$–$c$ 與 $a$–$d$–$c$ 兩條互不相交的路，比擋住 $1$ 個叛徒所需要的 $3$ 條少了一條。$b$ 與 $d$ 其中一個是叛徒時，$a$ 聽到的是「$b$ 說一個版本、$d$ 說另一個版本」，這和三個節點時 $a$ 聽到 $b$ 與 $c$ 兩個說法的處境是同一件事，只是這次說兩套話的是牆上的節點。
+
+### 圖與證明：$c(G)\le 2m$
+
+以 $m=1$ 為例。$G$ 有四個節點 $a,b,c,d$，裝置分別是 $A,B,C,D$，其中 $a$ 與 $c$ 都只透過 $b,d$ 與外界相連，彼此不直接相連，而 $b$ 與 $d$ 之間有邊。節點數 $4=3m+1$ 已經夠了，但拿掉 $\{b,d\}$ 就會使 $a$ 與 $c$ 分離，連通度是 $2\le 2m$，$a$ 與 $c$ 彼此的一切資訊都得經過這道「牆」$\{b,d\}$。
+
+**覆蓋圖 $S$ 有八個節點。** 取兩份 $G$，一份的輸入全是 $1$（節點記為 $A_1,B_1,C_1,D_1$），另一份的輸入全是 $0$（$A_0,B_0,C_0,D_0$），下標同時是複本編號與輸入。接著剪斷 $A_1$–$D_1$ 與 $A_0$–$D_0$ 兩條邊，改接 $A_0$–$D_1$ 與 $A_1$–$D_0$，每個節點仍然擁有與它在 $G$ 裡同名節點一樣的鄰居（例如 $A$ 有一個 $B$ 和一個 $D$），所以 $S$ 覆蓋 $G$。換句話說，兩份複本只換了一件事：$a$ 連向 $d$ 的那條邊，各自改接到另一份複本的 $D$ 上，其餘的邊都沒有動。
+
+下面這張圖的做法和節點數那一節的三角形相同，把八個節點的覆蓋圖 $S$ 與現實 $G$ 並排，操作方式也一樣。下面三個情景的結論旁，同樣會顯示你在圖上排練時填的值。
+
+<CoveringWall />
+
+三個執行各從 $S$ 取出三個相鄰的節點（圖上第 5 到 7 步，依序對應下面的步驟 1 到 3），$G$ 裡剩下的第四個節點一定在牆上，由故障節點扮演。
+
+<StructuredProof assumes="Locality 公理、Fault 公理；假設 {A,B,C,D} 在 G 上解決 BA，至多 1 個故障">
+  <Step open>
+    <span slot="claim">$S$ 裡的 $A_0,B_0,C_0$ 都決定 $0$。<DecCheck kind="wall" node="A0" forced="0" label="A₀" /><DecCheck kind="wall" node="B0" forced="0" label="B₀" /><DecCheck kind="wall" node="C0" forced="0" label="C₀" /></span>
+
+    <Step>
+      <span slot="claim">$\mathcal S_1=\{A_0,B_0,C_0\}$ 等於 $G$ 上某個正確執行 $\mathcal E_1$ 的片段。</span>
+
+      在 $\mathcal E_1$ 中，$a,b,c$ 是正確節點而且輸入都是 $0$，牆上的 $d$ 是故障節點，它對 $a$ 重播 $D_1$ 對 $A_0$ 說的話，對 $b,c$ 重播 $D_0$ 對 $B_0,C_0$ 說的話，依 Fault 公理這樣的裝置存在。$a,b,c$ 收到的邊界訊息與 $A_0,B_0,C_0$ 在 $S$ 裡收到的完全相同，所以由 Locality，兩邊的情景相同。
+    </Step>
+
+    <Step uses="1.1">
+      <span slot="claim">在 $\mathcal E_1$ 中 $a,b,c$ 決定 $0$。</span>
+
+      $\mathcal E_1$ 只有 $d$ 一個故障節點，是正確的執行，而三個正確節點的輸入都是 $0$，所以由 Validity 它們決定 $0$。
+    </Step>
+
+    <Step uses="1.1, 1.2">
+      <span slot="claim">$S$ 裡的 $A_0,B_0,C_0$ 決定 $0$。<DecCheck kind="wall" node="A0" forced="0" label="A₀" /><DecCheck kind="wall" node="B0" forced="0" label="B₀" /><DecCheck kind="wall" node="C0" forced="0" label="C₀" /></span>
+
+      情景相同，所以 $A_0,B_0,C_0$ 的行為與 $a,b,c$ 在 $\mathcal E_1$ 中完全一樣。
+    </Step>
+  </Step>
+
+  <Step uses="1">
+    <span slot="claim">$S$ 裡的 $D_0,A_1$ 決定 $0$。<DecCheck kind="wall" node="D0" forced="0" label="D₀" /><DecCheck kind="wall" node="A1" forced="0" label="A₁" /></span>
+
+    <Step>
+      <span slot="claim">$\mathcal S_2=\{C_0,D_0,A_1\}$ 等於正確執行 $\mathcal E_2$ 的片段。</span>
+
+      在 $\mathcal E_2$ 中，$c$ 跑 $C$ 且輸入 $0$（扮演 $C_0$），$d$ 跑 $D$ 且輸入 $0$（扮演 $D_0$），$a$ 跑 $A$ 且輸入 $1$（扮演 $A_1$），牆上的 $b$ 是故障節點，它對 $c,d$ 重播 $B_0$ 對 $C_0,D_0$ 說的話，對 $a$ 重播 $B_1$ 對 $A_1$ 說的話。
+    </Step>
+
+    <Step uses="步驟 1、2.1">
+      <span slot="claim">在 $\mathcal E_2$ 中 $c$ 決定 $0$，由 Agreement，$d$ 與 $a$ 也決定 $0$。</span>
+
+      $c$ 的行為與 $S$ 裡的 $C_0$ 相同，而 $C_0$ 決定 $0$（步驟 1）；$\mathcal E_2$ 是正確的執行，所以正確節點 $c,d,a$ 必須決定同一個值。
+    </Step>
+
+    <Step uses="2.2">
+      <span slot="claim">$S$ 裡的 $D_0,A_1$ 決定 $0$。<DecCheck kind="wall" node="D0" forced="0" label="D₀" /><DecCheck kind="wall" node="A1" forced="0" label="A₁" /></span>
+
+      $D_0,A_1$ 的行為與 $\mathcal E_2$ 中的 $d,a$ 相同。
+    </Step>
+  </Step>
+
+  <Step>
+    <span slot="claim">$S$ 裡的 $A_1,B_1,C_1$ 決定 $1$。<DecCheck kind="wall" node="A1" forced="1" label="A₁" /><DecCheck kind="wall" node="B1" forced="1" label="B₁" /><DecCheck kind="wall" node="C1" forced="1" label="C₁" /></span>
+
+    <Step>
+      <span slot="claim">$\mathcal S_3=\{A_1,B_1,C_1\}$ 等於正確執行 $\mathcal E_3$ 的片段。</span>
+
+      在 $\mathcal E_3$ 中，$a,b,c$ 是正確節點而且輸入都是 $1$，牆上的 $d$ 又是故障節點，它對 $a$ 重播 $D_0$ 對 $A_1$ 說的話，對 $b,c$ 重播 $D_1$ 對 $B_1,C_1$ 說的話。
+    </Step>
+
+    <Step uses="3.1">
+      <span slot="claim">$a,b,c$ 決定 $1$，所以 $A_1,B_1,C_1$ 決定 $1$。<DecCheck kind="wall" node="A1" forced="1" label="A₁" /><DecCheck kind="wall" node="B1" forced="1" label="B₁" /><DecCheck kind="wall" node="C1" forced="1" label="C₁" /></span>
+
+      三個正確節點的輸入都是 $1$，由 Validity 它們決定 $1$。
+    </Step>
+  </Step>
+
+  <Step uses="步驟 2、3">
+    <span slot="claim">$A_1$ 同時決定 $0$ 與 $1$，矛盾，所以這個 $G$ 上 BA 不可能。</span>
+  </Step>
+</StructuredProof>
+
+相鄰的執行共用的節點是 $C_0$（$\mathcal E_1$ 與 $\mathcal E_2$）和 $A_1$（$\mathcal E_2$ 與 $\mathcal E_3$），這就是五步形狀裡的串接與釘住。
+
+**一般的 $c(G)\le 2m$：** 選兩個各至多 $m$ 個節點的集合 $\beta,\delta$，拿掉它們就會使某兩個節點 $u,v$ 分離，再令 $\alpha$ 是與 $u$ 連通的部分，$\gamma$ 是其餘的部分（至少含 $v$）。圖裡的每個字母改成一個集合，其餘的做法相同。
+
+## 主要結果
+
+對於至多 $m$ 個故障，若通訊圖的節點數少於 $3m+1$，或連通度（拿掉多少個節點才會使圖不連通）少於 $2m+1$，這張圖就容不下這麼多故障，原文稱之為 inadequate，本站譯作**不足圖**；原文另外假設圖至少有三個節點。
+
+<Thm kind="theorem" title="BA 在不足圖上不可能" id="thm-flm-bound">
+設至多 $m$ 個節點故障。若通訊圖 $G$ 是不足圖，也就是 $n\le 3m$ 或連通度 $c(G)\le 2m$，則不存在一組裝置能在 $G$ 上同時滿足 Agreement 與 Validity。
+</Thm>
+
+<Thm kind="corollary" title="完全連線網路" id="cor-flm-3f1">
+在節點兩兩直接相連的網路上（連通度是 $n-1$），容忍 $f$ 個拜占庭故障的 Byzantine Agreement 需要 $n\ge 3f+1$。
+</Thm>
+
+這個推論把定理對照回本站的標準設定。完全連線網路上，連通度那一半永遠成立（$n-1\ge 3f\ge 2f+1$，其中 $f\ge 1$），所以真正起作用的只有節點數的限制，而這個限制既不依賴時序假設，也不依賴 <Term id="quorum">quorum</Term> 的設計方式。[Quorum 交集](/impossibility/quorum/)那一頁是從演算法這一側推到同樣的 $3f+1$，這一頁則證明沒有任何演算法能做得更好。
+
+## 邊界
+
+- **簽章**：原文明確指出，若 Fault 公理被顯著削弱（例如加入不可偽造的簽章），這些結果就不再成立，並引用了 Lamport–Shostak–Pease 與 Dolev–Strong 等工作。這正是<Term id="sync">同步</Term>加簽章能容忍任意 $f<n$ 的原因（<Cite id="ds1983" />；總覽見[模型總覽](/impossibility/overview/)）。上面兩張圖在第 5 到 8 步都有「加上不可偽造的簽章」的勾選框，勾選後可以看到故障節點的重播哪裡做不到。本站的[密碼學假設](/intro/crypto/)區分了簽章與認證通道，而本章的 Fault 公理兩者都沒有，也就是 `crypto="none"`。
+- **拿掉 Locality**：若裝置可以直接讀別人的輸入，Agreement 就是平凡的，這正是 Locality 公理要排除的情況。
+- **不可能與需要更多節點**：定理只說節點數不足時不存在解，**節點數足夠時存在解是另一個方向**，這是很常見的誤解，後者要由演算法來證明（見同步部分）。
+- **非確定性**：原文的模型是確定性的（每組輸入對應唯一的行為），但原文指出，只要讓一組輸入對應一組行為，並把 Locality 公理改成相應的版本，同樣的證明仍然成立，所以非確定性的演算法也不行。這裡的非確定性指行為的集合，不等於本站的隨機化（local 或 common coin），隨機化對各模型的界有什麼影響，本章不處理，見[模型總覽](/impossibility/overview/)。
+- **舊結果**：原文說明，BA 的 $3m+1$ 與連通度 $2m+1$ 兩個界先前已經知道，其中 $3m+1$ 的證明限於特定的同步模型（<Cite id="psl1980" />），本文的貢獻是用更簡單、適用於更一般計算模型的證明重新證出。
+
+## 參考文獻
+
+<References />

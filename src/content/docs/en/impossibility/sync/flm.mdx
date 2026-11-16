@@ -1,0 +1,312 @@
+---
+title: 3f+1 and Connectivity (FLM)
+description: "Using the covering argument to prove that tolerating f Byzantine faults needs at least 3f+1 nodes and a communication graph of connectivity at least 2f+1."
+takeaway: "Unfold a system of 3 nodes into a ring of 6 nodes, so that the same honest node sees contradictory worlds at different places on the ring; requiring Agreement and Validity together then yields a contradiction."
+sidebar:
+  order: 1
+  badge:
+    text: Draft
+    variant: caution
+---
+
+import ModelCard from '../../../../../components/ModelCard.astro';
+import Thm from '../../../../../components/Thm.astro';
+import Boundary from '../../../../../components/Boundary.astro';
+import StructuredProof from '../../../../../components/StructuredProof.astro';
+import Step from '../../../../../components/Step.astro';
+import Term from '../../../../../components/Term.astro';
+import Check from '../../../../../components/Check.astro';
+import Cite from '../../../../../components/Cite.astro';
+import References from '../../../../../components/References.astro';
+import CoveringTriangle from '../../../../../widgets/flm/CoveringTriangle.astro';
+import DecCheck from '../../../../../widgets/flm/DecCheck.astro';
+import CoveringWall from '../../../../../widgets/flm/CoveringWall.astro';
+
+<details>
+<summary>Verification status: Draft (open to read)</summary>
+
+The Chinese version of this page is verified; this English translation has not yet been reviewed by a person, so it is labeled Draft.
+
+</details>
+
+<ModelCard
+  status="draft"
+  timing="any"
+  crypto="none"
+  faults="byz"
+  determinism="det"
+  problem="BA"
+  resilience="n ≥ 3f+1; connectivity ≥ 2f+1"
+  note="The theorem and proofs follow Sections 2 and 3 of the original. The original model is not tied to any timing model; it needs only the two axioms Locality and Fault, so the timing field is Any."
+/>
+
+The goal of <Cite id="flm1986" /> is to replace the tedious inductive constructions of earlier work with very simple proofs. The original treats five problems with one technique, and all five have the same bound: to tolerate $m$ faults, a system needs at least $3m+1$ nodes, and its communication graph needs <Term id="connectivity">connectivity</Term> at least $2m+1$. The hardest part of FLM is understanding how the covering graph corresponds to the real system, so this page starts from the <Term id="ba">BA</Term> problem to show that correspondence, and leaves the other four problems to interested readers.
+
+| Problem | Where in the original | This page |
+| --- | --- | --- |
+| Byzantine agreement | §3, Theorem 1 | Covered |
+| Weak agreement | §4, Theorem 2 | Not covered |
+| Byzantine firing squad | §5, Theorem 4 | Not covered |
+| Approximate agreement | §6, Theorems 5 and 6 | Not covered |
+| Clock synchronization | §7, Theorem 8 | Not covered |
+
+The five bounds are the same, but the model assumptions each needs are different: BA and approximate agreement hold in almost any reasonable model of computation, weak agreement needs an extra limit on how fast information can travel, and clock synchronization needs an assumption about how time is measured, so "the same bound" does not mean "equivalent problems".
+
+## Problem and Model
+
+### Systems and the Two Axioms
+
+The original first abstracts a very small model, and the proof uses only two properties of it. The model has three concepts:
+
+- **Communication graph** $G$: every connection between nodes consists of a pair of oppositely directed edges, so the two directions of communication can be described separately.
+- **System**: on a communication graph, every node is assigned a **device** and an **input**. A device is an undefined primitive object; the model does not say how it works inside.
+- **Behavior and scenario**: a system has exactly one system behavior, which records what happens at every node and on every edge; looking only at the part on a subgraph $G_U$ gives the **scenario** of $G_U$.
+
+<Thm kind="property" title="Locality axiom" id="axiom-locality">
+Take two systems, each with a subsystem, and suppose the two subsystems are isomorphic. If the behaviors on their border in-edges (the edges coming in from outside the subgraph) are identical, then the scenarios of the two subsystems are also identical.
+</Thm>
+
+In other words, the behavior of a part depends only on its own devices, its own inputs and the messages coming in from outside; without this axiom, nodes could read each other's inputs directly and <Term id="agreement">Agreement</Term> would become too easy.
+
+<Thm kind="property" title="Fault axiom" id="axiom-fault">
+Suppose a device $A$, in some system behaviors, sent the behaviors $E_1,\dots,E_d$ on its out-edges (these behaviors may come from different system behaviors). Then there is a device $F$ such that, whenever a node runs $F$, its $i$-th out-edge exhibits $E_i$.
+</Thm>
+
+In other words, a <Term id="byzantine" /> can say, all at once, what it would say to different neighbors in different worlds, and each neighbor hears only its own part; this is how the original captures the ability of a faulty node to impersonate.
+
+The original does not specify how a device works inside: it assumes nothing about the form of states, nor about messages or timing, which is why the timing field of the model card is Any.
+
+### The BA Problem
+
+The communication graph $G$ has $n$ nodes, each running a device whose input is one bit and which finally decides $0$ or $1$. A node is called **correct** if it runs exactly the device assigned to it; an execution with at least $n-m$ correct nodes is called a **correct execution**, and a correct execution must satisfy two conditions:
+
+- **Agreement**: all correct nodes decide the same value.
+- **Validity**: if the inputs of all correct nodes are the same, the value they decide must be that input.
+
+Validity here constrains something only when the inputs of the correct nodes are all equal, which is one form of <Term id="validity" />; see [Byzantine Problems and Their Properties](/en/intro/problem/) for how the versions on this site compare.
+
+### Covering Graphs
+
+A graph $S$ **covers** a graph $G$ if there is a node map $\varphi:\text{nodes}(S)\to\text{nodes}(G)$ that preserves neighbors: if a node $u$ of $S$ has neighbors $v_1,\dots,v_d$, then $\varphi(u)$ has exactly $d$ neighbors $x_1,\dots,x_d$ in $G$, and $\varphi(v_i)=x_i$. Intuitively, from any node, $S$ looks locally exactly like $G$.
+
+The <Term id="covering" /> works like this: suppose some devices solve the problem on $G$; install the same devices on the larger covering graph $S$ and run them once, then cut a few fragments out of the behavior on $S$ and show that each fragment is exactly a scenario of some legal execution of $G$.
+
+## Proof: Number of Nodes
+
+BA has two lower bounds, one on the number of nodes and one on the connectivity. This section proves the node bound, starting from the smallest case $n=3$, $m=1$ and then generalizing to $n\le 3m$; the connectivity bound is left to the next section and uses the same method.
+
+### The Shape of the Proof
+
+After proving the two bounds for BA, the original points out that proofs of this kind all have the same shape. It is written below as five steps, and each part that follows is an instance of them.
+
+1. **Cover**: build a graph $S$ that looks locally exactly like $G$; think of it as a round table.
+2. **Rehearse**: install the devices on $S$, give the inputs, and let every node run honestly. $S$ is not a system of $G$, so Agreement and Validity promise nothing on $S$; but the system is deterministic, so every node still decides some fixed value, only we do not yet know which.
+3. **Project back to reality**: take a small group of adjacent nodes in $S$ and let a faulty node play the remaining nodes of $G$: it replays to one neighbor what some node of $S$ said, and replays to the other neighbor what another node said. This becomes a legal execution of $G$, and the faulty node is exactly the permit that makes the projection work. **Nobody in $S$ ever lies; the lying happens only when we project back into $G$, performed by the faulty node.**
+4. **Chain and pin**: adjacent projections share some correct nodes, Agreement chains their decisions into one value, while Validity at the two ends pins the decisions to different values.
+5. **Contradict**: so at least one real execution violates the guarantee; which one depends on the algorithm itself, and the proof never needs to know.
+
+### The Smallest Case: $n=3,\ m=1$
+
+Let $G$ be the triangle formed by three mutually connected nodes $a,b,c$ running devices $A,B,C$; assume they solve BA, and we derive a contradiction. The covering graph $S$ is the ring of six nodes $u$–$v$–$w$–$x$–$y$–$z$–$u$ with devices $A,B,C,A,B,C$ in order, where $u,v,w$ have input $0$ and $x,y,z$ have input $1$, and the map $\varphi$ sends $u,x$ to $a$, $v,y$ to $b$, and $w,z$ to $c$. In $S$, the two neighbors of each node run the other two devices, one each, so from any node $S$ looks the same as $G$.
+
+The figure below places the covering graph $S$ beside the real system $G$ and walks through the proof step by step. From step 3 on, hover over (or Tab to) a node of $S$ to see its image and neighbors in $G$; in the rehearsal of step 4, click a node to fill in a decision for it; steps 5 to 7 take three groups of adjacent nodes in turn, connect them with a gold frame and dashed lines to the correct nodes of $G$ that play them, and the red dashed lines are the messages the faulty node replays.
+
+<CoveringTriangle />
+
+The same argument written as a layered proof follows, for comparison with the figure. Next to each value the proof says a node must decide, the value you filled in for it during the rehearsal above is shown; a mismatch is marked red, so once the nodes are filled in, something is always marked red.
+
+<StructuredProof assumes="Locality axiom, Fault axiom; assume {A,B,C} solve BA on the triangle, with at most 1 fault">
+  <Step open>
+    <span slot="claim">In the scenario $\mathcal S_{vw}$ of $S$, both $v$ and $w$ decide $0$.<DecCheck kind="triangle" node="v" forced="0" /><DecCheck kind="triangle" node="w" forced="0" /></span>
+
+    <Step>
+      <span slot="claim">$\mathcal S_{vw}$ is a fragment of a correct execution $\mathcal E_1$ of the triangle.</span>
+
+      In $\mathcal E_1$, $b$ and $c$ are correct nodes with input $0$, and $a$ is faulty: it replays to $b$ what $u$ said to $v$, and to $c$ what $x$ said to $w$; by the Fault axiom such a device exists. The border messages received by $b,c$ are exactly those received by $v,w$ in $S$, so by Locality the two scenarios are identical.
+    </Step>
+
+    <Step uses="1.1">
+      <span slot="claim">In $\mathcal E_1$, $b,c$ decide $0$.</span>
+
+      $\mathcal E_1$ has only one faulty node $a$, so it is a correct execution, and the two correct nodes $b,c$ both have input $0$, so by Validity they decide $0$.
+    </Step>
+
+    <Step uses="1.1, 1.2">
+      <span slot="claim">In $S$, $v,w$ decide $0$.<DecCheck kind="triangle" node="v" forced="0" /><DecCheck kind="triangle" node="w" forced="0" /></span>
+
+      The scenarios are identical, so $v,w$ behave exactly as $b,c$ do in $\mathcal E_1$.
+    </Step>
+  </Step>
+
+  <Step uses="1">
+    <span slot="claim">In $S$, $x$ decides $0$.<DecCheck kind="triangle" node="x" forced="0" /></span>
+
+    <Step>
+      <span slot="claim">$\mathcal S_{wx}$ is a fragment of a correct execution $\mathcal E_2$.</span>
+
+      In $\mathcal E_2$, $c$ runs $C$ with input $0$ (playing $w$), $a$ runs $A$ with input $1$ (playing $x$), and the faulty $b$ replays to $c$ what $v$ said to $w$, and to $a$ what $y$ said to $x$.
+    </Step>
+
+    <Step uses="Step 1, 2.1">
+      <span slot="claim">In $\mathcal E_2$, $c$ decides $0$, so by Agreement $a$ also decides $0$.</span>
+
+      The behavior of $c$ is that of $w$ in $S$, and $w$ decides $0$ (step 1); $\mathcal E_2$ is a correct execution, so the correct nodes $a,c$ must decide the same value.
+    </Step>
+
+    <Step uses="2.2">
+      <span slot="claim">In $S$, $x$ decides $0$.</span>
+
+      The behavior of $x$ is that of $a$ in $\mathcal E_2$.
+    </Step>
+  </Step>
+
+  <Step>
+    <span slot="claim">In $S$, $x$ decides $1$.<DecCheck kind="triangle" node="x" forced="1" /></span>
+
+    <Step>
+      <span slot="claim">$\mathcal S_{xy}$ is a fragment of a correct execution $\mathcal E_3$.</span>
+
+      In $\mathcal E_3$, $a,b$ are correct nodes with input $1$, and the faulty $c$ replays to $a$ what $w$ said to $x$, and to $b$ what $z$ said to $y$.
+    </Step>
+
+    <Step uses="3.1">
+      <span slot="claim">$a,b$ decide $1$, so $x,y$ decide $1$.<DecCheck kind="triangle" node="x" forced="1" /><DecCheck kind="triangle" node="y" forced="1" /></span>
+
+      Both correct nodes have input $1$, so by Validity they decide $1$.
+    </Step>
+  </Step>
+
+  <Step uses="Step 2, 3">
+    <span slot="claim">$x$ decides both $0$ and $1$, a contradiction, so BA is impossible for $n=3,m=1$.</span>
+  </Step>
+</StructuredProof>
+
+Each of the three scenarios involves only two nodes, and the remaining node is filled in as the faulty one by the Fault axiom; every $\mathcal E_i$ has just one faulty node, that is, exactly $n-m$ correct nodes, so all are legal executions, and the nodes shared by adjacent executions tie together the Validity requirements at the two ends. In other words, $A,B,C$ owe us three guarantees, and the contradiction shows that the three cannot all be honored, but which one fails depends on how the devices are written, and the proof does not need to know.
+
+### Generalizing to $n\le 3m$
+
+In general, split the nodes of $G$ into three groups $\alpha,\beta,\gamma$, each with at least $1$ and at most $m$ nodes, so any two groups together contain at least $n-m$ nodes. Then replace every node in the triangle argument by a group of nodes: $S$ consists of two copies of $G$, with the edges between groups cross-wired in the same way; each scenario takes two groups, and the remaining group as a whole plays the faulty nodes, which, being at most $m$, stays within the fault budget; the rest of the argument is identical.
+
+<Check q="In the proof, the faulty node $b$ of $\mathcal E_2$ tells $c$ and $a$ different things. Can that be done in reality? If not, which step of the proof breaks?">
+The Fault axiom is exactly the admission that this can be done: a faulty node can show different behaviors to different neighbors. If the neighbors could check what is relayed to them (for example with unforgeable <Term id="signature">signatures</Term>), the faulty node could no longer make up "what $v$ said to $w$", the Fault axiom would fail, and the construction of $\mathcal E_2$ would break; see the boundaries below.
+</Check>
+
+## Connectivity
+
+The previous section proved that BA is impossible when there are too few nodes. The other half of the BA bound is connectivity: even with enough nodes, if a few nodes can cut the communication graph in two, BA is still impossible. This section first explains what connectivity measures, and then proves the bound with the same covering argument.
+
+### What Connectivity Is
+
+Connectivity can be explained in plainer terms: it is the largest number of paths between two nodes $a$ and $c$ that share no intermediate node (the connectivity of the whole graph is the smallest such number over all pairs of nodes; this is Menger's theorem, a standard graph-theoretic result that the FLM original does not use, and it is mentioned here only to aid understanding).
+
+Imagine that $a$ wants to know the input of $c$, but the two are not directly connected and can only rely on intermediate nodes to relay it. If there are $2m+1$ disjoint paths between $a$ and $c$, send one copy of the message along each path; the traitors can spoil at most $m$ of them, at least $m+1$ remain honest, and a majority vote recovers the truth (assuming $c$ sends honestly). Conversely, if there are only $2m$ paths, the traitors spoil $m$ and the remaining $m$ honest paths tie with the $m$ spoiled ones; $a$ holds two contradictory versions and has no basis to decide which is true.
+
+The $G$ below is the smallest example with $m=1$: from $a$ to $c$ there are only the two disjoint paths $a$–$b$–$c$ and $a$–$d$–$c$, one fewer than the $3$ needed to outvote $1$ traitor. When one of $b$ and $d$ is a traitor, what $a$ hears is "$b$ says one version, $d$ says another", which is the same predicament as when $a$ hears two accounts from $b$ and $c$ in the three-node case, except that this time the one telling two stories is a node on the wall.
+
+### Graph and Proof: $c(G)\le 2m$
+
+Take $m=1$. $G$ has four nodes $a,b,c,d$ running devices $A,B,C,D$, where $a$ and $c$ connect to the outside only through $b,d$ and are not directly connected to each other, while there is an edge between $b$ and $d$. The number of nodes, $4=3m+1$, is already enough, but removing $\{b,d\}$ separates $a$ from $c$, so the connectivity is $2\le 2m$, and all information between $a$ and $c$ must pass through this "wall" $\{b,d\}$.
+
+**The covering graph $S$ has eight nodes.** Take two copies of $G$, one with input $1$ everywhere (nodes written $A_1,B_1,C_1,D_1$) and one with input $0$ everywhere ($A_0,B_0,C_0,D_0$); the subscript is both the copy and the input. Then cut the two edges $A_1$–$D_1$ and $A_0$–$D_0$ and connect $A_0$–$D_1$ and $A_1$–$D_0$ instead; every node still has the same neighbors as its namesake in $G$ (for example $A$ has one $B$ and one $D$), so $S$ covers $G$. In other words, the two copies differ in just one thing: the edge from $a$ to $d$ is rewired in each copy to the $D$ of the other copy, and all other edges are untouched.
+
+The figure below works the same way as the triangle of the node-count section, placing the eight-node covering graph $S$ beside the real system $G$, and operates in the same way. Next to the conclusions of the three scenarios below, the values you filled in on the figure are likewise shown.
+
+<CoveringWall />
+
+Each of the three executions takes three adjacent nodes from $S$ (steps 5 to 7 of the figure, corresponding to steps 1 to 3 below), and the fourth node of $G$, which is always on the wall, is played by the faulty node.
+
+<StructuredProof assumes="Locality axiom, Fault axiom; assume {A,B,C,D} solve BA on G, with at most 1 fault">
+  <Step open>
+    <span slot="claim">In $S$, $A_0,B_0,C_0$ all decide $0$.<DecCheck kind="wall" node="A0" forced="0" label="A₀" /><DecCheck kind="wall" node="B0" forced="0" label="B₀" /><DecCheck kind="wall" node="C0" forced="0" label="C₀" /></span>
+
+    <Step>
+      <span slot="claim">$\mathcal S_1=\{A_0,B_0,C_0\}$ is a fragment of a correct execution $\mathcal E_1$ of $G$.</span>
+
+      In $\mathcal E_1$, $a,b,c$ are correct nodes with input $0$, and $d$ on the wall is faulty: it replays to $a$ what $D_1$ said to $A_0$, and to $b,c$ what $D_0$ said to $B_0,C_0$; by the Fault axiom such a device exists. The border messages received by $a,b,c$ are exactly those received by $A_0,B_0,C_0$ in $S$, so by Locality the two scenarios are identical.
+    </Step>
+
+    <Step uses="1.1">
+      <span slot="claim">In $\mathcal E_1$, $a,b,c$ decide $0$.</span>
+
+      $\mathcal E_1$ has only one faulty node $d$, so it is a correct execution, and the three correct nodes all have input $0$, so by Validity they decide $0$.
+    </Step>
+
+    <Step uses="1.1, 1.2">
+      <span slot="claim">In $S$, $A_0,B_0,C_0$ decide $0$.<DecCheck kind="wall" node="A0" forced="0" label="A₀" /><DecCheck kind="wall" node="B0" forced="0" label="B₀" /><DecCheck kind="wall" node="C0" forced="0" label="C₀" /></span>
+
+      The scenarios are identical, so $A_0,B_0,C_0$ behave exactly as $a,b,c$ do in $\mathcal E_1$.
+    </Step>
+  </Step>
+
+  <Step uses="1">
+    <span slot="claim">In $S$, $D_0,A_1$ decide $0$.<DecCheck kind="wall" node="D0" forced="0" label="D₀" /><DecCheck kind="wall" node="A1" forced="0" label="A₁" /></span>
+
+    <Step>
+      <span slot="claim">$\mathcal S_2=\{C_0,D_0,A_1\}$ is a fragment of a correct execution $\mathcal E_2$.</span>
+
+      In $\mathcal E_2$, $c$ runs $C$ with input $0$ (playing $C_0$), $d$ runs $D$ with input $0$ (playing $D_0$), $a$ runs $A$ with input $1$ (playing $A_1$), and $b$ on the wall is faulty: it replays to $c,d$ what $B_0$ said to $C_0,D_0$, and to $a$ what $B_1$ said to $A_1$.
+    </Step>
+
+    <Step uses="Step 1, 2.1">
+      <span slot="claim">In $\mathcal E_2$, $c$ decides $0$, so by Agreement $d$ and $a$ also decide $0$.</span>
+
+      The behavior of $c$ is that of $C_0$ in $S$, and $C_0$ decides $0$ (step 1); $\mathcal E_2$ is a correct execution, so the correct nodes $c,d,a$ must decide the same value.
+    </Step>
+
+    <Step uses="2.2">
+      <span slot="claim">In $S$, $D_0,A_1$ decide $0$.<DecCheck kind="wall" node="D0" forced="0" label="D₀" /><DecCheck kind="wall" node="A1" forced="0" label="A₁" /></span>
+
+      The behaviors of $D_0,A_1$ are those of $d,a$ in $\mathcal E_2$.
+    </Step>
+  </Step>
+
+  <Step>
+    <span slot="claim">In $S$, $A_1,B_1,C_1$ decide $1$.<DecCheck kind="wall" node="A1" forced="1" label="A₁" /><DecCheck kind="wall" node="B1" forced="1" label="B₁" /><DecCheck kind="wall" node="C1" forced="1" label="C₁" /></span>
+
+    <Step>
+      <span slot="claim">$\mathcal S_3=\{A_1,B_1,C_1\}$ is a fragment of a correct execution $\mathcal E_3$.</span>
+
+      In $\mathcal E_3$, $a,b,c$ are correct nodes with input $1$, and $d$ on the wall is faulty again: it replays to $a$ what $D_0$ said to $A_1$, and to $b,c$ what $D_1$ said to $B_1,C_1$.
+    </Step>
+
+    <Step uses="3.1">
+      <span slot="claim">$a,b,c$ decide $1$, so $A_1,B_1,C_1$ decide $1$.<DecCheck kind="wall" node="A1" forced="1" label="A₁" /><DecCheck kind="wall" node="B1" forced="1" label="B₁" /><DecCheck kind="wall" node="C1" forced="1" label="C₁" /></span>
+
+      The three correct nodes all have input $1$, so by Validity they decide $1$.
+    </Step>
+  </Step>
+
+  <Step uses="Step 2, 3">
+    <span slot="claim">$A_1$ decides both $0$ and $1$, a contradiction, so BA is impossible on this $G$.</span>
+  </Step>
+</StructuredProof>
+
+The nodes shared by adjacent executions are $C_0$ (between $\mathcal E_1$ and $\mathcal E_2$) and $A_1$ (between $\mathcal E_2$ and $\mathcal E_3$); this is the chain-and-pin of the five-step shape.
+
+**The general case $c(G)\le 2m$:** choose two sets $\beta,\delta$ of at most $m$ nodes each whose removal separates some two nodes $u,v$, and let $\alpha$ be the part connected to $u$ and $\gamma$ the rest (containing at least $v$). Every letter in the figure becomes a set, and the rest of the construction is the same.
+
+## Main Result
+
+For at most $m$ faults, if the number of nodes of a communication graph is less than $3m+1$, or its connectivity (how many nodes must be removed to disconnect the graph) is less than $2m+1$, the graph cannot hold that many faults; the original calls it inadequate, and the original also assumes that the graph has at least three nodes.
+
+<Thm kind="theorem" title="BA is impossible on inadequate graphs" id="thm-flm-bound">
+Suppose at most $m$ nodes are faulty. If the communication graph $G$ is inadequate, that is, $n\le 3m$ or its connectivity satisfies $c(G)\le 2m$, then there is no set of devices that can satisfy both Agreement and Validity on $G$.
+</Thm>
+
+<Thm kind="corollary" title="Fully connected networks" id="cor-flm-3f1">
+On a network in which every two nodes are directly connected (connectivity $n-1$), Byzantine Agreement tolerating $f$ Byzantine faults needs $n\ge 3f+1$.
+</Thm>
+
+This corollary relates the theorem back to the standard setting of this site. In a fully connected network the connectivity half always holds ($n-1\ge 3f\ge 2f+1$ for $f\ge 1$), so the only constraint really at work is the node count, and this constraint depends neither on timing assumptions nor on how <Term id="quorum">quorums</Term> are designed. The page on [quorum intersection](/en/impossibility/quorum/) arrives at the same $3f+1$ from the side of algorithms; this page shows that no algorithm can do better.
+
+## Boundaries
+
+- **Signatures**: the original states explicitly that if the Fault axiom is substantially weakened (for example by adding unforgeable signatures), these results no longer hold, citing work such as Lamport–Shostak–Pease and Dolev–Strong. This is exactly why <Term id="sync">synchrony</Term> with signatures tolerates any $f<n$ (<Cite id="ds1983" />; see the [model overview](/en/impossibility/overview/)). Both figures above have an "add unforgeable signatures" checkbox in steps 5 to 8; ticking it shows where the replays of the faulty node can no longer be done. The [cryptographic assumptions](/en/intro/crypto/) of this site distinguish signatures from authenticated channels, and the Fault axiom of this page has neither, which is `crypto="none"`.
+- **Dropping Locality**: if devices could read each other's inputs directly, Agreement would be trivial, which is exactly the situation the Locality axiom rules out.
+- **Impossible versus needing more nodes**: the theorem says only that no solution exists when there are too few nodes; **that a solution exists once there are enough nodes is a separate direction**, a very common misunderstanding, and it has to be proved by an algorithm (see the synchronous part).
+- **Nondeterminism**: the model of the original is deterministic (each set of inputs corresponds to a unique behavior), but the original points out that if a set of inputs corresponds to a set of behaviors and the Locality axiom is changed accordingly, the same proof still works, so nondeterministic algorithms cannot do it either. Here nondeterminism means a set of behaviors; it is not the randomization (local or common coin) of this site, and how randomization affects the bounds of the various models is not treated on this page; see the [model overview](/en/impossibility/overview/).
+- **Earlier results**: the original explains that both bounds for BA, $3m+1$ and connectivity $2m+1$, were already known, with the $3m+1$ proof limited to a particular synchronous model (<Cite id="psl1980" />); the contribution of the paper is to reprove them with simpler proofs that apply to more general models of computation.
+
+## References
+
+<References />

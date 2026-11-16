@@ -1,0 +1,190 @@
+---
+title: PBFT：三階段與一個反例
+description: PBFT 的正常情況流程，以及拿掉 commit 階段後 safety 如何被破壞。
+takeaway: "Commit 階段不是多餘的：拿掉它，一個拜占庭 primary 加上 GST 前的訊息延遲，就能讓誠實節點在同一個序號執行不同的請求。"
+sidebar:
+  order: 21
+  badge:
+    text: 規劃中
+    variant: note
+---
+
+import ModelCard from '../../../components/ModelCard.astro';
+import ExecutionTrace from '../../../components/ExecutionTrace.astro';
+import Counterexample from '../../../components/Counterexample.astro';
+import Cite from '../../../components/Cite.astro';
+import References from '../../../components/References.astro';
+
+<ModelCard
+  status="planned"
+  timing="partial"
+  crypto="any"
+  faults="byz"
+  determinism="det"
+  problem="SMR"
+  resilience="n ≥ 3f+1"
+  note="原文：Castro–Liskov 期刊版（TOCS 2002）。"
+/>
+
+本章尚未完整撰寫，原文見 <Cite id="pbft2002" />（期刊版；OSDI 1999 的會議版敘述較簡略）。先放上兩個示範：正常情況的追蹤表，與拿掉 commit 階段的反例。
+
+## 正常情況（所有節點誠實）
+
+$n=4$、$f=1$，view 0 的 primary 是 P。每一格是該步之後該節點的狀態，亮起來的格子是這一步才變的。
+
+<ExecutionTrace
+  nodes={['P', 'R1', 'R2', 'R3']}
+  initial={{ P: '—', R1: '—', R2: '—', R3: '—' }}
+  steps={[
+    {
+      actor: 'P',
+      kind: 'honest',
+      event: 'P 收到請求 $m$，指派序號 $n$，multicast PRE-PREPARE',
+      state: { P: 'pre-prepare($m$)', R1: 'pre-prepare($m$)', R2: 'pre-prepare($m$)', R3: 'pre-prepare($m$)' },
+    },
+    {
+      kind: 'honest',
+      event: 'R1、R2、R3 各自 multicast PREPARE',
+      note: 'prepared 要求：pre-prepare，加上 $2f=2$ 份來自不同 backup 且相符的 prepare。',
+      state: { P: 'prepared($m$)', R1: 'prepared($m$)', R2: 'prepared($m$)', R3: 'prepared($m$)' },
+    },
+    {
+      kind: 'honest',
+      event: '各節點 multicast COMMIT，收到 $2f+1=3$ 份相符的 commit 後 committed-local',
+      state: { P: 'committed-local($m$)', R1: 'committed-local($m$)', R2: 'committed-local($m$)', R3: 'committed-local($m$)' },
+    },
+    {
+      kind: 'honest',
+      event: '各節點執行 $m$ 並回覆客戶端',
+      state: { P: 'executed($m$)', R1: 'executed($m$)', R2: 'executed($m$)', R3: 'executed($m$)' },
+    },
+  ]}
+/>
+
+## 反例：拿掉 commit 階段
+
+如果協議在 prepared 時就執行，不再等 commit，safety 會被一個拜占庭 primary 加上 GST 前的訊息延遲破壞。
+
+<Counterexample
+  title="拿掉 commit 階段的 PBFT"
+  n={4}
+  f={1}
+  nodes={['A', 'B', 'C', 'D']}
+  faulty={{ B: 'byz' }}
+  timing="partial"
+  modelNote="GST 之前訊息可以被任意延遲"
+  violates="agreement"
+  violatesNote="A 執行了 m，C 與 D 在同一個序號執行了 null"
+  initial={{ A: '—', B: '—', C: '—', D: '—' }}
+  steps={[
+    {
+      actor: 'B',
+      kind: 'faulty',
+      event: 'B 是 view 0 的 primary，只把 PRE-PREPARE($m$, $v=0$, $n$) 送給 A 與 D，不送給 C',
+      state: { A: 'pre-prepare($m$)', B: '已送出 pre-prepare', D: 'pre-prepare($m$)' },
+    },
+    {
+      actor: 'A',
+      kind: 'honest',
+      event: 'A 收到 pre-prepare，multicast PREPARE($m$)',
+      state: { A: 'pre-prepare + 自己的 prepare' },
+    },
+    {
+      actor: 'D',
+      kind: 'honest',
+      event: 'D 收到 pre-prepare，multicast PREPARE($m$)',
+      state: { D: 'pre-prepare + 自己的 prepare，未 prepared' },
+    },
+    {
+      kind: 'network',
+      delay: true,
+      gst: 'before',
+      event: 'A 送給 D 的 prepare 被延遲；D 送給 A 的 prepare 送達',
+      note: 'A 湊齊 $2f=2$ 份 prepare（A、D），D 只有自己的一份。',
+      state: { A: 'prepared($m$)' },
+    },
+    {
+      actor: 'A',
+      kind: 'honest',
+      event: '沒有 commit 階段，A 在 prepared 時就執行 $m$',
+      state: { A: 'executed($m$)' },
+    },
+    {
+      actor: 'C',
+      kind: 'timeout',
+      event: 'C 沒收到 pre-prepare，計時器逾時，送出 VIEW-CHANGE($v=1$)，P 集合為空',
+      note: '請求如何讓 C 啟動計時器，這裡略去。',
+      state: { C: 'VIEW-CHANGE 已送出，P=∅' },
+    },
+    {
+      actor: 'D',
+      kind: 'timeout',
+      event: 'D 的計時器逾時，送出 VIEW-CHANGE($v=1$)；D 沒有 prepared，P 集合為空',
+      state: { D: 'VIEW-CHANGE 已送出，P=∅' },
+    },
+    {
+      actor: 'B',
+      kind: 'faulty',
+      event: 'B 也送出 VIEW-CHANGE($v=1$)，P 集合為空，不提供任何 prepared 證明',
+      state: { B: 'VIEW-CHANGE 已送出，P=∅' },
+    },
+    {
+      kind: 'network',
+      delay: true,
+      gst: 'before',
+      event: 'A 若送出 VIEW-CHANGE，其 P 集合會含 $m$ 的 prepared 證明，但這則訊息被延遲，C 收不到',
+    },
+    {
+      actor: 'C',
+      kind: 'honest',
+      event:
+        'C 是 view 1 的 primary。它的集合 $S$ 裡有 $2f+1=3$ 份 VIEW-CHANGE（B、D 與自己的），這三份的 $P$ 都沒有序號 $n$ 的項目，滿足決定程序的條件 B，於是對序號 $n$ 選 null 請求，送出 NEW-VIEW',
+      state: { C: 'NEW-VIEW：pre-prepare(null)' },
+    },
+    {
+      actor: 'D',
+      kind: 'honest',
+      event: 'D 接受 NEW-VIEW，multicast PREPARE(null)',
+      state: { D: 'pre-prepare(null) + 自己的 prepare' },
+    },
+    {
+      actor: 'B',
+      kind: 'faulty',
+      event: 'B 配合送出 PREPARE(null)',
+      state: { B: 'prepare(null) 已送出' },
+    },
+    {
+      actor: 'C',
+      kind: 'honest',
+      event: 'C 湊齊 pre-prepare 加 $2f=2$ 份來自不同 backup 的 prepare（D、B），null 在 C prepared；沒有 commit 階段，C 直接執行 null',
+      state: { C: 'executed(null)' },
+    },
+    {
+      actor: 'D',
+      kind: 'honest',
+      event: 'D 湊齊 pre-prepare 加 prepare（D 自己與 B），null 在 D prepared，直接執行 null',
+      state: { D: 'executed(null)' },
+    },
+    {
+      kind: 'result',
+      violation: true,
+      event: '在序號 $n$ 上，A 執行了 $m$，C 與 D 執行了 null：兩組誠實節點執行的內容不同',
+    },
+  ]}
+>
+
+**節點編號。** PBFT 原文規定 view $v$ 的 primary 是編號 $p=v \bmod |R|$ 的副本。令 B、C、D、A 依序為 0、1、2、3，則 view 0 的 primary 是 B，view 1 的 primary 是 C，而 C 是誠實的。
+
+**這些步驟用到的規則。** 這些規則已對照 PBFT 期刊版（TOCS 2002，§4.3–4.5 與 Figure 4）：prepared 要求 pre-prepare 加上 $2f$ 份相符的 prepare；新 view 的 primary 把 VIEW-CHANGE 收進集合 $S$（每份需要 $2f-1$ 份來自其他副本的 VIEW-CHANGE-ACK 佐證，本追蹤略去這些 ack），當 $S$ 中有 $2f+1$ 份 $P$ 沒有序號 $n$ 的項目（且 $h<n$）時，對該序號選 null 請求（Figure 4 條件 B）。注意：D 在 view 0 送過 PREPARE，所以它的 VIEW-CHANGE 的 $Q$ 集合含有 $m$；決定程序的條件 B 只看 $P$，所以不影響結論。整個反例是對「拿掉 commit 階段」這個假想協議所寫，**作者還沒有逐步驗證**，所以狀態是草稿。
+
+**為什麼真正的 PBFT 不會出事。** 真正的 PBFT 要求 A 收到 $2f+1$ 份 commit 才執行（committed-local），代表至少 $f+1$ 個誠實節點已經 prepared。任何 $2f+1$ 份 view-change 與這 $f+1$ 個誠實節點至少交集 $(2f+1)+(f+1)-(3f+1)=1$ 個節點，它是誠實的，會在 view-change 裡帶出 prepared 證明，新 primary 因此不會填 null。這正是 [Quorum 交集](/impossibility/quorum/#lemma-intersection-size)的應用。
+
+<div slot="conclusion">
+在序號 $n$ 上，誠實節點 A 執行了 $m$，誠實節點 C、D 執行了 null，違反 **Agreement（Total order）**：不同的誠實節點在同一個序號執行了不同的內容。整個反例只用了一個拜占庭節點 B，剛好是 $f=1$，且所有訊息延遲都發生在 GST 之前。
+</div>
+
+</Counterexample>
+
+## 參考文獻
+
+<References />

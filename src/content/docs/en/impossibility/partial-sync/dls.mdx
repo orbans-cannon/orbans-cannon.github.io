@@ -1,0 +1,39 @@
+---
+title: Partial Synchrony and 3f+1 (DLS)
+description: "The two definitions of partial synchrony, the equivalent decomposition into safety and termination, and the minimum number of nodes for each kind of fault."
+sidebar:
+  order: 1
+  badge:
+    text: Planned
+    variant: note
+---
+
+import ModelCard from '../../../../../components/ModelCard.astro';
+import Cite from '../../../../../components/Cite.astro';
+import References from '../../../../../components/References.astro';
+
+<ModelCard
+  status="planned"
+  timing="partial"
+  crypto="any"
+  faults="byz"
+  determinism="det"
+  problem="BA"
+  resilience="n ≥ 3f+1 (Byzantine, with or without signatures); n ≥ 2f+1 (crash, omission)"
+  note="Source: Dwork–Lynch–Stockmeyer, JACM 1988."
+/>
+
+This chapter has not been written yet. For the source see <Cite id="dls1988" />.
+
+## Planned coverage
+
+- **Two kinds of partial synchrony**: $\Delta$ exists but is unknown; or $\Delta$ is known but holds only after some unknown time GST.
+- **Why safety must hold unconditionally**: the original's argument is that a violation of safety must occur at some finite point in time, and that execution always has an extension in which $\Delta$ eventually holds. So the two definitions are equivalent to splitting correctness into safety and termination.
+- **Table I**: the minimum number of nodes for each model and each kind of fault, and "under partial synchrony, signatures do not improve fault tolerance".
+- **Proof of the lower bound**: mainly the original's Theorem 4.4 (Byzantine with signatures, partial synchrony).
+- **Algorithms and distributed clocks**: the original combines three basic algorithms and two kinds of distributed clocks to obtain all the results. This chapter only summarizes; details are left to the partial synchrony part.
+- **Boundary**: DLS's GST model allows messages to be lost before GST; modern papers mostly change this to "eventually delivered".
+
+## References
+
+<References />

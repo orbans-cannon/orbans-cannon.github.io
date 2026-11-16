@@ -1,0 +1,39 @@
+---
+/**
+ * 「永遠不決定的執行」互動圖：上面是一路停在未定區的路徑，下面是每個階段輪到誰收訊息；
+ * 「扣住一則訊息」的開關說明什麼不算容許執行。畫圖都在 stages.ts。沒有 JavaScript 時顯示 6 個階段後的畫面。
+ */
+import './flp.css';
+import StepBar from '../StepBar.astro';
+import { STAGES, C } from './strings';
+import { renderSvg, renderDesc, caption, SSR_STEP, MAX } from './stages';
+
+const lang = Astro.locals.starlightRoute.lang?.startsWith('en') ? 'en' : 'zh-TW';
+const T = STAGES(lang);
+const K = C(lang);
+const state = { step: SSR_STEP, sched: 'fair' as const };
+const svg = renderSvg(state, 'wide', lang);
+const desc = renderDesc(state, lang);
+---
+
+<div class="flp-fig not-content" data-kind="stages" data-lang={lang} role="group" aria-label={T.aria}>
+  <StepBar prev={K.prev} next={K.next} progress={K.progress(SSR_STEP, MAX)} caption={caption(state, lang)} play={{ play: K.play, pause: K.pause }} />
+  <div class="fp-bar">
+    <button type="button" data-act="reset">{T.reset}</button>
+    <button type="button" class="fp-toggle" data-act="withhold" aria-pressed="false">{T.withhold}</button>
+  </div>
+  <div class="fp-fig" data-fig set:html={svg} />
+  <p class="fp-hint" data-hint aria-live="polite">{T.hintIdle}</p>
+  <p class="fp-legend">
+    <span><i class="lg lg-b"></i>{T.legendBand}</span>
+    <span><i class="lg-dot"></i>{T.legendTurn}</span>
+    <span><i class="lg-danger"></i>{T.legendDanger}</span>
+  </p>
+  <div class="fp-desc" data-desc aria-live="polite" set:html={desc} />
+</div>
+
+<script>
+  import { mount } from './controller';
+  import { stagesModel } from './stages';
+  document.querySelectorAll<HTMLElement>('.flp-fig[data-kind="stages"]').forEach((r) => mount(r, stagesModel));
+</script>

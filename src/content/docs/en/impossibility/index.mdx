@@ -1,0 +1,52 @@
+---
+title: Impossibility and Lower Bounds
+description: "The hardest part of the site: what cannot be done under each model, and why."
+takeaway: "Every model has things it cannot do. This part proves those limits and ends with one lemma: any two quorums intersect in an honest node."
+sidebar:
+  order: 0
+  badge:
+    text: Draft
+    variant: caution
+---
+
+import PartRoute from '../../../../components/PartRoute.astro';
+import Term from '../../../../components/Term.astro';
+
+<details>
+<summary>Verification status: Draft (open to read)</summary>
+
+The Chinese version of this page is verified; this English translation has not yet been reviewed by a person, so it is labeled Draft.
+
+</details>
+
+This part gathers the hardest papers on the site: FLP, FLM, Fischer–Lynch and Dolev–Strong, DLS, and the lower bounds on communication and latency. What they have in common is that they are long and use very different proof techniques, so they form a part of their own, and each chapter can go deep enough.
+
+The later parts on <Term id="sync">synchrony</Term>, <Term id="psync">partial synchrony</Term> and <Term id="async">asynchrony</Term> all refer back to the conclusions here. After this part, you will know which limit each algorithm is fighting against.
+
+## How to read
+
+1. Start with the [Model Overview](/en/impossibility/overview/). It is a map showing the <Term id="resilience">resilience</Term> bound and verification status of each cell.
+2. Pick chapters by the model you care about; the colored dot in the chapter map is the model the chapter belongs to. The chapters are independent of each other, so they can be read out of order.
+3. Finally read [Conclusion: Quorum Intersection](/en/impossibility/quorum/). It gathers the scattered $3f+1$ of the chapters into one lemma.
+
+## Chapter map
+
+<PartRoute timing="any" mode="model">
+
+1. `any` **[3f+1 and Connectivity](/en/impossibility/sync/flm/)**: Fischer–Lynch–Merritt 1986. The <Term id="covering">covering argument</Term>, the number of nodes and the <Term id="connectivity">connectivity</Term> that <Term id="ba">BA</Term> needs, independent of any timing model.
+2. `async` **[FLP](/en/impossibility/async/flp/)**: Fischer–Lynch–Paterson 1985. In the asynchronous model, deterministic protocols cannot guarantee <Term id="safety">safety</Term> and <Term id="liveness">liveness</Term> together; proved by a bivalence argument.
+3. `sync` **The $f+1$ round lower bound**: Fischer–Lynch 1982; Dolev–Strong 1983. The lower bound on rounds in the synchronous model, independent of <Term id="signature">signatures</Term>.
+4. `partial` **Partial synchrony and $3f+1$**: Dwork–Lynch–Stockmeyer 1988. The decomposition into safety and termination.
+5. `comm` **Latency lower bound (good-case latency)**: Abraham–Nayak–Ren–Xiang, PODC 2021.
+6. `comm` **Communication lower bound**: Dolev–Reischuk 1985. The lower bound on the number of messages of deterministic BA.
+7. `any` **[Conclusion: Quorum Intersection](/en/impossibility/quorum/)**: gathers the scattered $3f+1$ of the chapters into one lemma.
+
+</PartRoute>
+
+## How the chapters are written
+
+The proofs in this part are stricter than elsewhere. Every chapter contains:
+
+- **A model card**: timing, cryptographic assumption, faults, determinism, problem.
+- **The skeleton of the proof**: layered lemmas first, then expanded layer by layer. A reader can look only at the top-level structure, or expand the details.
+- **Boundaries**: which assumption, once removed, breaks the conclusion, and which later work gets around the result by relaxing exactly that assumption.

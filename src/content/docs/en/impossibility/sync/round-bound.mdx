@@ -1,0 +1,59 @@
+---
+title: The f+1 Round Lower Bound (Fischer–Lynch, Dolev–Strong)
+description: "Byzantine Agreement under synchrony needs at least f+1 rounds, even with signatures."
+sidebar:
+  order: 2
+  badge:
+    text: Planned
+    variant: note
+---
+
+import ModelCard from '../../../../../components/ModelCard.astro';
+import Cite from '../../../../../components/Cite.astro';
+import References from '../../../../../components/References.astro';
+import Complexity from '../../../../../components/Complexity.astro';
+
+<ModelCard
+  status="planned"
+  timing="sync"
+  crypto="any"
+  faults="byz"
+  determinism="det"
+  problem="BB"
+  note="Covers the f+1-round lower bounds of Fischer–Lynch and Dolev–Strong."
+/>
+
+This chapter has not been written yet. The two cards below are the results this chapter will prove and compare; for now they state the unit and premises through complexity cards.
+
+<Complexity
+  kind="lower"
+  measure="rounds"
+  value="f+1"
+  scope="total"
+  scopeNote="from the start until all honest nodes output"
+  case="worst"
+  condition="synchronous model, deterministic protocol; messages may take any form, including signatures and other authentication; at most f Byzantine faults"
+  cite="ds1983"
+/>
+
+<Complexity
+  kind="upper"
+  measure="messages"
+  value="O(nf)"
+  scope="total"
+  case="worst"
+  condition="synchronous model, with authentication, fully connected network; using the algorithm with exactly f+1 rounds (Dolev–Strong Theorem 6)"
+  excludes="messages sent by Byzantine nodes are not counted, only those sent by correct nodes"
+  cite="ds1983"
+/>
+
+## Planned coverage
+
+- **The lower bound without signatures**: <Cite id="fl1982" /> proves that at least $f+1$ rounds are needed.
+- **Generalizing to any authentication**: <Cite id="ds1983" /> extends this lower bound to any form of authentication and any message type; the proof does not depend on a particular authentication protocol. This is the proof this chapter will study closely.
+- **The matching upper bound**: Dolev–Strong give an algorithm with exactly $f+1$ rounds and $O(nf)$ messages. The algorithm itself is left to the synchrony part; this chapter handles only the lower bound.
+- **Boundary**: the lower bound is for deterministic protocols in the worst case. Randomized protocols can be faster in expectation, which we will meet in the asynchrony part.
+
+## References
+
+<References />

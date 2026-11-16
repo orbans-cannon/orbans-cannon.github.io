@@ -1,0 +1,312 @@
+---
+title: FLP：非同步下的不可能性
+description: 完全非同步下，只要有一個 process 可能停止，沒有任何確定性的共識協議能一邊保持 safety，一邊保證每個容許執行都會做出決定。
+takeaway: "在完全非同步的系統裡，你分不出對方是停止了，還是只是慢。協議若為了容忍一個 process 停止而不等它，就得在資訊不完整的時候決定；FLP 證明，只要有一個 process 可能停止，排程就能一直把「即將定案」的那一步往後拖，而拖出來的執行完全合法（訊息只是晚到，最後都會送達），所以沒有確定性協議能同時保證 safety 與 liveness。證明的核心是 bivalent 配置（兩種決定都還有可能）。"
+sidebar:
+  order: 1
+  badge:
+    text: 草稿
+    variant: caution
+---
+
+import ModelCard from '../../../../components/ModelCard.astro';
+import Thm from '../../../../components/Thm.astro';
+import Proof from '../../../../components/Proof.astro';
+import StructuredProof from '../../../../components/StructuredProof.astro';
+import Step from '../../../../components/Step.astro';
+import Term from '../../../../components/Term.astro';
+import Check from '../../../../components/Check.astro';
+import Cite from '../../../../components/Cite.astro';
+import References from '../../../../components/References.astro';
+import ChainFigure from '../../../../widgets/flp/ChainFigure.astro';
+import CasesFigure from '../../../../widgets/flp/CasesFigure.astro';
+import StagesFigure from '../../../../widgets/flp/StagesFigure.astro';
+import FlpCheck from '../../../../widgets/flp/FlpCheck.astro';
+
+<ModelCard
+  status="draft"
+  timing="async"
+  crypto="any"
+  faults="crash"
+  determinism="det"
+  problem="BA"
+  resilience="一個 crash 即無法同時保證 safety 與 liveness"
+  note="定理與引理依原文第 2、3 節整理；「先講直覺」一節是新增的白話，尚未審。原文只考慮 crash 故障，沒有簽章，模型是完全非同步，所以密碼學假設一欄是「不限」。"
+/>
+
+<Cite id="flp1985" /> 證明了一件事：在完全<Term id="async">非同步</Term>的系統裡，只要有一個 process 可能在沒人察覺的時候停止，任何確定性的<Term id="consensus">共識</Term>協議就有可能永遠做不出決定。它的模型設得很寬鬆（訊息不會遺失、故障只有 <Term id="crash">crash</Term>、對協議的要求也壓到最低），所以結論適用的範圍很廣，也是本站後面所有非同步協議都必須繞過的一道牆。
+
+原文有兩個定理，本頁這樣處理：
+
+| 內容 | 原文位置 | 本頁 |
+| --- | --- | --- |
+| 定理 1：沒有協議能容忍一個故障 | §3，Theorem 1 | 完整證明 |
+| 定理 2：故障都發生在開始之前時，只要過半數存活就能解 | §4，Theorem 2 | 在邊界一節說明做法與結論 |
+
+## 先講直覺
+
+先看一個具體的協議：三個 process 各有一個輸入，互相傳送，等**三個輸入都到齊**才做多數決。它不會決定錯（決定值就是三個輸入的多數），可是只要有一個 process 停止，其他兩個永遠等不到第三個輸入，誰都不能決定。
+
+想補救，就讓它**只等兩個輸入**就決定，這樣即使有一個 process 停止，其他人也能決定。但另外兩個 process 看不到停止的那個 process 的輸入，就分不出「它的輸入是 0」與「它的輸入是 1」這兩種情形；如果這兩種情形的正確結局不同，協議一定在其中一種決定錯。
+
+FLP 把這個矛盾推到所有確定性協議，用三句話概括：
+
+1. **一開始就有「結果還沒定」的局面。** 不論協議怎麼設計，一定有某個初始狀態，兩種決定都還有可能（bivalent）。
+2. **「結果快定下來」的那一步，總是可以往後拖。** 排程可以先讓別的 process 走，再處理那一步，局面仍然是結果沒定的。
+3. **拖延是合法的。** 非同步裡訊息可以延遲任意久，只要最後送達就行，所以這樣排出來的執行不違反任何假設，卻永遠沒有人決定。
+
+下面的證明就是把這三句話寫精確：第一句是引理 2，第二句是引理 3，第三句是最後那個「永遠不決定的執行」。
+
+## 問題與模型
+
+### 系統
+
+原文用一個很小的狀態機系統當模型，目的是讓不可能性盡量適用於實際的系統。
+
+- **process**：共 $n\ge 2$ 個（原文寫 $N$）。每個 process $p$ 有一位元的輸入暫存器 $x_p$、輸出暫存器 $y_p$ 與不限大小的內部儲存。$y_p$ 的值是 $b$、$0$ 或 $1$，起始是 $b$，表示還沒決定；一旦進入 $0$ 或 $1$（稱為**決定狀態**）就不能再改。$p$ 依固定的轉移函數行動，所以每個 process 都是**確定性**的。
+- **訊息系統**：維護一個訊息緩衝區，裡面是已經送出、還沒送達的訊息 $(p,m)$，$p$ 是收件者。$\mathrm{send}(p,m)$ 把訊息放進緩衝區；$\mathrm{receive}(p)$ 要嘛取出一則給 $p$ 的訊息並回傳，要嘛回傳空值 $\varnothing$，緩衝區不變。
+- **送達條件**：訊息系統可以任意選擇，唯一的限制是：只要 $p$ 一直執行 $\mathrm{receive}(p)$，緩衝區裡給 $p$ 的每一則訊息最終都會送到。換句話說，訊息可以延遲任意久、亂序，但不會遺失；即使緩衝區裡有給 $p$ 的訊息，$\mathrm{receive}(p)$ 也可以先回傳有限次 $\varnothing$。
+- **原子廣播**：一個 process 可以在一步之內把同一則訊息送給所有人，而且只要有一個未故障的 process 收到，所有未故障的 process 都會收到。這條假設對協議更有利，所以不可能性的結論也就更強。
+- **沒有時鐘，也沒有故障偵測**：process 之間沒有同步時鐘，所以 timeout 派不上用場；一個 process 也無法分辨對方是停止了，還是只是跑得很慢。
+
+這裡的「非同步」不是指網路很慢。process 的速度與訊息的延遲都沒有上界，所以在任何有限的時間點，對方沉默都同時符合「已經停止」與「只是還沒送到」。
+
+### 配置、排程與正確性
+
+一個 process 走一步，由**事件** $e=(p,m)$ 決定：$p$ 先 $\mathrm{receive}$ 得到 $m$（可以是 $\varnothing$），再依自己的內部狀態與 $m$ 進入新狀態，並送出有限個訊息。事件 $(p,\varnothing)$ 隨時都能發生，所以 process 隨時都可以再走一步。
+
+- **配置**：所有 process 的內部狀態，加上訊息緩衝區的內容。每個 process 都在初始狀態、緩衝區為空的配置，叫**初始配置**。
+- **排程**：從配置 $C$ 出發，依序發生的一串事件 $\sigma$，對應的一連串步驟叫一次**執行**。有限的排程 $\sigma$ 把 $C$ 帶到 $\sigma(C)$，我們說 $\sigma(C)$ 從 $C$ **可達**。從某個初始配置可達的配置叫**可及**配置，以下談到的配置都是可及的。
+
+<Thm kind="lemma" title="排程的交換性" id="lemma-commutativity">
+設從配置 $C$ 出發，排程 $\sigma_1,\sigma_2$ 分別通到 $C_1,C_2$。若 $\sigma_1$ 與 $\sigma_2$ 裡有步驟的 process 集合不相交，則 $\sigma_2$ 可以接在 $C_1$ 之後、$\sigma_1$ 可以接在 $C_2$ 之後，而且兩者通到同一個配置。
+</Thm>
+
+<Proof assumes="只用系統定義">
+兩個排程各自只改變自己 process 的狀態，也只從緩衝區取走給自己 process 的訊息，互不影響，所以先做哪一個，結果都一樣。
+</Proof>
+
+接下來兩個定義，把「共識協議正確」拆成 safety 與 liveness 兩部分。
+
+<Thm kind="definition" title="部分正確" id="def-partial-correct">
+共識協議 $P$ 是**部分正確**，若它滿足：
+
+1. 沒有任何可及配置含有一個以上的決定值。
+2. 對每個 $v\in\{0,1\}$，都有某個可及配置的決定值是 $v$。
+</Thm>
+
+條件 1 是 <Term id="agreement">Agreement</Term>，屬於 <Term id="safety">safety</Term>。條件 2 只是排除「永遠決定 0」這種沒有意義的協議，要求兩個值都有可能成為決定值（對不同的初始配置也可以）。原文沒有把它叫做 <Term id="validity">validity</Term>，本站在[問題與性質](/intro/problem/)也特別區分了這一點。
+
+<Thm kind="definition" title="容許執行與全部正確" id="def-total-correct">
+在一次執行中，執行了無限多步的 process 是**未故障**的，否則是**故障**的。一次執行是**容許**的，若至多一個 process 故障，而且所有送給未故障 process 的訊息最終都送達。一次執行是**決定性**的，若其中某個 process 進入了決定狀態。
+
+協議 $P$ 是**在一個故障下全部正確**，若它部分正確，而且每一個容許執行都是決定性的。
+</Thm>
+
+全部正確只在部分正確之上多要求一件事：每個容許執行裡都有人做出決定，也就是 <Term id="liveness">liveness</Term>。而且只要求**某一個** process 決定，不要求所有未故障的 process 都決定。條件放得這麼寬，是為了讓不可能性的結論更強。
+
+## 證明
+
+<Thm kind="theorem" title="FLP 不可能性" id="thm-flp">
+沒有任何共識協議在一個故障下全部正確。
+
+換句話說，每一個部分正確的共識協議，都至少有一個容許執行不是決定性的。
+</Thm>
+
+### 證明的形狀
+
+假設 $P$ 是在一個故障下全部正確的共識協議。原文分兩步推出矛盾：
+
+1. 找一個結果**還沒有定下來**的初始配置。
+2. 從它出發，建構一個容許執行，讓它每一步都避開「把結果定下來」的那一步，所以永遠不決定。
+
+「結果定下來了沒有」要精確地定義：設 $V(C)$ 是從配置 $C$ 可達的所有配置中，出現過的決定值的集合。
+
+<Thm kind="definition" title="雙值與單值" id="def-valence">
+配置 $C$ 是 **<Term id="bivalent">bivalent</Term>**，若 $|V(C)|=2$，也就是兩個決定值都還有可能；是 **univalent**，若 $|V(C)|=1$，也就是結果已經定了。依唯一的決定值，univalent 的配置分成 **0-valent** 與 **1-valent**。
+</Thm>
+
+$P$ 全部正確，而容許執行一定存在，所以 $V(C)$ 不會是空集合。後面會一再用到兩件事：univalent 配置的後繼配置，仍是同一個值的 univalent；已經有 process 進入決定狀態的配置一定是 univalent（輸出暫存器不能再改，而且可及配置至多有一個決定值）。
+
+### 引理 2：存在 bivalent 的初始配置
+
+<Thm kind="lemma" title="bivalent 的初始配置" id="lemma-bivalent-initial">
+$P$ 有一個 bivalent 的初始配置。
+</Thm>
+
+前面「先講直覺」裡的例子，就是這個引理的縮影：只等兩個輸入的協議，分不出另一個 process 的輸入是 0 還是 1。引理 2 把這個矛盾說清楚：不論怎麼設計協議，一定有某個初始配置，兩種結局都還有可能（bivalent）。
+
+下面的圖一開始預填「等三個」的協議，讓你看每個初始配置的結局，再一步步看矛盾怎麼出現。你也可以點配置，自己當協議來標。
+
+<ChainFigure />
+
+<StructuredProof assumes="$P$ 在一個故障下全部正確；不重複引用定義">
+  <Step open>
+    <span slot="claim">反證：假設每個初始配置都是 univalent。</span>
+
+    <Step uses="部分正確的條件 2">
+      <span slot="claim">既有 0-valent 的初始配置，也有 1-valent 的初始配置。<FlpCheck chip="chain.counts" /></span>
+
+      條件 2 說有某個可及配置的決定值是 $0$，它從某個初始配置 $C$ 可達，所以 $C$ 能決定 $0$。依假設 $C$ 是 univalent，所以是 0-valent。決定 $1$ 的情形相同。
+    </Step>
+
+    <Step uses="1.1">
+      <span slot="claim">存在兩個相鄰的初始配置 $C_0,C_1$，只差某個 process $p$ 的輸入 $x_p$，且 $C_0$ 是 0-valent，$C_1$ 是 1-valent。<FlpCheck chip="chain.pair" /></span>
+
+      任兩個初始配置之間，都可以一次只改一個 process 的輸入，連成一條鏈。鏈的一端是 0-valent，另一端是 1-valent，所以鏈上必有一處從 0-valent 變成 1-valent。
+    </Step>
+
+    <Step uses="1.2">
+      <span slot="claim">從 $C_0$ 有一個容許的決定性執行，其中 $p$ 一步也沒走；設它的排程是 $\sigma$。</span>
+
+      這個執行把 $p$ 當作那個故障的 process，所以是容許的；$P$ 全部正確，所以它是決定性的。
+    </Step>
+
+    <Step uses="1.3">
+      <span slot="claim">$\sigma$ 也可以從 $C_1$ 開始做，而且得到的決定值與從 $C_0$ 做相同。<FlpCheck chip="chain.decide" /></span>
+
+      $\sigma$ 裡 $p$ 沒有任何步驟，而 $C_0$ 與 $C_1$ 只差 $p$ 的輸入，所以其他 process 的每一步在兩邊完全一樣，兩邊對應的配置只差 $p$ 的內部狀態。做出決定的不會是 $p$（它沒走步驟，輸出暫存器沒變），所以決定值也相同。
+    </Step>
+
+    <Step uses="1.4">
+      <span slot="claim">矛盾。<FlpCheck chip="chain.contra" /></span>
+
+      若這個決定值是 $1$，則 $C_0$ 可以決定 $1$，與它是 0-valent 矛盾；若是 $0$，則 $C_1$ 可以決定 $0$，與它是 1-valent 矛盾。
+    </Step>
+  </Step>
+
+  <Step uses="步驟 1">
+    <span slot="claim">所以存在 bivalent 的初始配置。</span>
+  </Step>
+</StructuredProof>
+
+### 引理 3：bivalent 配置總能走到另一個 bivalent 配置
+
+這是整個證明的關鍵。它說的是：就算硬性規定某個事件 $e$ 一定要發生，系統還是有辦法讓 $e$ 發生之後仍然是 bivalent。
+
+<Thm kind="lemma" title="bivalent 配置的延伸" id="lemma-bivalent-step">
+設 $C$ 是 bivalent 配置，$e=(p,m)$ 是可以在 $C$ 發生的事件。令 $\mathcal{C}$ 為從 $C$ 出發、不發生 $e$ 就能到達的配置集合，$\mathcal{D}=\{e(E)\mid E\in\mathcal{C}\}$。則 $\mathcal{D}$ 含有一個 bivalent 配置。
+</Thm>
+
+$e$ 在 $\mathcal{C}$ 的每個配置都能發生：$m$ 在 $C$ 的緩衝區裡，而不含 $e$ 的排程不會把它取走，訊息只會被延遲、不會消失（若 $m=\varnothing$，事件本來就隨時可以發生）。證明用反證法，假設 $\mathcal{D}$ 裡每個配置都是 univalent。
+
+先用三句話講這個論證。假設不論怎麼走，強迫 $p$ 先做 $e$（收一則訊息）之後，結果都已經定了；那麼可以找到一對相鄰的配置，一邊做 $e$ 之後只可能決定 0，另一邊只可能決定 1。接著看那「相鄰的一步」$e'$ 是誰做的：如果是**別的 process**，$e$ 與 $e'$ 可以交換順序，兩邊走到同一個配置，結局不可能同時是 0 又是 1；如果是 **$p$ 自己**，就讓 $p$ 完全不動，另外找一條繞路，一樣推出矛盾。
+
+下面的圖讓你選相鄰那一步是別人做的還是 $p$ 自己做的，逐步看兩種情形各自怎麼推出矛盾。圖上三種線代表三種步驟：粗線是強迫發生的 $e$，細線是相鄰的 $e'$，虛線是 $p$ 完全不動的一串步驟 $\sigma$。每一步只有用得到的部分是清楚的，其餘淡出。
+
+<CasesFigure />
+
+<StructuredProof assumes="引理 1；$P$ 在一個故障下全部正確">
+  <Step open>
+    <span slot="claim">反證：假設 $\mathcal{D}$ 中每個配置都是 univalent。</span>
+
+    <Step uses="$C$ 是 bivalent">
+      <span slot="claim">$\mathcal{D}$ 同時含有 0-valent 與 1-valent 的配置。</span>
+
+      因為 $C$ 是 bivalent，對 $i=0,1$ 都有從 $C$ 可達的 $i$-valent 配置 $E_i$。若 $E_i\in\mathcal{C}$，令 $F_i=e(E_i)\in\mathcal{D}$；否則通往 $E_i$ 的路上發生過 $e$，那麼有某個 $F_i\in\mathcal{D}$ 可以走到 $E_i$。不論哪一種，$F_i$ 與 $E_i$ 之間總有一個能到達另一個，而 $F_i$ 是 univalent，所以 $F_i$ 也是 $i$-valent。
+    </Step>
+
+    <Step uses="1.1">
+      <span slot="claim">存在 $\mathcal{C}$ 中的兩個配置 $C_0,C_1$，滿足 $C_1=e'(C_0)$（$e'=(p',m')$ 是某個事件），且 $e(C_0)$ 是 0-valent、$e(C_1)$ 是 1-valent。</span>
+
+      $\mathcal{C}$ 裡每個配置都從 $C$ 可達，所以若把「相差一步」的配置連起來，$\mathcal{C}$ 是連通的。由 1.1，有兩個配置在 $e$ 之後分別是 0-valent 與 1-valent；沿著連接它們的一條路徑走，$e$ 之後的值必然在某一對相鄰的配置上從一種變成另一種。這一對裡，一個是另一個走一步的結果；必要時把 $0$ 與 $1$ 的名稱交換，就得到所要的 $C_0,C_1$。
+    </Step>
+
+    <Step uses="1.2">
+      <span slot="claim">情形 $p'\ne p$：矛盾。<FlpCheck chip="cases.ne" /></span>
+
+      $e$ 與 $e'$ 是不同 process 的事件，由引理 1，$e(e'(C_0))=e'(e(C_0))$，也就是 $e(C_1)=e'(e(C_0))$。$e(C_0)$ 是 0-valent，它的後繼 $e(C_1)$ 也是 0-valent，與 $e(C_1)$ 是 1-valent 矛盾。
+    </Step>
+
+    <Step uses="1.2">
+      <span slot="claim">情形 $p'=p$：矛盾。<FlpCheck chip="cases.eq" /></span>
+
+      取一個從 $C_0$ 出發、$p$ 完全沒有步驟的有限決定性執行（把 $p$ 當作故障的 process，所以這是容許執行），設排程為 $\sigma$，$A=\sigma(C_0)$。$\sigma$ 與 $e,e'$ 涉及的 process 不相交，由引理 1，$\sigma$ 可以接在 $e(C_0)$ 與 $e(C_1)$ 之後，得到 $E_0=\sigma(e(C_0))$ 與 $E_1=\sigma(e(C_1))$，分別是 0-valent 與 1-valent（univalent 配置的後繼同值）。同樣由引理 1，$e(A)=E_0$，$e(e'(A))=E_1$。所以從 $A$ 既能到 0-valent 的 $E_0$，也能到 1-valent 的 $E_1$，$A$ 是 bivalent。但 $A$ 是決定性執行的終點，已經有 process 進入決定狀態，所以它必須是 univalent，矛盾。
+    </Step>
+  </Step>
+
+  <Step uses="步驟 1">
+    <span slot="claim">所以 $\mathcal{D}$ 含有 bivalent 配置。</span>
+  </Step>
+</StructuredProof>
+
+### 建構一個永遠不決定的容許執行
+
+想像你是控制訊息送達順序的對手。規則有兩條：每個 process 都要輪流有機會走，而且每則訊息遲早都要送到。你的目標，是讓系統永遠不做出決定。
+
+危險在於，有些送訊息的方式會把結果定下來，系統就掉進「只可能決定 0」或「只可能決定 1」。引理 3 保證你總有辦法避開：不論規則逼你先送哪一則訊息，你都可以先讓別的 process 走幾步，再送那一則，而系統仍然停在兩種結局都還有可能的 bivalent 配置。一個階段接著一個階段這樣做下去，就得到一次永遠不決定、卻完全符合規則的執行。
+
+下面的圖上半部畫出系統一路停在未定區的路徑，下半部畫出每個階段輪到誰收訊息；也可以打開「扣住一則訊息」，看什麼樣的排程不算容許。
+
+<StagesFigure />
+
+<StructuredProof assumes="引理 2、引理 3">
+  <Step open>
+    <span slot="claim">維護一個 process 佇列（起始順序任意）；訊息緩衝區依送出的時間排序，最早的排在前面。</span>
+  </Step>
+
+  <Step uses="步驟 1">
+    <span slot="claim">每一個**階段**從 bivalent 配置 $C$ 開始，在另一個 bivalent 配置 $C'$ 結束。</span>
+
+    <Step>
+      <span slot="claim">令佇列最前面的 process 為 $p$，$m$ 為緩衝區裡給 $p$ 最早的訊息（沒有就取 $\varnothing$），$e=(p,m)$。</span>
+    </Step>
+
+    <Step uses="引理 3">
+      <span slot="claim">存在從 $C$ 可達的 bivalent 配置 $C'$，通往它的排程以 $e$ 結尾。</span>
+
+      引理 3 說 $\mathcal{D}$ 裡有 bivalent 配置，而 $\mathcal{D}$ 的每個配置，都是「一段不含 $e$ 的排程，再接上 $e$」得到的。
+    </Step>
+
+    <Step>
+      <span slot="claim">把 $p$ 移到佇列最後。</span>
+    </Step>
+  </Step>
+
+  <Step uses="引理 2、步驟 2">
+    <span slot="claim">從引理 2 的 bivalent 初始配置開始，可以一個階段接一個階段地做下去，得到一次無限長的執行。</span>
+  </Step>
+
+  <Step uses="步驟 3">
+    <span slot="claim">這次執行是容許的。<FlpCheck chip="stages.sched" /></span>
+
+    佇列輪流，所以每個 process 都走了無限多步；每則訊息在緩衝區裡越排越前面，最終一定會被收件者收到。因此沒有任何 process 故障，所有訊息也都送達。
+  </Step>
+
+  <Step uses="步驟 3">
+    <span slot="claim">這次執行裡沒有任何 process 進入決定狀態。<FlpCheck chip="stages.nodecide" /></span>
+
+    若某一步有 process 進入決定狀態，輸出暫存器不能再改，這個決定會一直保留到該階段結束，使階段結束時的配置變成 univalent，與「每個階段都結束在 bivalent 配置」矛盾。
+  </Step>
+
+  <Step uses="步驟 4、5">
+    <span slot="claim">這是一個不是決定性的容許執行，所以 $P$ 不是全部正確。</span>
+  </Step>
+</StructuredProof>
+
+<Check q="這個永遠不決定的執行裡，沒有任何 process 故障。那「容忍一個故障」這個假設到底用在哪裡？">
+用在引理 2 與引理 3 的論證裡：兩處都需要從 $C_0$ 找一個「$p$ 完全沒走步驟」的決定性執行，而這個執行存在，是因為協議必須容忍某個 process 停止。最後構造出來的執行本身沒有任何 process 停止，對手只靠**排程與訊息延遲**，就讓系統永遠不決定。
+</Check>
+
+## 邊界
+
+**這個結論是「無法同時保證」，不是「共識在實務上做不到」。** 原文的結論自己就說：這些結果不表示這類問題在實務上無法「解決」，而是顯示需要更精細的模型，以及對解的要求放寬一些（例如只要求以機率 1 終止）。FLP 之後的各條路線，就是從這裡出發：
+
+- **放寬時序假設**：不要求完全非同步。在<Term id="psync">部分同步</Term>下，確定性協議可以在 <Term id="gst">GST</Term> 之後保證 liveness（見[模型總覽](/impossibility/overview/)與 [DLS](/impossibility/partial-sync/dls/)，<Cite id="dls1988" />）。
+- **放寬終止的要求**：用隨機化，只要求以機率 1 終止。這是非同步部分整條線的主軸（<Cite id="benor1983" />、<Cite id="rabin1983" />，見[非同步](/async/)）。
+- **放寬故障模型**：故障只發生在開始之前，這時可以解，見下面的定理 2。
+
+**定理 2（原文 §4）。** 原文證明：存在一個部分正確的共識協議，只要沒有 process 在執行途中死亡，而且一開始嚴格過半數的 process 是活著的，所有未故障的 process 都會做出決定。協議並不知道誰一開始就死了，做法分兩個階段：
+
+1. 令 $L=\lceil (n+1)/2\rceil$。每個 process 廣播自己的編號，然後等 $L-1$ 個其他 process 的訊息。把「$j$ 收到 $i$ 的訊息」記成一條邊 $i\to j$，得到一張有向圖 $G$，其中每個節點都有 $L-1$ 條進入的邊。
+2. 每個 process 廣播自己的編號、初始值，以及它在第一階段聽到的 $L-1$ 個 process，然後等到它知道的每一個祖先的第二階段訊息都收到，據此算出 $G$ 的遞移閉包 $G^+$ 中相關的部分。
+
+$G^+$ 裡每個節點至少有 $L-1$ 個前驅，所以沒有進入邊的初始集團（clique）**只有一個**，大小至少是 $L$，而且每個完成第二階段的 process 都能算出同一個集團。大家依事先約定的規則，用這個集團裡各成員的初始值做決定，結果就一致了。
+
+這說明 FLP 的牆畫得很精確：只要 process 可以在執行中途、在沒人察覺的時候停止，不可能性就成立；若所有故障都發生在開始之前，就能靠過半數存活解決。
+
+**拜占庭故障更強。** 原文只考慮 crash 故障。拜占庭節點的行為包含停止，所以能容忍一個拜占庭 process 的協議，也一定能容忍一個 crash；因此這個不可能性在拜占庭模型裡同樣成立（原文沒有明講，這是我的推論）。
+
+## 參考文獻
+
+<References />

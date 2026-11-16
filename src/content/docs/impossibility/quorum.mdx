@@ -1,0 +1,144 @@
+---
+title: 結論：Quorum 交集
+description: 本部分的收束：兩個 quorum 的交集必含誠實節點，以及 3f+1 如何從這個引理推出。
+takeaway: "兩個大小為 $q$ 的 quorum 至少交於 $2q-n$ 個節點。要讓交集必含誠實節點，又要在 $f$ 個節點沉默時仍湊得齊 quorum，兩個條件同時成立若且唯若 $n\\ge 3f+1$。"
+sidebar:
+  order: 90
+  badge:
+    text: 已核對
+    variant: success
+---
+
+import ModelCard from '../../../components/ModelCard.astro';
+import Thm from '../../../components/Thm.astro';
+import Proof from '../../../components/Proof.astro';
+import Boundary from '../../../components/Boundary.astro';
+import StructuredProof from '../../../components/StructuredProof.astro';
+import Step from '../../../components/Step.astro';
+import Term from '../../../components/Term.astro';
+import Cite from '../../../components/Cite.astro';
+import Check from '../../../components/Check.astro';
+import References from '../../../components/References.astro';
+
+<ModelCard
+  timing="any"
+  crypto="any"
+  faults="byz"
+  problem="tool"
+  cells={['partial:det-nosig', 'partial:det-sig', 'async:rand-local', 'async:rand-common']}
+  resilience="n ≥ 3f+1（quorum 型協議）"
+  status="verified"
+  note="適用於部分同步與非同步的 quorum 型協議。引理是 Byzantine quorum system 的標準結果；本頁的算術推導已逐步檢查，並對照 PBFT、Bracha、Malkhi–Reiter 的原文。"
+/>
+
+前面各章分別證明了 $3f+1$ 的下界，這一頁從演算法這一側看同一個數字：<Term id="quorum" /> 型協議為什麼需要 $n\ge 3f+1$。這個論證在 PBFT 的論文裡就有，它依賴的 quorum 性質來自 Malkhi 與 Reiter 的 Byzantine quorum system（<Cite id="mr1997" />）：任兩個 quorum 的交集含誠實節點（intersection），以及隨時有不含故障節點的 quorum 可用（availability）。
+
+## 模型
+
+$n$ 個節點，至多 $f$ 個拜占庭。一個 **quorum** 是大小為 $q$ 的節點子集。協議要求「收到 $q$ 個節點的回應」才進入下一步。
+
+<Thm kind="lemma" title="交集大小" id="lemma-intersection-size">
+任兩個大小為 $q$ 的 quorum $Q_1, Q_2$ 滿足 $|Q_1\cap Q_2|\ge 2q-n$。
+</Thm>
+
+<Proof assumes="只用集合論，與時序、密碼學假設無關">
+$|Q_1\cap Q_2| = |Q_1|+|Q_2|-|Q_1\cup Q_2| \ge 2q-n$，因為 $|Q_1\cup Q_2|\le n$。
+</Proof>
+
+<Thm kind="lemma" title="含誠實節點的交集" id="lemma-honest-intersection">
+若 $2q-n\ge f+1$，則任兩個 quorum 的交集至少含一個<Term id="honest" />。
+</Thm>
+
+<Proof assumes="引理 1；拜占庭節點至多 f 個">
+由引理 1，交集至少有 $f+1$ 個節點。<Term id="byzantine">拜占庭節點</Term>至多 $f$ 個，故其中至少 $(f+1)-f=1$ 個是誠實節點。
+</Proof>
+
+## 兩個互相拉扯的條件
+
+要讓 quorum 型協議同時保有 <Term id="safety" /> 與 <Term id="liveness" />，需要同時滿足：
+
+1. **交集條件（safety）**：$2q-n\ge f+1$，即 $q\ge \dfrac{n+f+1}{2}$。
+2. **可用條件（liveness）**：$f$ 個節點可能沉默，所以 quorum 必須能在剩下的 $n-f$ 個節點中湊齊，即 $q\le n-f$。
+
+<Thm kind="theorem" title="3f+1 的來源" id="thm-3f-plus-1">
+設 $n, f\ge 0$ 為整數。存在整數 $q$ 同時滿足交集條件 $2q-n\ge f+1$ 與可用條件 $q\le n-f$，若且唯若 $n\ge 3f+1$。
+</Thm>
+
+<StructuredProof assumes="引理 2 把交集條件與誠實節點連起來；其餘只用算術">
+  <Step open>
+    <span slot="claim">**必要性**：若存在這樣的 $q$，則 $n\ge 3f+1$。</span>
+
+    <Step uses="交集條件、可用條件">
+      <span slot="claim">$\dfrac{n+f+1}{2}\le q\le n-f$。</span>
+
+      交集條件 $2q-n\ge f+1$ 等價於 $q\ge\dfrac{n+f+1}{2}$，可用條件即 $q\le n-f$，兩者接起來。
+    </Step>
+
+    <Step uses="1.1">
+      <span slot="claim">$\dfrac{n+f+1}{2}\le n-f$。</span>
+
+      取 1.1 中不等式鏈的兩端。
+    </Step>
+
+    <Step uses="1.2">
+      <span slot="claim">$n\ge 3f+1$。</span>
+
+      兩邊乘 $2$ 得 $n+f+1\le 2n-2f$，移項得 $3f+1\le n$。
+    </Step>
+  </Step>
+
+  <Step>
+    <span slot="claim">**充分性**：若 $n\ge 3f+1$，則 $q=n-f$ 同時滿足兩個條件。</span>
+
+    <Step>
+      <span slot="claim">可用條件成立。</span>
+
+      $q=n-f$，等號成立。
+    </Step>
+
+    <Step uses="假設 $n\ge 3f+1$">
+      <span slot="claim">交集條件成立。</span>
+
+      $2q-n=2(n-f)-n=n-2f$。而 $n-2f\ge f+1$ 等價於 $n\ge 3f+1$，這正是假設。
+    </Step>
+  </Step>
+
+  <Step uses="步驟 1、2">
+    <span slot="claim">兩個方向都成立，故定理成立。</span>
+  </Step>
+</StructuredProof>
+
+當 $n=3f+1$ 時，$q=n-f=2f+1$，交集至少 $2(2f+1)-(3f+1)=f+1$。
+
+**與原文的對應。** PBFT 用同一套說法解釋 $3f+1$ 的必要性：為了 liveness，服務可能只等到 $n-f$ 個回覆；這 $n-f$ 個之中又可能有 $f$ 個是故障的，所以兩個回覆集合的交集只保證有 $n-3f$ 個誠實節點，要至少一個就需要 $n>3f$（<Cite id="pbft2002" />）。Malkhi 與 Reiter 的 dissemination quorum system 把這兩個性質寫成一般的定義：任兩個 quorum 的交集不被任何一組可能故障的節點包含，而且對任何一組可能故障的節點，都有一個 quorum 與它不相交。對「任意 $f$ 個節點可能故障」的 threshold 假設，這種 quorum system 存在若且唯若 $n>3f$（<Cite id="mr1997" />）。本頁的定理是這個結果在「所有 quorum 一樣大」時的特例。
+
+dissemination 版本針對的是可自我驗證的資料（例如簽章過的值），而且原文明說對網路不做任何同步假設，所以這個門檻在有簽章時依然成立，但前提是不靠同步。DLS 也指出同樣的事：在<Term id="psync">部分同步</Term>下，簽章不改善容錯，仍是 $n\ge 3f+1$，只有在同步模型下才能放寬（<Cite id="dls1988" />）。
+
+<Boundary>
+**少一個節點會怎樣。** 取 $n=3f$、$q=2f$（這是在可用條件下能取到的最大值）。兩個 quorum 的交集可能只有 $2q-n=f$ 個節點，而這 $f$ 個可能全是拜占庭節點。於是存在兩個互相不知情的 quorum，各自「達成<Term id="consensus">共識</Term>」於不同的值，<Term id="agreement">Agreement</Term> 被破壞。
+
+這只是 quorum 型協議的設計直覺，嚴格的下界證明用的是 <Term id="covering">覆蓋圖論證</Term>（<Cite id="flm1986" />；見 [3f+1 與連通度](/impossibility/sync/flm/#thm-flm-bound)）。
+</Boundary>
+
+<Check q="若 $n=3f$、取 $q=2f$，兩個 quorum 的交集保證含有誠實節點嗎？">
+不保證。由引理 1，交集至少有 $2q-n=4f-3f=f$ 個節點，而這 $f$ 個節點可能全是拜占庭節點。這正是上面「邊界」說的情況：兩個 quorum 可能各自達成不同的決定。要讓交集至少有 $f+1$ 個節點（引理 2 的條件），在 $q\le n-f$ 的限制下需要 $n\ge 3f+1$。
+</Check>
+
+## 為什麼同步加簽章可以逃出這個限制
+
+交集條件與可用條件的衝突，來自「$f$ 個節點可能沉默，所以不能等它們」。在<Term id="sync" />模型下，節點可以等滿 $\Delta$ 再判斷誰沉默；加上<Term id="signature" />後，每個節點的行為有可轉述的證據。於是協議不需要靠 quorum 交集來保證 safety，限制可以放寬。
+
+放寬到什麼程度，要看問題：發送者有簽章的 <Term id="bb">Byzantine Broadcast</Term> 可以容忍任意 $f$（<Cite id="ds1983" />，其 $f+1$ 輪的結果假設 $n>f+1$）；沒有指定發送者的 binary <Term id="ba">BA</Term> 則仍需要 $n>2f$。完整的對照見[模型總覽](/impossibility/overview/)的第 2、3 列。這一段是直覺性的說明，不是定理。
+
+## 這個引理在哪裡出現
+
+- PBFT：$n=3f+1$、quorum 大小 $2f+1$，任兩個 quorum 至少交於 $f+1$ 個節點，其中至少一個誠實；prepared 與 <Term id="view">view</Term> change 的正確性都靠這個（見[部分同步](/partial-sync/)，<Cite id="pbft2002" />）。
+- HotStuff：<Term id="qc">QC</Term> 由 $n-f$ 張票組成，$n-f=2f+1$，鎖定規則靠的是同樣的交集（<Cite id="hotstuff2019" />）。
+- Bracha <Term id="rbc">RBC</Term>：echo 的門檻是收到多於 $(n+f)/2$ 個 echo，這等價於 $2q-n\ge f+1$，也就是引理 2 的條件；證明用的也是「某個誠實節點同時送了兩種 echo」的矛盾（見[非同步](/async/)，<Cite id="bracha1987" />）。
+- DAG 協議：Narwhal 的可用性憑證含 $2f+1$ 個簽章，靠 quorum 交集確保每個區塊的 availability 與 integrity；Tusk 的 safety 論證用的是不對稱的形式，一輪裡 $2f+1$ 個區塊與任何 $f+1$ 個區塊的 quorum 必相交；Bullshark 的 commit rule 也仰賴 quorum 交集，並指出要求 $2f+1$ 條強路徑而不是 $f+1$ 條，就是為了這個交集（見[合流](/convergence/)，<Cite id="narwhal2022" />、<Cite id="bullshark2022" />）。
+
+之後遇到這些協議，第一步通常就是找出它用的是哪兩個 quorum，以及交集的誠實節點負責帶出什麼資訊。
+
+## 參考文獻
+
+<References />

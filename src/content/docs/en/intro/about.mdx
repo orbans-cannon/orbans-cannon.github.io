@@ -1,0 +1,87 @@
+---
+title: About this site
+description: "What this site is for, how it is organized, what the page status labels mean, the license, and who made it."
+sidebar:
+  order: 1
+  badge:
+    text: Draft
+    variant: caution
+---
+
+import Term from '../../../../components/Term.astro';
+
+## Why this site
+
+Chinese-language material on Byzantine Fault Tolerance (<Term id="bft">BFT</Term>) mostly stops at the story of the Byzantine Generals, or at a walkthrough of one particular blockchain protocol. To read the **models, proofs and lower bounds** in the papers, there is almost nothing in Chinese that bridges the gap. This site aims to introduce that material.
+
+*This is the English version. Pages without an English translation yet are shown in Chinese.*
+
+## Who it is for
+
+- **Readers**: people with a background in distributed systems who know <Term id="consensus" tip="In case you are new to this: consensus means a group of computers, each with its own opinion, must decide on the same thing (for example whether to record a transaction), and after deciding they must all end up with the same result. The difficulty is that some of the computers may fail or lie. The page “What Is Byzantine?” explains it from scratch.">the basic idea of consensus</Term>. After working through the site, you should be able to read BFT papers from distributed-computing venues (such as PODC and DISC) on your own, and say under which model each result holds.
+- **Theory over implementation**: the focus is "under which model can which property, or cannot, be guaranteed", not how to deploy a particular system. There are already plenty of implementation tutorials, and this site does not repeat them.
+- **Not a translation of the papers**: the site does not reproduce papers. It offers explanations, intuition and proof walkthroughs, and links to the originals.
+
+## How the site is organized: separate the models first
+
+Most textbooks present PBFT, HotStuff, HoneyBadger and Bullshark side by side, which makes it easy to think they are just different solutions to the same problem. In fact they live under **different timing assumptions**, and what they can do, how they are proved, and what their complexity numbers mean all differ.
+
+So the site is not arranged by year or by system. One dedicated part first sets out the limits under each model; then three tracks follow, one per model; and finally they converge at DAG-based protocols:
+
+| Part | Content | Opening question |
+| --- | --- | --- |
+| Introduction | Definitions of the problems, properties and models | When we say "everyone reaches consensus", exactly what must be guaranteed? |
+| Impossibility and Lower Bounds | FLP, FLM, DLS, Dolev–Strong, and more | What is impossible under each model? |
+| <Term id="sync">Synchrony</Term> | Message delay has a known bound Δ | What do <Term id="signature">signatures</Term> change? |
+| <Term id="psync">Partial Synchrony</Term> | The bound holds only after <Term id="gst">GST</Term> | Why must <Term id="safety">safety</Term> and <Term id="liveness">liveness</Term> be separated? |
+| <Term id="async">Asynchrony</Term> | No timing assumption at all | After FLP, how does randomization get around it? |
+| Convergence | Protocols that organize messages as a DAG (DAG-BFT) | What do we gain by separating "disseminating data" from "deciding the order"? |
+| Frontier | New work from 2025–26 | Which problems are still open? |
+
+Impossibility and Lower Bounds is a part of its own because its papers are the hardest and use very different proof techniques, so it needs the space. The three tracks that follow keep referring back to its results.
+
+## How to read each page
+
+Every protocol or theorem page opens with a small card that states the conditions under which the result holds: how reliable the network is, whether digital signatures are available, and what the bad nodes can do. The body then goes through: the conditions, what is guaranteed, why it holds, and what breaks when a condition is removed.
+
+Whenever a page states a number such as "how much communication is needed", it says what is being counted (for example, the number of messages) and under which case it is counted (for example, whether the <Term id="leader">leader</Term> is honest), so that numbers from two protocols can be compared fairly.
+
+### Page status labels
+
+> The Chinese introduction pages are finished and carry no label; pages in the other parts are still being written and are marked according to the table below. This subsection is a note for the development period and will be removed once the whole site is finished.
+
+A page that is not yet finished carries a label in the sidebar, showing which stage it has reached. There are five stages, from left to right:
+
+| Stage | Label | Meaning |
+| --- | --- | --- |
+| 0 | **Outline** | Section headings and a "planned coverage" list only; no content |
+| 1 | **Planned** | A model card, planned coverage and a few demonstrations, but no full text |
+| 2 | **Draft** | Full text, but not yet checked line by line against the original, or checked but not yet reviewed by the author |
+| 3 | **Partially verified** | Some statements have been checked against the published version; unchecked parts are marked on the page |
+| 4 | **Verified** | Every statement has been checked against the published version and reviewed by the author; once finished, the label is removed (as on the Chinese introduction pages) |
+
+On the English pages the label describes the English text: a translation that no person has reviewed yet is marked **Draft**, even when the Chinese page it translates is finished. Pages that are only an outline or a plan keep the label of their content stage (Outline or Planned), and a page that only points to the Chinese version is marked Outline.
+
+A "†" next to an entry in the references means its bibliographic data (title, authors, year, venue) has not itself been checked yet.
+
+## Author and collaborator
+
+- **Author**: Allan Yang
+- **Collaborator**: Claude
+
+## License
+
+This site is **not for commercial use**; please use it free of charge.
+
+- **Text** is licensed under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en). In plain words: you may share, repost and adapt it, but you must credit the author (Allan Yang), link to the license and say whether you made changes (BY); you may not use it for commercial purposes (NC); and any adapted version you publish must carry the same license (SA).
+- **Code** (components, build configuration, interactive figures) is licensed under [PolyForm Noncommercial 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0/): you may study it, modify it and use it non-commercially, but not commercially.
+- **Cited papers**: the copyright belongs to their authors and publishers. This site does not include the papers themselves; it only writes explanations and links to the originals.
+
+## Reporting errors and contact
+
+If you find an error or have a suggestion, there are two ways to reach us:
+
+- **Open an issue**: go to the Issues page of the site's GitHub repository and write down the page URL and what you think is wrong. Please use this in most cases, because other readers can see it and it avoids duplicate reports.
+- **Send a pull request**: for a typo, or if you already know the fix, editing the file and sending a PR is the fastest.
+
+{/* TODO before going public: add the repo URL */}

@@ -1,0 +1,39 @@
+---
+title: 部分同步與 3f+1（DLS）
+description: 部分同步的兩種定義、safety 與 termination 的等價分解，以及各故障類型的最小節點數。
+sidebar:
+  order: 1
+  badge:
+    text: 規劃中
+    variant: note
+---
+
+import ModelCard from '../../../../components/ModelCard.astro';
+import Cite from '../../../../components/Cite.astro';
+import References from '../../../../components/References.astro';
+
+<ModelCard
+  status="planned"
+  timing="partial"
+  crypto="any"
+  faults="byz"
+  determinism="det"
+  problem="BA"
+  resilience="n ≥ 3f+1（拜占庭，有或無簽章）；n ≥ 2f+1（crash、omission）"
+  note="原文：Dwork–Lynch–Stockmeyer，JACM 1988。"
+/>
+
+本章尚未撰寫。原文見 <Cite id="dls1988" />。
+
+## 預計涵蓋
+
+- **兩種部分同步**：$\Delta$ 存在但未知；或 $\Delta$ 已知但只從某個未知的時間 GST 之後成立。
+- **為什麼 safety 要無條件成立**：原文的論證是，safety 的違反一定發生在某個有限時間點，而那個執行總有一個延續使 $\Delta$ 最終成立。因此兩種定義等價於把正確性分成 safety 與 termination。
+- **Table I**：各模型與各故障類型的最小節點數，以及「部分同步下簽章不改善容錯」。
+- **下界的證明**：以原文定理 4.4（帶簽章的拜占庭、部分同步）為主。
+- **演算法與分散式時鐘**：原文以三個基本演算法與兩種分散式時鐘組合出所有結果。本章只摘要，細節留給部分同步部分。
+- **邊界**：DLS 的 GST 模型允許訊息在 GST 前遺失；現代論文多改成「最終送達」。
+
+## 參考文獻
+
+<References />

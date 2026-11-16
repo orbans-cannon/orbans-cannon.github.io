@@ -1,0 +1,33 @@
+---
+title: "Convergence: DAG-BFT"
+description: "How DAG protocols use both the robustness of asynchrony and the low latency of partially synchronous periods."
+sidebar:
+  order: 10
+  badge:
+    text: Outline
+    variant: default
+---
+
+import PartRoute from '../../../../components/PartRoute.astro';
+import ModelCard from '../../../../components/ModelCard.astro';
+
+<ModelCard status="outline" timing="hybrid" crypto="threshold" faults="byz" determinism="any" problem="SMR" />
+
+:::note[Outline]
+This part is only an outline and has not been written yet. Below is the plan.
+:::
+
+**Opening question**: How do we put asynchronous tools and partially synchronous optimizations into one protocol?
+
+## Planned chapters
+
+<PartRoute timing="hybrid">
+
+1. **Why a DAG**: decoupling data dissemination from ordering; starting from Aleph.
+2. **DAG Rider**: deriving the order from the DAG with zero extra communication, and the roles of the coin and RBC.
+3. **Narwhal and Tusk**: the certified DAG and data availability.
+4. **Bullshark**: keeping asynchronous liveness, using the synchronous-period fast path, and the separate partially synchronous version.
+5. **Cordial Miners and Mysticeti**: the uncertified DAG and latency lower bounds.
+6. **Latency and robustness, step by step**: Shoal, Shoal++, Sailfish, Autobahn. Mostly a comparison table, one row and a short paragraph per protocol on which limitation of Bullshark each one addresses.
+
+</PartRoute>

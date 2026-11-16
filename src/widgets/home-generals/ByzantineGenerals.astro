@@ -1,0 +1,605 @@
+---
+/**
+ * 首頁主視覺：三將軍動畫（LSP 1982 的 Fig. 1／Fig. 2）。
+ *
+ * 時間軸是宣告式的：會淡入淡出的元素帶 data-in／data-out（秒），
+ * 傳令兵帶起訖座標與時間。腳本只負責依時間 t 算出每個元素的狀態，
+ * 所以暫停、減少動態、沒有 JavaScript 都只是「停在某個 t」。
+ * 伺服器端輸出的是結論畫面（STATIC_T），沒有 JavaScript 或系統要求減少動態時就停在這裡。
+ */
+import { generalsStrings, type Lang } from './strings';
+
+interface Props {
+  lang?: Lang;
+  /** 底下的說明小字；首頁用，內頁已在正文講過就關掉 */
+  footnote?: boolean;
+}
+const { lang = 'zh-TW', footnote = true } = Astro.props;
+const s = generalsStrings[lang];
+
+const LOOP = 24; // 一輪秒數
+const STATIC_T = 20; // 靜態畫面停在結論
+const FADE = 0.35;
+
+const clamp = (x: number) => Math.max(0, Math.min(1, x));
+const fadeAt = (t: number, a: number, b: number) => clamp((t - a) / FADE) * clamp((b - t) / FADE);
+/** 淡入淡出元素的屬性；初始不透明度取結論畫面的值 */
+const fx = (a: number, b: number) => ({
+  'data-in': a,
+  'data-out': b,
+  style: `opacity:${fadeAt(STATIC_T, a, b)}`,
+});
+
+// 營帳位置（帳篷中心）與地面點（傳令兵行走的路線端點）
+const camps = {
+  A: { x: 200, y: 72, label: s.commander },
+  L1: { x: 70, y: 316, label: s.l1 },
+  L2: { x: 330, y: 316, label: s.l2 },
+} as const;
+type CampId = keyof typeof camps;
+const ground = (id: CampId) => ({ x: camps[id].x, y: camps[id].y + 14 });
+const INSET = 40;
+
+function route(from: CampId, to: CampId, lane: number) {
+  const p = ground(from);
+  const q = ground(to);
+  const dx = q.x - p.x;
+  const dy = q.y - p.y;
+  const len = Math.hypot(dx, dy);
+  const ux = dx / len;
+  const uy = dy / len;
+  return {
+    x0: +(p.x + ux * INSET).toFixed(1),
+    y0: +(p.y + uy * INSET + lane).toFixed(1),
+    x1: +(q.x - ux * INSET).toFixed(1),
+    y1: +(q.y - uy * INSET + lane).toFixed(1),
+  };
+}
+
+// 劇本：from → to、出發與抵達時間、卷軸文字、是否由叛徒送出、車道偏移。
+// 照原文 Fig. 1／Fig. 2 只畫三個訊息（副將 1 轉告副將 2 與副將 1 的觀點無關，省略）。
+const messengers = [
+  // 情境一：主帥忠誠，副將 2 是叛徒
+  { from: 'A', to: 'L1', t0: 2.4, t1: 4.6, text: s.attack, traitor: false, lane: 0 },
+  { from: 'A', to: 'L2', t0: 2.4, t1: 4.6, text: s.attack, traitor: false, lane: 0 },
+  { from: 'L2', to: 'L1', t0: 5.0, t1: 7.2, text: s.saidRetreat, traitor: true, lane: 0 },
+  // 情境二：主帥是叛徒
+  { from: 'A', to: 'L1', t0: 10.4, t1: 12.6, text: s.attack, traitor: true, lane: 0 },
+  { from: 'A', to: 'L2', t0: 10.4, t1: 12.6, text: s.retreat, traitor: true, lane: 0 },
+  { from: 'L2', to: 'L1', t0: 13.0, t1: 15.2, text: s.saidRetreat, traitor: false, lane: 0 },
+].map((m) => ({
+  ...m,
+  ...route(m.from as CampId, m.to as CampId, m.lane),
+  w: Math.round([...m.text].length * s.glyphWidth + 14),
+}));
+// 卷軸往前進方向偏一點：主帥同時派出兩名傳令兵時，兩個卷軸（尤其英文較寬）才不會疊在一起
+const pillShift = (m: { x0: number; x1: number; w: number }) => Math.sign(m.x1 - m.x0) * Math.round(m.w * 0.3);
+
+// 營帳上的狀態：叛徒旗（觀眾看得到、副將 1 看不到）、結論時的問號與副將 1 的圈
+const traitorFlag: Partial<Record<CampId, [number, number]>> = {
+  L2: [1.8, 9.2],
+  A: [9.8, 17.0],
+};
+const doubt: CampId[] = ['A', 'L2'];
+const END = 23.4;
+
+const ga = ground('A');
+const g1 = ground('L1');
+const g2 = ground('L2');
+
+const flmHref = `${s.linkBase}/impossibility/sync/flm/`;
+const quorumHref = `${s.linkBase}/impossibility/quorum/`;
+const [fnBefore, fnRest] = s.footnote.split('{flm}');
+const [fnMid, fnAfter] = fnRest.split('{quorum}');
+const descId = `bgw-desc-${lang}`;
+---
+
+<figure class="bgw not-content" data-generals data-loop={LOOP} data-static={STATIC_T} lang={lang}>
+  <div class="bgw-stage">
+    <svg viewBox="0 0 400 372" role="img" aria-labelledby={descId}>
+      <!-- 路線 -->
+      <g class="bgw-roads" aria-hidden="true">
+        <line x1={ga.x} y1={ga.y} x2={g1.x} y2={g1.y} />
+        <line x1={ga.x} y1={ga.y} x2={g2.x} y2={g2.y} />
+        <line x1={g1.x} y1={g1.y} x2={g2.x} y2={g2.y} />
+      </g>
+
+      <!-- 城：城牆、雉堞、圓頂 -->
+      <g class="bgw-city bgw-enter" transform="translate(200 212)" aria-hidden="true">
+        <circle class="bgw-city-ground" r="38" />
+        <circle class="bgw-battlement" r="40" />
+        <circle class="bgw-wall" r="36" />
+        <path class="bgw-dome" d="M-19 8 A19 19 0 0 1 19 8 Z" />
+        <path class="bgw-dome bgw-dome-side" d="M-29 8 A10 10 0 0 1 -19 8 Z M19 8 A10 10 0 0 1 29 8 Z" />
+        <rect class="bgw-dome-base" x="-30" y="8" width="60" height="9" rx="1" />
+        <line class="bgw-finial" x1="0" y1="-11" x2="0" y2="-18" />
+        <circle class="bgw-finial-dot" cy="-19.5" r="2" />
+      </g>
+
+      <!-- 營帳 -->
+      {
+        (Object.keys(camps) as CampId[]).map((id, i) => {
+          const c = camps[id];
+          const tf = traitorFlag[id];
+          return (
+            <g class="bgw-camp bgw-enter" transform={`translate(${c.x} ${c.y})`} style={`--i:${i + 1}`} aria-hidden="true">
+              {id === 'L1' && <circle class="bgw-focus-ring" cy="-1" r="26" {...fx(17.2, END)} />}
+              <path class="bgw-tent" d="M-20 14 L0 -16 L20 14 Z" />
+              <path class="bgw-door" d="M-6 14 L0 3 L6 14" />
+              <line class="bgw-pole" x1="0" y1="-16" x2="0" y2="-43" />
+              <path class="bgw-flag" d="M0.8 -43 L21 -37.5 L0.8 -32 Z" />
+              {tf && <path class="bgw-flag bgw-flag-traitor" d="M0.8 -43 L21 -37.5 L0.8 -32 Z" {...fx(tf[0], tf[1])} />}
+              {doubt.includes(id) && (
+                <text class="bgw-doubt" x="-14" y="-30" {...fx(17.2, END)}>?</text>
+              )}
+              {/* 主帥的名字放在旗子上方：兩條出發路線都從帳篷下方經過，名字放下面會被傳令兵壓到 */}
+              <text class="bgw-label" y={id === 'A' ? -52 : 38}>{c.label}</text>
+            </g>
+          );
+        })
+      }
+
+      <!-- 傳令兵（腳在原點，面向右） -->
+      {
+        messengers.map((m) => (
+          <g
+            class:list={['bgw-m', { 'is-traitor': m.traitor }]}
+            data-x0={m.x0}
+            data-y0={m.y0}
+            data-x1={m.x1}
+            data-y1={m.y1}
+            data-t0={m.t0}
+            data-t1={m.t1}
+            style="opacity:0"
+            aria-hidden="true"
+          >
+            <g class="bgw-m-body">
+              <line class="bgw-leg" x1="0" y1="-9" x2="0" y2="0" />
+              <line class="bgw-leg" x1="0" y1="-9" x2="0" y2="0" />
+              <line class="bgw-torso" x1="0" y1="-9" x2="1.6" y2="-18" />
+              <line class="bgw-arm" x1="1.2" y1="-16" x2="5.5" y2="-12.5" />
+              <circle class="bgw-head" cx="2.2" cy="-21.6" r="3.2" />
+            </g>
+            <g class="bgw-pill" transform={`translate(${pillShift(m)} 0)`}>
+              <rect x={-m.w / 2} y="-44" width={m.w} height="16" rx="8" />
+              <text y="-32.4">{m.text}</text>
+            </g>
+          </g>
+        ))
+      }
+    </svg>
+
+    <button class="bgw-toggle" type="button" data-label-pause={s.pause} data-label-play={s.play} aria-label={s.play} title={s.play}>
+      <svg class="bgw-icon-play" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.5v9l7.5-4.5z" /></svg>
+      <svg class="bgw-icon-pause" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 3.5h2.5v9H4.5zM9 3.5h2.5v9H9z" /></svg>
+    </button>
+  </div>
+
+  <!-- 字幕：三段疊在同一格，高度取最高的一段，換段時版面不跳動 -->
+  <p class="bgw-caption" aria-hidden="true">
+    <span {...fx(1.6, 9.2)}><b>{s.scenario1}</b>{s.caption1}</span>
+    <span {...fx(9.6, 16.8)}><b>{s.scenario2}</b>{s.caption2}</span>
+    <span class="bgw-conclusion" {...fx(17.0, END)}>{s.conclusion}</span>
+  </p>
+
+  <!-- 副將 1 的信匣：兩個情境逐步填入，結論時亮起等號 -->
+  <div class="bgw-inbox" aria-hidden="true">
+    <div class="bgw-inbox-title">{s.inboxTitle}</div>
+    <div class="bgw-inbox-grid">
+      <div class="bgw-col">
+        <div class="bgw-col-h">{s.scenario1}<i {...fx(1.6, 9.2)}></i></div>
+        <div class="bgw-row" {...fx(4.6, END)}>{s.inboxCommanderAttack}</div>
+        <div class="bgw-row" {...fx(7.2, END)}>{s.inboxL2SaidRetreat}</div>
+      </div>
+      <div class="bgw-eq" {...fx(17.2, END)}>=</div>
+      <div class="bgw-col">
+        <div class="bgw-col-h">{s.scenario2}<i {...fx(9.6, 16.8)}></i></div>
+        <div class="bgw-row" {...fx(12.6, END)}>{s.inboxCommanderAttack}</div>
+        <div class="bgw-row" {...fx(15.2, END)}>{s.inboxL2SaidRetreat}</div>
+      </div>
+    </div>
+  </div>
+
+  <p class="sr-only" id={descId}>{s.description}</p>
+  {footnote && (
+    <figcaption class="bgw-footnote">
+      {fnBefore}<a href={flmHref}>{s.flmLink}</a>{fnMid}<a href={quorumHref}>{s.quorumLink}</a>{fnAfter}
+    </figcaption>
+  )}
+</figure>
+
+<script>
+  const FADE = 0.35;
+  const SCALE = 1.3; // 傳令兵放大倍率
+  const clamp = (x: number) => (x < 0 ? 0 : x > 1 ? 1 : x);
+  const fadeAt = (t: number, a: number, b: number, d = FADE) => clamp((t - a) / d) * clamp((b - t) / d);
+  const easeInOut = (x: number) => -(Math.cos(Math.PI * x) - 1) / 2;
+
+  interface Messenger {
+    el: SVGGElement;
+    body: SVGGElement;
+    legs: SVGLineElement[];
+    x0: number; y0: number; x1: number; y1: number; t0: number; t1: number;
+  }
+
+  function setup(root: HTMLElement) {
+    const loop = Number(root.dataset.loop);
+    const staticT = Number(root.dataset.static);
+    const fades = [...root.querySelectorAll<HTMLElement | SVGElement>('[data-in]')].map((el) => ({
+      el,
+      a: Number(el.dataset.in),
+      b: Number(el.dataset.out),
+    }));
+    const ms: Messenger[] = [...root.querySelectorAll<SVGGElement>('.bgw-m')].map((el) => {
+      const d = el.dataset;
+      return {
+        el,
+        body: el.querySelector<SVGGElement>('.bgw-m-body')!,
+        legs: [...el.querySelectorAll<SVGLineElement>('.bgw-leg')],
+        x0: +d.x0!, y0: +d.y0!, x1: +d.x1!, y1: +d.y1!, t0: +d.t0!, t1: +d.t1!,
+      };
+    });
+    const btn = root.querySelector<HTMLButtonElement>('.bgw-toggle')!;
+
+    function render(t: number) {
+      for (const f of fades) f.el.style.opacity = String(fadeAt(t, f.a, f.b));
+      for (const m of ms) {
+        // 出發後才淡入、抵達後才淡出，避免在營帳旁時壓到營帳與名字
+        const op = fadeAt(t, m.t0 + 0.1, m.t1 + 0.1, 0.35);
+        m.el.style.opacity = String(op);
+        if (op === 0) continue;
+        const raw = clamp((t - m.t0) / (m.t1 - m.t0));
+        const p = easeInOut(raw);
+        const x = m.x0 + (m.x1 - m.x0) * p;
+        const y = m.y0 + (m.y1 - m.y0) * p;
+        const moving = raw > 0 && raw < 1;
+        // 步伐：速度在中段最快，擺幅也跟著放大
+        const speed = moving ? Math.sin(Math.PI * raw) : 0;
+        const swing = Math.sin(t * 17) * 30 * (0.35 + 0.65 * speed) * (moving ? 1 : 0);
+        const bob = moving ? -Math.abs(Math.sin(t * 17)) * 1.4 * speed : 0;
+        m.el.setAttribute('transform', `translate(${x.toFixed(2)} ${(y + bob).toFixed(2)}) scale(${SCALE})`);
+        m.body.setAttribute('transform', m.x1 < m.x0 ? 'scale(-1 1)' : '');
+        m.legs[0].setAttribute('transform', `rotate(${swing.toFixed(1)} 0 -9)`);
+        m.legs[1].setAttribute('transform', `rotate(${(-swing).toFixed(1)} 0 -9)`);
+      }
+    }
+
+    // 播放狀態：使用者按鈕、是否在畫面內、分頁是否可見，三者都成立才跑
+    let playing = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let inView = true;
+    let t = playing ? 0 : staticT;
+    let last: number | null = null;
+    let raf = 0;
+
+    function syncButton() {
+      const label = playing ? btn.dataset.labelPause! : btn.dataset.labelPlay!;
+      btn.setAttribute('aria-label', label);
+      btn.title = label;
+      root.classList.toggle('is-playing', playing);
+    }
+
+    function frame(now: number) {
+      if (last !== null) t = (t + Math.min(now - last, 100) / 1000) % loop;
+      last = now;
+      render(t);
+      raf = requestAnimationFrame(frame);
+    }
+    function update() {
+      const run = playing && inView && !document.hidden;
+      if (run && !raf) {
+        last = null;
+        raf = requestAnimationFrame(frame);
+      } else if (!run && raf) {
+        cancelAnimationFrame(raf);
+        raf = 0;
+      }
+    }
+
+    btn.addEventListener('click', () => {
+      playing = !playing;
+      syncButton();
+      update();
+    });
+    document.addEventListener('visibilitychange', update);
+    new IntersectionObserver((entries) => {
+      inView = entries[0]?.isIntersecting ?? true;
+      update();
+    }).observe(root);
+
+    // 開發時方便檢查任意時間點：在主控台呼叫 el.__seek(秒數)
+    if (import.meta.env.DEV) {
+      (root as HTMLElement & { __seek?: (x: number) => void }).__seek = (x: number) => {
+        playing = false;
+        syncButton();
+        update();
+        t = x;
+        render(t);
+      };
+      const m = location.hash.match(/bgw-t=([\d.]+)/);
+      if (m) {
+        playing = false;
+        t = Number(m[1]);
+      }
+    }
+
+    render(t);
+    syncButton();
+    update();
+  }
+
+  document.querySelectorAll<HTMLElement>('[data-generals]').forEach(setup);
+</script>
+
+<style>
+  .bgw {
+    --g-ink: var(--sl-color-white);
+    --g-soft: var(--sl-color-gray-3);
+    --g-faint: var(--sl-color-gray-5);
+    --g-paper: var(--sl-color-black);
+    --g-gold: #a06c0a;
+    --g-gold-tint: rgb(210 154 31 / 0.12);
+    --g-traitor: var(--bft-fault);
+    --g-traitor-tint: color-mix(in srgb, var(--bft-fault) 14%, transparent);
+    margin: 0;
+    width: 100%;
+    font-family: var(--sl-font);
+    color: var(--g-ink);
+  }
+  :global(:root[data-theme='dark']) .bgw {
+    --g-gold: #e2ac3f;
+  }
+
+  .bgw-stage {
+    position: relative;
+  }
+  .bgw svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+  }
+
+  /* 路線 */
+  .bgw-roads line {
+    stroke: var(--g-faint);
+    stroke-width: 1.4;
+    stroke-dasharray: 2 5;
+    stroke-linecap: round;
+  }
+
+  /* 城 */
+  .bgw-city-ground {
+    fill: var(--g-gold-tint);
+  }
+  .bgw-battlement {
+    fill: none;
+    stroke: var(--g-gold);
+    stroke-width: 4;
+    stroke-dasharray: 3.2 3.2;
+    opacity: 0.55;
+  }
+  .bgw-wall {
+    fill: none;
+    stroke: var(--g-gold);
+    stroke-width: 1.6;
+  }
+  .bgw-dome,
+  .bgw-dome-base {
+    fill: var(--g-gold);
+  }
+  .bgw-dome-side {
+    opacity: 0.7;
+  }
+  .bgw-finial {
+    stroke: var(--g-gold);
+    stroke-width: 1.6;
+  }
+  .bgw-finial-dot {
+    fill: var(--g-gold);
+  }
+
+  /* 營帳 */
+  .bgw-tent {
+    fill: var(--g-paper);
+    stroke: var(--g-ink);
+    stroke-width: 1.6;
+    stroke-linejoin: round;
+  }
+  .bgw-door,
+  .bgw-pole {
+    fill: none;
+    stroke: var(--g-ink);
+    stroke-width: 1.4;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+  }
+  .bgw-flag {
+    fill: var(--g-gold);
+  }
+  .bgw-flag-traitor {
+    fill: var(--g-traitor);
+  }
+  .bgw-doubt {
+    fill: var(--g-traitor);
+    font-size: 17px;
+    font-weight: 700;
+    text-anchor: middle;
+  }
+  .bgw-label {
+    fill: var(--g-ink);
+    font-size: 13px;
+    text-anchor: middle;
+  }
+  .bgw-focus-ring {
+    fill: none;
+    stroke: var(--g-gold);
+    stroke-width: 1.4;
+    stroke-dasharray: 3 3;
+  }
+
+  /* 傳令兵 */
+  .bgw-m line,
+  .bgw-m circle {
+    stroke: var(--g-ink);
+    stroke-width: 1.7;
+    stroke-linecap: round;
+    fill: none;
+  }
+  .bgw-m .bgw-head {
+    fill: var(--g-ink);
+    stroke: none;
+  }
+  .bgw-pill rect {
+    fill: var(--g-paper);
+    stroke: var(--g-gold);
+    stroke-width: 1.3;
+  }
+  .bgw-pill text {
+    fill: var(--g-ink);
+    font-size: 11px;
+    text-anchor: middle;
+  }
+  .bgw-m.is-traitor .bgw-pill rect {
+    stroke: var(--g-traitor);
+    fill: var(--g-paper);
+  }
+  .bgw-m.is-traitor .bgw-pill text {
+    fill: var(--g-traitor);
+    font-weight: 600;
+  }
+
+  /* 播放／暫停 */
+  .bgw-toggle {
+    position: absolute;
+    top: 0;
+    right: 0;
+    display: grid;
+    place-items: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    padding: 0;
+    color: var(--g-ink);
+    background: var(--sl-color-bg-nav, var(--g-paper));
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 50%;
+    cursor: pointer;
+  }
+  .bgw-toggle:hover {
+    border-color: var(--g-gold);
+  }
+  .bgw-toggle:focus-visible {
+    outline: 2px solid var(--sl-color-accent);
+    outline-offset: 2px;
+  }
+  .bgw-toggle svg {
+    width: 1rem;
+    height: 1rem;
+    fill: currentColor;
+  }
+  .bgw .bgw-toggle .bgw-icon-pause,
+  .bgw.is-playing .bgw-toggle .bgw-icon-play {
+    display: none;
+  }
+  .bgw.is-playing .bgw-toggle .bgw-icon-pause {
+    display: block;
+  }
+
+  /* 字幕 */
+  .bgw-caption {
+    display: grid;
+    margin: 0.75rem 0 0;
+    font-size: var(--sl-text-sm);
+    line-height: 1.7;
+    color: var(--g-soft);
+    text-wrap: pretty;
+  }
+  .bgw-caption > span {
+    grid-area: 1 / 1;
+  }
+  .bgw-caption b {
+    margin-inline-end: 0.6em;
+    font-weight: 600;
+    color: var(--g-ink);
+  }
+  .bgw-caption .bgw-conclusion {
+    color: var(--g-ink);
+    font-weight: 600;
+  }
+
+  /* 信匣 */
+  .bgw-inbox {
+    margin-top: 0.75rem;
+    padding: 0.7rem 0.85rem 0.8rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 0.6rem;
+  }
+  .bgw-inbox-title {
+    font-size: var(--sl-text-xs);
+    letter-spacing: 0.04em;
+    color: var(--g-soft);
+  }
+  .bgw-inbox-grid {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 0.5rem;
+    align-items: center;
+    margin-top: 0.4rem;
+  }
+  .bgw-col {
+    display: grid;
+    gap: 0.3rem;
+    min-width: 0;
+  }
+  .bgw-col-h {
+    position: relative;
+    justify-self: start;
+    font-size: var(--sl-text-xs);
+    font-weight: 600;
+  }
+  .bgw-col-h i {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -2px;
+    height: 2px;
+    border-radius: 1px;
+    background: var(--g-gold);
+  }
+  .bgw-row {
+    padding: 0.15rem 0.5rem;
+    font-size: var(--sl-text-xs);
+    line-height: 1.6;
+    background: var(--g-gold-tint);
+    border-radius: 0.35rem;
+  }
+  .bgw-eq {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--g-gold);
+    line-height: 1;
+  }
+
+  .bgw-footnote {
+    margin-top: 0.75rem;
+    font-size: var(--sl-text-xs);
+    line-height: 1.7;
+    color: var(--g-soft);
+    text-wrap: pretty;
+  }
+  .bgw-footnote a {
+    color: var(--g-ink);
+  }
+
+  /* 第一次載入：城與營帳依序淡入（只做一次，不在每輪重播） */
+  @media (prefers-reduced-motion: no-preference) {
+    .bgw-enter {
+      animation: bgw-enter 0.7s cubic-bezier(0.23, 1, 0.32, 1) both;
+      animation-delay: calc(var(--i, 0) * 0.15s);
+    }
+    @keyframes bgw-enter {
+      from {
+        opacity: 0;
+      }
+    }
+  }
+</style>

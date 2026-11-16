@@ -1,0 +1,310 @@
+---
+title: Narwhal 與 Tusk：把資料傳播和排序拆開
+description: Narwhal 把交易的傳播與可用性做成一個 DAG 形式的 mempool，讓共識只需要排序很小的憑證；Tusk 在它上面不加任何訊息就完成非同步共識。
+takeaway: "Narwhal 不是共識協議，而是把資料傳播交給一張由憑證連起來的 DAG，共識只排序憑證。Tusk 再用同一張 DAG 與一個 coin 做非同步共識，不增加任何訊息。"
+sidebar:
+  label: Narwhal 與 Tusk
+  order: 30
+  badge:
+    text: 草稿
+    variant: caution
+---
+
+import ModelCard from '../../../components/ModelCard.astro';
+import Thm from '../../../components/Thm.astro';
+import Boundary from '../../../components/Boundary.astro';
+import StructuredProof from '../../../components/StructuredProof.astro';
+import Step from '../../../components/Step.astro';
+import Term from '../../../components/Term.astro';
+import Check from '../../../components/Check.astro';
+import Cite from '../../../components/Cite.astro';
+import Complexity from '../../../components/Complexity.astro';
+import References from '../../../components/References.astro';
+
+<ModelCard
+  status="draft"
+  timing="async"
+  crypto="threshold"
+  faults="byz"
+  determinism="rand"
+  problem="SMR"
+  resilience="f < n/3"
+  note="內容依原文第 2 至 5 節與附錄 A 整理。Narwhal 本身是資料可用性層，與部分同步協議（如 HotStuff）或 Tusk 組合；Tusk 是非同步共識，所以時序一欄是非同步。證明中標明「我自己驗算」的地方不是原文的內容。"
+/>
+
+<Cite id="narwhal2022" /> 的出發點是一個觀察：多數 <Term id="bft">BFT</Term> <Term id="consensus">共識</Term>協議把交易的傳播綁在共識的關鍵路徑上，由 leader 把完整的區塊廣播給大家，導致 leader 的頻寬成為整個系統的上限。Narwhal 的做法是把兩件事拆開：
+
+1. **Narwhal**：負責傳播資料並保證它「之後一定取得得到」，產出一張由 <Term id="availability-cert">certificate of availability</Term> 連起來的 <Term id="dag">DAG</Term>。它本身不是共識協議。
+2. **共識**：只需要排序一些很小的憑證。可以是部分<Term id="sync">同步</Term>的協議（原文的 Narwhal-HotStuff），也可以是 Tusk：一個建立在 DAG-Rider 之上、不增加任何訊息的<Term id="async">非同步</Term>共識。
+
+## 問題與模型
+
+### 模型
+
+- $n$ 個參與者，一個算力有限、能控制網路的對手，最多腐化 $f<n/3$ 個。被腐化的稱為拜占庭，其餘是誠實的。
+- 通訊是**非同步且最終可靠**的：訊息延遲沒有上界，而且有**有限但未知個**訊息可能遺失。這比 [DAG-Rider](/convergence/dag-rider/) 假設的「訊息必定送達」弱。
+- 用到數位<Term id="signature">簽章</Term>（憑證）與雜湊函數（區塊以摘要為識別，假設不存在雜湊碰撞）。
+
+### Mempool 的抽象
+
+一個區塊 $b$ 含有一串交易與一串對先前區塊的引用，它的內容雜湊 $d$ 是識別碼。引用代表「先發生」的因果關係。Narwhal mempool 對外提供一個 key-value 區塊儲存的介面：
+
+- $\mathrm{write}(d,b)$：存下區塊 $b$，回傳不可偽造的**可用性憑證** $c(d)$；憑證形成時，這次寫入成功。
+- $\mathrm{valid}(d,c(d))$：檢查憑證是否有效。
+- $\mathrm{read}(d)$：若 $\mathrm{write}(d,b)$ 已成功，回傳 $b$。
+- $\mathrm{read\_causal}(d)$：回傳所有有傳遞 happened-before 關係指向 $d$ 的區塊集合。
+
+<Thm kind="definition" title="Narwhal mempool 的性質" id="def-narwhal-mempool">
+Narwhal mempool 滿足：
+
+- **Integrity**：對任何有憑證的摘要 $d$，<Term id="honest">誠實節點</Term>對 $\mathrm{read}(d)$ 傳回的值都相同。
+- **Block-Availability**：若 $\mathrm{write}(d,b)$ 對某個誠實節點成功後，有誠實節點呼叫 $\mathrm{read}(d)$，它最終會完成並傳回 $b$。
+- **Containment**：$\mathrm{read\_causal}(d)$ 傳回的集合 $B$ 中，每個 $b'\in B$ 的 $\mathrm{read\_causal}(d')$ 傳回的集合 $B'\subseteq B$。
+- **2/3-Causality**：成功的 $\mathrm{read\_causal}(d)$ 傳回的 $B$，至少包含在 $\mathrm{write}(d,b)$ 被呼叫之前就已成功寫入的區塊的 $2/3$。
+- **1/2-Chain Quality**：成功的 $\mathrm{read\_causal}(d)$ 傳回的 $B$ 中，至少一半的區塊由誠實節點寫入。
+</Thm>
+
+Integrity 與 Block-Availability 讓共識層只需要排序憑證，而不必處理完整的資料；Causality 與 Containment 保證：即使共識協議（甚至是<Term id="psync">部分同步</Term>的協議）在非同步期間停擺，等到它終於決定一個摘要時，就能一次把非同步期間累積的所有因果區塊排進全序，吞吐量不會因此掉光。
+
+## 設計的演進
+
+原文用五步說明 Narwhal 如何從一般 mempool 長成現在的樣子。
+
+1. **廣播區塊而不是交易**，leader 只提議區塊的雜湊。問題是驗證者要確認雜湊對應到可取得的區塊，必須先下載，而這發生在共識的關鍵路徑上。
+2. **用一致廣播取得憑證**：區塊廣播後得到一張「區塊一定可以下載」的憑證，leader 提議憑證。問題是每個 mempool 區塊都要一張憑證，若共識暫時失去 <Term id="liveness">liveness</Term>，待 commit 的憑證會無限累積。
+3. **加入因果關係**：mempool 區塊引用過去所有驗證者區塊的憑證，一張憑證就代表一個區塊和它的整個歷史。leader 的頻寬負擔變得極小，共識的延遲只影響延遲、不影響平均吞吐量。
+4. **用輪數限制出塊速度**：每個區塊帶一個輪數，而且必須包含前一輪的 <Term id="quorum">quorum</Term> 個憑證才有效。這讓任何提案中都含有一定比例的誠實節點區塊（Chain Quality），也防止驗證者在誠實者完成上一輪之前搶跑。
+5. **擴展**：每個驗證者拆成一個 primary 與多個 worker，worker 傳播交易批次，primary 只在區塊裡放批次的雜湊。
+
+## Narwhal 協議
+
+每個驗證者維護目前的本地輪數 $r$，從 $0$ 開始，持續接收客戶端的交易並累積成列表。
+
+### 區塊、確認與憑證
+
+- 當驗證者收集到來自 $2f+1$ 個不同驗證者的第 $r-1$ 輪憑證，就進入第 $r$ 輪，建立並廣播這一輪的區塊。區塊含有：創建者身分、輪數 $r$、目前的交易列表、第 $r-1$ 輪的憑證，以及創建者的簽章。誠實的驗證者每輪只建立一個區塊。
+- 其他驗證者收到區塊，若是**有效**的就儲存並簽署確認。有效區塊必須：(1) 含創建者的有效簽章；(2) 輪數是檢查者目前的本地輪數 $r$；(3) 是第 $0$ 輪（創世區塊），或含有第 $r-1$ 輪至少 $2f+1$ 個區塊的憑證；(4) 是檢查者從該創建者收到的這一輪的第一個區塊。確認的內容是區塊摘要、輪數與創建者身分的簽章。
+- 創建者收集到 $2f+1$ 個不同的確認，合成這個區塊的**可用性憑證**（含摘要、輪數、創建者），再把憑證送給所有人，作為下一輪區塊裡的邊。
+- 系統啟動時，每個驗證者建立並認證一個第 $0$ 輪的空區塊。
+
+條件 (2) 可能讓輪數較舊的區塊被某些驗證者丟棄，但輪數較新的區塊帶有 $2f+1$ 張憑證，會讓驗證者把自己的輪數推進，再簽署這個新區塊。
+
+### 為什麼憑證保證 Integrity 與 availability
+
+一張憑證含 $2f+1$ 個簽章，其中至少 $f+1$ 個來自誠實驗證者，它們都檢查過並儲存了這個區塊，所以日後需要時取得得到。下面的證明是附錄 A 中 Integrity、Containment 的核心。
+
+<Thm kind="lemma" title="同一個創建者在同一輪至多一個有憑證的區塊" id="lemma-unique-certificate">
+對任何創建者與輪數，至多只有一個區塊能形成可用性憑證。
+</Thm>
+
+<StructuredProof assumes="誠實驗證者在每一輪對每個創建者至多簽署一個區塊（有效區塊的條件 4）；憑證需要 $2f+1$ 個簽章">
+  <Step open>
+    <span slot="claim">反證：假設同一個創建者在同一輪有兩個不同的區塊 $b\ne b'$ 都有憑證。</span>
+
+    <Step>
+      <span slot="claim">兩張憑證的簽署者集合交集至少 $f+1$ 個。</span>
+
+      兩個集合都有至少 $2f+1$ 個成員，都落在 $n=3f+1$ 個驗證者中：$2(2f+1)-(3f+1)=f+1$。
+    </Step>
+
+    <Step uses="1.1">
+      <span slot="claim">交集中至少有一個誠實驗證者，它對 $b$ 與 $b'$ 都簽了名。</span>
+
+      拜占庭驗證者至多 $f$ 個，$f+1$ 個之中必有誠實的。
+    </Step>
+
+    <Step uses="1.2">
+      <span slot="claim">矛盾：誠實驗證者在同一輪對同一個創建者只會簽署第一個收到的區塊。</span>
+    </Step>
+  </Step>
+
+  <Step uses="步驟 1">
+    <span slot="claim">故至多一個區塊有憑證。</span>
+  </Step>
+</StructuredProof>
+
+附錄 A 逐條證明了 mempool 的五個性質，要點如下。
+
+| 性質 | 原文證明的要點 |
+| --- | --- |
+| Integrity | 不存在雜湊碰撞，所以兩個不同的區塊不會有同一個摘要 |
+| Block-Availability | 憑證需要 $2f+1$ 個簽章，所以至少 $f+1$ 個誠實驗證者存了區塊；$\mathrm{read}$ 向所有驗證者詢問、等 $n-f$ 個回覆，一定會碰到其中一個 |
+| Containment | 上面的引理：同一個創建者同一輪不會有兩個有憑證的區塊，對引用的集合遞迴套用 |
+| 2/3-Causality | 每輪至多 $3f+1$ 個區塊；每個區塊引用上一輪至少 $2f+1$ 個憑證，所以傳回的集合在每個較早的輪都至少含 $2f+1$ 個區塊，占 $2/3$ 以上（依原文證明的意思改寫） |
+| 1/2-Chain Quality | 每個區塊引用上一輪至少 $2f+1$ 個憑證，其中至多 $f$ 個來自<Term id="byzantine">拜占庭節點</Term> |
+
+### 可靠廣播的實作與 scale-out
+
+理論上的<Term id="rbc">可靠廣播</Term>（例如 double-echo）依賴會一直重送的完美點對點連線，需要無界的記憶體。Narwhal 改用 quorum 來提供複製：驗證者廣播區塊，$2f+1$ 個驗證者簽署確認形成憑證；一旦驗證者進入下一輪，就停止重送並丟掉較舊輪數的待送訊息。
+
+一張憑證並不保證 reliable broadcast 的 totality（可能有些誠實節點收到區塊，有些沒收到）。但只要第 $r+1$ 輪某個區塊有憑證，它帶的第 $r$ 輪 $2f+1$ 個憑證所對應的區塊，就可以向簽署者拉取：每個區塊至少有 $f+1$ 個誠實驗證者存著，所以問幾個驗證者就很有機會得到正確回覆。平均只需要 $O(1)$ 次請求，在對手主動攻擊連線時最壞需要 $O(n)$ 次，原文指出這與最壞情況的理論下界一致。
+
+為了擴展，每個驗證者拆成一個 primary 和多個 worker：worker 負責傳輸與儲存交易（這是 embarrassingly parallel 的工作），產生批次並送到其他驗證者的 worker，收到 quorum 的確認後把批次雜湊交給 primary；primary 照常執行 Narwhal，只是區塊裡放的是雜湊而不是交易。
+
+### 垃圾回收
+
+DAG 是本地結構，最終會收斂到同一份，但沒有保證何時收斂，所以驗證者可能要永遠保存所有舊區塊。Narwhal 的做法有兩個要點：
+
+- 嚴格的輪數結構讓驗證者只需要看目前這一輪就能判斷區塊是否有效，不必檢查整個歷史。
+- 若兩個驗證者回收了不同的輪數，在 commit 區塊 $b$ 時它們對 $b$ 的 causal history 就可能不一致，所以**回收到哪一輪由共識決定**。
+
+誠實驗證者若回收了一個沒進入 DAG 的舊輪，會把其中的交易重新注入到之後的輪。因此區塊雖然可能被審查，交易最終還是會進入區塊，而且因為 1/2-Chain Quality，會在常數輪內進入共識輸出。每個驗證者只需要 $O(n)$ 的記憶體（目前這一輪的區塊與憑證）。
+
+## 與共識組合
+
+### Narwhal-HotStuff
+
+部分同步的共識協議（如 HotStuff）可以直接利用 Narwhal：leader 不再提議交易區塊，而是提議一張或多張憑證；commit 時，把這些憑證尚未 commit 的整段 causal history 依確定性的規則排序。Narwhal 保證給定一張憑證，所有驗證者看到同一段 causal history，所以任何對這張 DAG 的確定性規則都會得到同一個全序。
+
+好處有兩點：leader 不再獨自耗費大量頻寬，資料傳播的負載平均分給所有驗證者；其次，非同步期間或 leader 是拜占庭節點時，HotStuff 本身會失去 liveness，但 Narwhal 仍持續分享區塊與形成憑證，等共識終於 commit 一個摘要，整段歷史一起 commit，沒有缺口。不過在非同步期間，這樣的組合仍然拖長延遲，原文接著用 Tusk 解決這個問題。
+
+### 原文表 1：理論比較
+
+| | HotStuff | Narwhal-HotStuff | Tusk |
+| --- | --- | --- | --- |
+| 一般情況延遲 | 3 | 4 | 4.5 |
+| $f$ 個 crash 時的延遲 | $O(n)$ | $O(n)$ | 4.5 |
+| 非同步下的延遲 | N/A | N/A | 7 |
+| 不穩定網路的吞吐量 | ✗ | ✓ | ✓ |
+| 非同步下的吞吐量 | ✗ | ✗ | ✓ |
+
+延遲的單位是 RTT（也就是憑證數）；「不穩定網路」指兩次 commit 之間允許有非同步期間的網路；✓ 表示吞吐量與同步時相同。
+
+## Tusk：不增加訊息的非同步共識
+
+Tusk 的理論起點是 [DAG-Rider](/convergence/dag-rider/)，<Term id="safety">safety</Term> 的保證由它繼承，但改成可實作的系統並縮短一般情況的延遲。驗證者照 Narwhal 運作，並在每個區塊裡額外帶上產生分散式 perfect coin 的資訊。這個 coin 可以由自適應安全的門檻簽章建構，金鑰的設置在完全非同步下也能完成。Tusk 本身**不增加任何訊息**：每個驗證者只在本地解讀自己的 DAG，用共享的隨機性決定全序。
+
+### Wave 與 commit 規則
+
+Tusk 把 DAG 切成 <Term id="wave">wave</Term>，每個 wave 有三個連續的輪：
+
+1. 第一輪：每個驗證者提出自己的區塊（連同它的整個歷史）。
+2. 第二輪：每個驗證者把第一輪的提案放進自己的區塊裡，這相當於投票。
+3. 第三輪：產生隨機性，事後選出這個 wave 第一輪的一個 <Term id="leader">leader</Term> 區塊。
+
+coin 揭曉後，若驗證者 $v$ 的本地 DAG 中，第二輪至少有 $f+1$ 個區塊引用 leader 區塊 $b$，$v$ 就 commit $b$，並依確定性的規則排序它的 causal history（到垃圾回收點為止）。因為各驗證者的 DAG 視圖可能不同，有些驗證者 commit，有些沒有，所以 commit 之後還要往回走：把 $b$ 當作候選，回到上一個自己 commit 過的 wave，對中間每個 wave，如果候選到該 wave 的 leader 有路徑，就把那個 leader 排在候選之前，並把它變成新的候選。
+
+另一個優化是把一個 wave 的第三輪和下一個 wave 的第一輪合併，所以 wave 1 是第 1 至 3 輪，wave 2 是第 3 至 5 輪，依此類推。原文圖 5 的例子（$n=4$，$f=1$）：$L_1$ 在第二輪只有不到 $f+1$ 個區塊引用，在解讀第 3 輪時不 commit；$L_2$ 在第 4 輪有 $f+1=2$ 個區塊引用，所以 commit，又因為 $L_2$ 到 $L_1$ 有路徑，所以 $L_1$ 排在 $L_2$ 之前。
+
+和 DAG-Rider 的差別有兩點：wave 是 3 輪（DAG-Rider 是 4 輪），commit 只需要 $f+1$ 個支持者（DAG-Rider 要 $2f+1$ 條 strong path），所以 Tusk 不依賴 common core。
+
+### 引理 1：safety
+
+<Thm kind="lemma" title="commit 的 leader 是後面所有 leader 的祖先" id="lemma-tusk-safety">
+若某個誠實驗證者在 wave $i$ commit 了 leader 區塊 $b$，則任何誠實驗證者在之後的 wave commit 的 leader 區塊 $b'$，在它的本地 DAG 中都有一條路徑通到 $b$。
+</Thm>
+
+<StructuredProof assumes="每個區塊至少有 $2f+1$ 個連結指向前一輪；誠實驗證者只在第二輪至少 $f+1$ 個區塊引用 leader 時才 commit">
+  <Step open>
+    <span slot="claim">wave $i+1$ 第一輪的每個區塊，都有到 $b$ 的路徑。</span>
+
+    commit $b$ 時，第二輪至少有 $f+1$ 個區塊指向 $b$。wave $i+1$ 的第一輪（即 wave $i$ 的第三輪）區塊，有至少 $2f+1$ 條連結指向第二輪，兩個集合落在至多 $3f+1$ 個區塊中，交集至少 $(2f+1)+(f+1)-(3f+1)=1$ 個，所以它經由這個區塊到達 $b$。
+  </Step>
+
+  <Step uses="步驟 1">
+    <span slot="claim">之後每一輪的每個區塊都有到 $b$ 的路徑。</span>
+
+    對輪數歸納：每個區塊的連結都指向上一輪，而上一輪的區塊依歸納假設都有到 $b$ 的路徑。
+  </Step>
+
+  <Step uses="步驟 2">
+    <span slot="claim">任何之後的 wave 的 leader 都有到 $b$ 的路徑。</span>
+  </Step>
+</StructuredProof>
+
+有了引理 1，往回走的遞迴排序保證：任何兩個誠實驗證者 commit 的 leader 序列相同。又因為 Narwhal 的 Containment 性質，所有誠實驗證者對 DAG 中區塊的全序也會一致。
+
+這也解釋了為什麼 Tusk 只要 $f+1$ 個支持者，而後面的 Bullshark 要 $2f+1$ 個：Tusk 的每個 wave 只有一種 leader，不存在兩種 leader 同時被 commit 的危險；Bullshark 有 steady-state 與 fallback 兩種，需要更強的交集（見 [Bullshark](/convergence/bullshark/)）。
+
+### 引理 3 與 liveness
+
+Tusk 的 liveness 論證沿用 VABA 的想法（<Cite id="vaba2019" />）：讓對手先決定好整個通訊排程，再用 perfect coin 以固定機率選到有用的工作。關鍵是 wave 的第三輪才產生隨機性，所以對手只在前兩輪已經固定之後，才知道 leader 是誰。
+
+<Thm kind="lemma" title="每個 wave 都有足夠多可以 commit 的區塊" id="lemma-tusk-committable">
+對每個 wave $w$，其第一輪至少有 $f+1$ 個區塊滿足 commit 規則。
+</Thm>
+
+<StructuredProof assumes="第一輪至多 $3f+1$ 個區塊；第二輪任取 $2f+1$ 個區塊 $S$，每個至少有 $2f+1$ 條連結指向第一輪">
+  <Step open>
+    <span slot="claim">$S$ 向第一輪的連結一共至少 $(2f+1)^2=4f^2+4f+1$ 條。</span>
+  </Step>
+
+  <Step uses="步驟 1">
+    <span slot="claim">令 $k$ 為第一輪中被 $S$ 的至少 $f+1$ 個區塊指到的區塊數，則連結總數至多 $3f^2+f+k(f+1)$。</span>
+
+    這 $k$ 個區塊各被指到至多 $2f+1$ 次（$S$ 只有 $2f+1$ 個成員）；其他至多 $3f+1$ 個區塊各被指到至多 $f$ 次。所以總數至多 $k(2f+1)+(3f+1-k)f=3f^2+f+k(f+1)$。
+  </Step>
+
+  <Step uses="步驟 1、2">
+    <span slot="claim">$k\ge f+1$。</span>
+
+    把兩個不等式接起來：$k(f+1)\ge 4f^2+4f+1-(3f^2+f)=f^2+3f+1$，所以 $k\ge\frac{f^2+3f+1}{f+1}>f+1$。
+  </Step>
+</StructuredProof>
+
+我自己驗算：$f^2+3f+1=(f+1)(f+2)-1$，所以 $k\ge f+2-\frac{1}{f+1}$，因為 $k$ 是整數，其實至少有 $f+2$ 個（$f\ge 1$）；原文取較弱的 $f+1$，後面的機率計算也只用 $f+1$。
+
+因為 coin 在這 $f+1$ 個區塊都已經確定之後才揭曉，每個 wave 選到可以 commit 的 leader 的機率至少是 $\frac{f+1}{3f+1}>\frac13$，就算對手完全控制網路。於是期望每 3 個 wave 就會 commit 一個 leader。每個 wave 是 3 輪，但相鄰 wave 共用一輪，所以三個 wave 涵蓋 7 輪（$(1,2,3),(3,4,5),(5,6,7)$），這就是原文的「期望每 7 輪 commit 一個 leader」。
+
+### 一般情況：4.5 輪
+
+在訊息延遲隨機（而不是由對手控制）的真實網路上，原文證明 Tusk 期望每個區塊 4.5 輪就被 commit，這來自 DAG-Rider 的一般情況 5.5 輪少一輪。推導如下：設 $b_i$ 是 wave $i$ 的 leader，$S$ 是第二輪的 $2f+1$ 個區塊。延遲均勻隨機時，$S$ 中每個區塊獨立地引用 $b_i$，機率至少是 $\frac{2f+1}{3f+1}\ge\frac23$。commit 需要 $S$ 中至少 $f+1$ 個引用它。$f=1$ 時，$S$ 有 3 個區塊，至少 2 個引用的機率是 $\frac{8}{27}+\frac{12}{27}=\frac{20}{27}\approx 0.74$；$f$ 更大時機率更高。
+
+若取 $p=\frac23$，從二項分布算得（這是用原文的下界換算，不是原文的數字）：
+
+| $f$ | 1 | 2 | 3 | 5 | 10 |
+| --- | --- | --- | --- | --- | --- |
+| $n=3f+1$ | 4 | 7 | 10 | 16 | 31 |
+| 選到可 commit 的 leader 的機率 | 0.741 | 0.790 | 0.827 | 0.878 | 0.944 |
+
+所以每個 wave 都以至少 0.74 的機率選出可 commit 的 leader，期望每 4 輪（$f>1$ 時更少）commit 一個。
+
+<Check q="Tusk 一個 wave 只有 3 輪，不是說 common core 需要 3 輪通訊才能做到嗎？為什麼 Tusk 的 3 輪還能保證 liveness？">
+Tusk 沒有依賴 common core。DAG-Rider 要求 $2f+1$ 個頂點到 leader 有 strong path，所以需要 common core 保證有一批 leader 候選人人都看得見，才得到至少 $2/3$ 的 commit 機率。Tusk 只要求 $f+1$ 個第二輪區塊引用 leader，這個門檻低得多，引理 3 的計數論證直接保證至少有 $f+1$ 個候選 leader 滿足它，所以每個 wave 的 commit 機率至少是 $\frac{f+1}{3f+1}>\frac13$。代價是 commit 機率從 $2/3$ 降到 $1/3$，最壞情況的期望從 DAG-Rider 的約 6 輪變成 7 輪。
+</Check>
+
+## 複雜度
+
+<Complexity
+  kind="upper"
+  measure="rounds"
+  value="7"
+  scope="per-decision"
+  scopeNote="每個被 commit 的 leader"
+  case="expected"
+  condition="非同步、f < n/3、對手控制訊息排程但無法預測 coin；wave 為 3 輪且相鄰 wave 共用一輪"
+  cite="narwhal2022"
+/>
+
+<Complexity
+  kind="upper"
+  measure="rounds"
+  value="4.5"
+  scope="per-decision"
+  scopeNote="每個區塊從放進 DAG 到被 commit"
+  case="expected"
+  condition="訊息延遲均勻隨機分布（不是對手控制）；f < n/3"
+  cite="narwhal2022"
+/>
+
+Tusk 的訊息複雜度和 Narwhal 相同：隨機性與共識邏輯都不增加任何訊息，所以吞吐量也與 Narwhal 相同。
+
+原文的實驗結果（在跨五個 AWS 區域的廣域網路上，下列都是實驗數字，不是理論保證）：Narwhal-HotStuff 達到超過 130,000 tx/s、延遲不到 2 秒，而 HotStuff 是 1,800 tx/s、延遲 1 秒；增加 worker 可以讓吞吐量線性成長到 600,000 tx/s 而延遲不增加；Tusk 達到 160,000 tx/s、延遲約 3 秒；在有故障時兩者都維持高吞吐量，但 Narwhal-HotStuff 的延遲會上升。
+
+## 邊界
+
+<Boundary>
+**Narwhal 不是共識：** 它只保證資料的 Integrity 與 availability 和部分序，沒有共識就沒有全序。與部分同步協議組合時，非同步期間共識仍然停擺，只是吞吐量不掉，延遲會變長。
+
+**慢節點與故障節點無法區分：** 原文自己指出，任何反應式的非同步協議（包括 Narwhal 與 Tusk）都無法分辨「很慢」和「故障」，所以協議會往前走而不等慢的驗證者；地理上很遠的誠實驗證者，它的交易可能很晚才被 commit。垃圾回收會讓這個問題更明顯：被對手延遲的誠實節點，區塊可能在進入 DAG 前就被回收，只能靠重新注入。這使得 <Term id="validity">Validity</Term> 與公平性從區塊層級弱化到交易層級，Bullshark 試圖在同步期間補上這一點（見 [Bullshark](/convergence/bullshark/)）。
+
+**客戶端要自己重送：** 若領導者故障使交易沒有被及時排序，Narwhal 依賴客戶端重新提交，並沒有內建去重機制，原文把這個選擇留給系統設計者。
+
+**仍然偏慢：** 4.5 輪在實務上還是偏多，而且現實的網路比較接近部分同步，而不是完全非同步，這是 Bullshark 的出發點。
+
+**簽章：** 可用性憑證依賴簽章與雜湊，所以 Narwhal 本身不是 post-quantum safe。DAG-Rider 的 post-quantum safety 只對共識邏輯成立（見 [DAG-Rider](/convergence/dag-rider/)）。
+</Boundary>
+
+## 參考文獻
+
+<References />

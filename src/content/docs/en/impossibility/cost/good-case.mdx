@@ -1,0 +1,35 @@
+---
+title: Latency Lower Bound (Good-Case Latency)
+description: "Tight bounds on the good-case latency of an honest leader under each model."
+sidebar:
+  order: 2
+  badge:
+    text: Planned
+    variant: note
+---
+
+import ModelCard from '../../../../../components/ModelCard.astro';
+import Cite from '../../../../../components/Cite.astro';
+import References from '../../../../../components/References.astro';
+
+<ModelCard
+  status="planned"
+  timing="any"
+  crypto="any"
+  faults="byz"
+  problem="BB"
+  note="Source: Abraham–Nayak–Ren–Xiang, PODC 2021."
+/>
+
+This chapter has not been written yet. For the source see <Cite id="goodcase2021" />.
+
+## Planned coverage
+
+- **The definition of good-case latency**: when the sender is honest, how quickly can honest nodes output.
+- **Tight bounds per model**: per the reading list, the original (PODC 2021) categorizes the tight good-case latency bounds under each model. The exact numbers await checking against the original.
+- **Use**: as a reference for the later evolution of DAG protocol latency, for example to see how far Mysticeti is from the lower bound.
+- **Boundary**: the distinction between the good case and the worst case, and that expected and worst-case must not be mixed.
+
+## References
+
+<References />

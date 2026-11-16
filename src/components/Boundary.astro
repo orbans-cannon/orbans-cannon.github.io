@@ -1,0 +1,29 @@
+---
+const lang = Astro.locals.starlightRoute.lang?.startsWith('en') ? 'en' : 'zh';
+const L = (zh: string, en: string) => (lang === 'en' ? en : zh);
+/**
+ * 邊界區塊：指出拿掉哪個假設後結論不再成立。
+ */
+---
+
+<aside class="boundary">
+  <p class="boundary-head">{L('邊界', 'Boundary')}</p>
+  <div class="boundary-body"><slot /></div>
+</aside>
+
+<style>
+  /* 邊界是正文的一部分，用中性虛線框；不借用任何狀態或故障色 */
+  .boundary {
+    margin: 1.5rem 0;
+    padding: 0.75rem 1rem;
+    border: 1px dashed var(--sl-color-gray-4);
+    border-radius: 0.375rem;
+  }
+  .boundary-head {
+    margin: 0 0 0.35rem;
+    font-weight: 700;
+    color: var(--sl-color-white);
+  }
+  .boundary-body :global(> :first-child) { margin-top: 0; }
+  .boundary-body :global(> :last-child) { margin-bottom: 0; }
+</style>

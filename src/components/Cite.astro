@@ -1,0 +1,77 @@
+---
+const lang = Astro.locals.starlightRoute.lang?.startsWith('en') ? 'en' : 'zh';
+const L = (zh: string, en: string) => (lang === 'en' ? en : zh);
+/**
+ * 行內引用：<Cite id="flp1985" /> → [FLP 1985]，連到頁尾參考文獻。
+ * - 滑過或鍵盤聚焦時浮出完整書目（作者、標題、出處、年份）與書目核對狀態（design.md §浮出提示）。
+ * - id 不在 src/data/refs.ts 時，建置直接報錯（避免懸空引用）。
+ * - 尚未核對的條目會在標籤後加 †。
+ * - 同頁被引用的條目會記在 Astro.locals，由 <References /> 在頁尾彙整。
+ */
+import { refs } from '../data/refs';
+
+interface Props {
+  id: string;
+  /** 補充位置，例如 "Thm. 3" */
+  loc?: string;
+}
+const { id, loc } = Astro.props;
+
+const ref = refs[id];
+if (!ref) {
+  throw new Error(`<Cite>：refs.ts 找不到引用鍵「${id}」`);
+}
+
+const locals = Astro.locals as unknown as { citedRefs?: Set<string> };
+(locals.citedRefs ??= new Set()).add(id);
+
+const venue = [ref.venue, ref.volume, ref.pages && (lang === 'en' ? `pp. ${ref.pages}` : `頁 ${ref.pages}`), ref.year]
+  .filter(Boolean)
+  .join(lang === 'en' ? ', ' : '，');
+---
+
+<a class="cite" href={`#ref-${id}`}
+  >[{ref.label}{loc ? `, ${loc}` : ''}{ref.verified ? '' : '†'}]<span class="cite-pop bft-pop" role="tooltip"
+    ><span class="cite-authors">{ref.authors}</span><span class="cite-title">{ref.title}</span><span class="cite-venue"
+      >{venue}</span
+    ><span class:list={['cite-status', ref.verified && 'cite-ok']}
+      >{ref.verified ? L('書目已核對', 'Citation details checked') : L('† 書目尚未核對', '† Citation details not yet checked')}</span
+    ></span
+  ></a
+>
+
+<style>
+  .cite {
+    position: relative;
+    font-size: 0.9em;
+    white-space: nowrap;
+  }
+  .cite:hover .cite-pop,
+  .cite:focus-visible .cite-pop {
+    display: block;
+  }
+  .cite-pop > span {
+    display: block;
+  }
+  .cite-authors {
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-gray-2);
+  }
+  .cite-title {
+    margin-top: 0.15rem;
+    font-weight: 600;
+  }
+  .cite-venue {
+    margin-top: 0.15rem;
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-gray-2);
+  }
+  .cite-status {
+    margin-top: 0.35rem;
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-gray-3);
+  }
+  .cite-ok {
+    color: var(--bft-verified);
+  }
+</style>

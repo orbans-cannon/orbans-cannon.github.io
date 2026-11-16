@@ -1,0 +1,134 @@
+---
+title: "What Is Byzantine?"
+description: "Starting from the Byzantine Generals Problem of Lamport, Shostak and Pease, why some nodes may \"say different things to different people\", and how faults, adversaries and the fault budget are defined."
+takeaway: "The Byzantine problem asks: if some nodes may tell different people different things, can the honest nodes still agree on the same thing? With only oral messages, more than two-thirds of the nodes must be honest; with unforgeable signatures, the problem is solvable for any number of faults. The fault budget counts only Byzantine or crash nodes; honest nodes delayed by the network do not count."
+sidebar:
+  order: 2
+  badge:
+    text: Draft
+    variant: caution
+---
+
+import Term from '../../../../components/Term.astro';
+import Cite from '../../../../components/Cite.astro';
+import Check from '../../../../components/Check.astro';
+import Sidenote from '../../../../components/Sidenote.astro';
+import References from '../../../../components/References.astro';
+import ByzantineGenerals from '../../../../widgets/home-generals/ByzantineGenerals.astro';
+
+<details>
+<summary>Verification status: Draft (open to read)</summary>
+
+The Chinese version of this page is finished, including the section on Paxos and Raft, which the author has reviewed; this English translation has not yet been reviewed by a person, so it is labeled Draft. The story, the problem statement, the three-generals argument, the assumptions for oral and signed messages, and the section on reliable systems have been checked against the original LSP (1982) paper. The Fischer–Lynch lower bound follows how the LSP conclusion reports it and links to the corresponding reference. The definitions of crash, Byzantine, and static and adaptive adversaries follow this site's reviewed glossary.
+
+</details>
+
+No background is needed. This page starts with a story, explains what the field is asking, and then replaces the words of the story with the words used on the rest of the site.
+
+## The Byzantine Generals Problem
+
+The problem comes from the 1982 paper "The Byzantine Generals Problem" by Lamport, Shostak and Pease (<Cite id="lsp1982" />). The story goes like this:
+
+Several divisions of the Byzantine army are camped outside an enemy city, each commanded by its own general. The generals can communicate only by messenger. After observing the enemy, they must decide on a common plan of action, for example to attack together or to retreat together. The trouble is that some of them may be traitors, trying to keep the loyal generals from agreeing.
+
+The paper asks for an algorithm that guarantees: **all loyal generals decide upon the same plan of action**, and **a small number of traitors cannot cause the loyal generals to adopt a bad plan**. Loyal generals follow the algorithm; traitors may do anything.
+
+## Why this is a problem for information systems
+
+The point of the paper is not military; it is information systems. To build a reliable system, the authors say the only way they know (other than using intrinsically reliable components) is to have several processors compute the same result and take a majority vote on the outputs. Majority voting works only if all non-faulty processors use the same input.
+
+But a single piece of input data always comes from one physical component, for example some other circuit or some radar site, and a component that has gone wrong **may give different values to different processors**. This kind of fault, "saying different things to different people", is often overlooked, yet it is exactly the core of the Byzantine problem: the traitor in the story is the faulty component.
+
+## Turning the story into a precise problem
+
+The paper reduces the general case to one general acting as commander and the rest as lieutenants:
+
+> A commander must send an order to his $n-1$ lieutenants such that
+> **IC1**: all loyal lieutenants obey the same order;
+> **IC2**: if the commander is loyal, every loyal lieutenant obeys the order he sends.
+
+These are called the interactive consistency conditions. If the commander is loyal, IC1 follows from IC2; but the commander may himself be a traitor, so both conditions are needed.
+
+The words used on the rest of this site correspond to the story as follows:
+
+| Story | This site |
+| --- | --- |
+| loyal general | <Term id="honest" /> |
+| traitor | <Term id="byzantine" /> (may deviate arbitrarily from the protocol, may collude) |
+| commander sends an order | a designated sender broadcasts a value (<Term id="bb">Byzantine Broadcast</Term>) |
+| maximum number of traitors $m$ | fault budget $f$ |
+
+<Sidenote title="Terms in the original">
+The original uses "loyal" and "traitor", and writes the number of traitors as $m$. This site follows the later convention: "honest" and "Byzantine", with the number written $f$. The rest of the content uses this site's wording.
+</Sidenote>
+
+## Why the problem is harder than it looks
+
+The most natural approach is for every general to send his opinion to everyone and then take a majority vote. This fails, because a traitor can send different values to different people, so the loyal generals see different data.
+
+The paper uses three generals and one traitor to show that even the simplest case has no solution (considering only the two orders "attack" and "retreat"). Lieutenant 1 receives only two things: the commander's order, and what Lieutenant 2 reports about what he received.
+
+- **Scenario 1**: the commander is loyal and orders an attack; Lieutenant 2 is a traitor and falsely tells Lieutenant 1 "the commander told me to retreat". By IC2, Lieutenant 1 must attack.
+- **Scenario 2**: the commander is a traitor and tells Lieutenant 1 to attack and Lieutenant 2 to retreat; Lieutenant 2 honestly reports "the commander told me to retreat".
+
+Lieutenant 1 sees **exactly the same thing** in both scenarios: the commander says attack, and Lieutenant 2 says the commander said retreat. He cannot tell who the traitor is, so he can only do the same thing in both, which is to attack. But in Scenario 2, by the same IC2 argument, Lieutenant 2 must retreat, so two loyal lieutenants obey different orders, violating IC1. Hence three generals cannot tolerate one traitor.
+
+The paper warns the reader that this argument looks convincing, but **one should be very suspicious of non-rigorous reasoning**: the authors say they have seen equally plausible "proofs" of invalid results, and they refer to another paper for a rigorous proof.
+
+<div class="bft-generals-small">
+  <ByzantineGenerals footnote={false} lang="en" />
+</div>
+
+## The paper's results
+
+Next, the paper generalizes the three-generals result: with only oral messages, **fewer than $3m+1$ generals cannot cope with $m$ traitors**. The method is simulation: assume a solution for $3m$ generals, let each of three generals simulate at most $m$ of them, and you obtain a solution for three generals, which is impossible.
+
+The paper also gives matching algorithms, and states their assumptions:
+
+- **Oral messages**: the content of a message is completely under the control of the sender, so a traitor can transmit any content. The message system satisfies three assumptions: every message that is sent is delivered correctly; the receiver of a message knows who sent it; and the absence of a message can be detected. Under these assumptions, the algorithm OM($m$) solves the problem when there are $3m+1$ or more generals and at most $m$ traitors.
+- **Signed messages**: add one more assumption: a loyal general's <Term id="signature">signature</Term> cannot be forged, and anyone can verify a signature. Then a traitor cannot misreport what someone else said, and the problem is **solvable for any number of generals and traitors** (algorithm SM($m$)).
+
+The difference between these two results is the starting point for the later pages' discussion of signatures; see [Cryptographic Assumptions and Determinism](/en/intro/crypto/).
+
+The paper also points out two things that foreshadow later pages. First, "the absence of a message can be detected" can only be done with a timeout, and a timeout needs two assumptions: message transmission has a fixed maximum time, and the two parties' clocks agree within a bounded error. In other words, the original model is **<Term id="sync">synchronous</Term>**; this is taken up in [The Three Timing Models](/en/intro/models/). Second, both algorithms need message paths of length up to $m+1$. The paper cites a result of Fischer and Lynch saying this is a cost every solution that copes with $m$ traitors must pay (<Cite id="fl1982" />); this lower bound is covered in detail on the site's [round lower bound](/en/impossibility/sync/round-bound/) page.
+
+## Faults and adversaries
+
+The "traitor" of the story is divided on this site by behavior into two kinds:
+
+- <Term id="crash" />: the node stops and sends nothing further.
+- **Byzantine**: arbitrary behavior, including collusion and <Term id="equivocation" /> (sending mutually contradictory messages to different nodes).
+
+Adversaries can also be divided by "when it decides who is bad". A static adversary chooses the faulty nodes before the execution; an <Term id="adaptive" /> can corrupt nodes during the execution based on what it observes, at most $f$ in total. This matters especially for protocols that use randomness (such as a coin or <Term id="leader">leader</Term> election): if the adversary can predict the leader and corrupt it immediately, the protocol needs extra design.
+
+:::caution
+**Honest nodes delayed by the network do not count as faulty.** The fault budget $f$ counts only Byzantine or crash nodes. This is the most common mistake when checking a counterexample.
+:::
+
+<Check q="Why does an honest node delayed by the network not count as faulty?">
+Delay belongs to the timing model, not the fault model. A delayed node still follows the protocol exactly; its messages merely arrive late, and the timing model limits how late (<Term id="psync">partial synchrony</Term>: at most $\max(t,\mathrm{GST})+\Delta$; <Term id="async">asynchrony</Term>: eventually delivered). The fault budget $f$ counts only Byzantine or crash nodes; counting delay in $f$ mixes the two dimensions, and the counterexample would use the wrong budget.
+</Check>
+
+## How this differs from Paxos and Raft
+
+If you have already read about Paxos or Raft, a natural question is whether this is the same thing as Byzantine fault tolerance.
+
+The difference is the **fault model**. Paxos and Raft are <Term id="cft" />: they assume a faulty node only stops, and everything it said before stopping was true. Byzantine fault tolerance lets a faulty node behave arbitrarily, including telling different people different things.
+
+This difference decides three things:
+
+- **No equivocation.** A crashed node never <Term id="equivocation" />s, so any message you receive can be believed directly. In the Byzantine setting the same message may be heard as A by one node and B by another, and the protocol needs a way to detect or exclude this (the first way is signatures; see [Cryptographic Assumptions and Determinism](/en/intro/crypto/)).
+- **A different number of nodes.** With crash faults only, $n\ge 2f+1$ is enough under partial synchrony: two majority <Term id="quorum" />s intersect in at least one node, and even if that node has stopped by now, what it said earlier can still be trusted. In the Byzantine setting you need $n\ge 3f+1$: the quorum size is $2f+1$ and two quorums intersect in at least $f+1$ nodes, which is what guarantees one honest node among them (see [Conclusion: Quorum Intersection](/en/impossibility/quorum/); the node counts follow DLS, see the [Model Overview](/en/impossibility/overview/)).
+- **The timing model does not change.** Paxos's safety does not depend on timing; only liveness needs a timing assumption, and PBFT divides the work the same way (see [Three Timing Models](/en/intro/models/)). Moving to Byzantine faults does not make the problem "asynchronous" or "synchronous"; these are two independent dimensions.
+
+So Byzantine fault tolerance is not "Paxos with more replicas". The extra difficulty is that you can no longer treat a received message as true.
+
+<Check q="What happens if a Raft leader deliberately tells different followers different things?">
+Raft is crash fault tolerant: it assumes the leader does not lie and has no protection for this case. This is exactly what a Byzantine protocol such as PBFT adds: every proposal of the leader must let the other nodes confirm among themselves that "what you received is what I received".
+</Check>
+
+The next page writes "make all honest nodes decide the same thing" as a precise problem with precise properties.
+
+## References
+
+<References />

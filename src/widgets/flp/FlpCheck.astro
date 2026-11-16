@@ -1,0 +1,34 @@
+---
+/**
+ * 分層證明裡的小標籤：顯示讀者在上方互動圖裡的選擇，與證明當下這一步的對應。
+ * 資料來自 controller.ts 每次重畫時送出的 `flp-val` 事件。只能用在 MDX。
+ * chip 取值：chain.counts／chain.pair／chain.decide／chain.contra（引理 2 的圖），
+ *            cases.ne／cases.eq（引理 3 的圖），stages.sched／stages.nodecide（永遠不決定的執行）。
+ */
+import './flp.css';
+interface Props { chip: string }
+const { chip } = Astro.props;
+const lang = Astro.locals.starlightRoute.lang?.startsWith('en') ? 'en' : 'zh-TW';
+---
+
+<span class="flp-check" data-chip={chip} data-lang={lang} hidden></span>
+
+<script>
+  import { chipText } from './chips';
+  const store: Record<string, any> = ((window as any).__flpVal ||= {});
+  function paint() {
+    document.querySelectorAll<HTMLElement>('.flp-check').forEach((el) => {
+      const c = chipText(el.dataset.chip!, store, el.dataset.lang as 'zh-TW' | 'en');
+      if (!c) { el.hidden = true; return; }
+      el.hidden = false;
+      el.classList.toggle('bad', c.bad);
+      el.textContent = c.text;
+    });
+  }
+  document.addEventListener('flp-val', (e) => {
+    const { kind, ...rest } = (e as CustomEvent).detail;
+    store[kind] = rest;
+    paint();
+  });
+  paint();
+</script>

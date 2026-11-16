@@ -1,0 +1,528 @@
+/* ==================================================================
+   顏色系統（規則見 design.md §顏色系統：每個色系只代表一件事）
+   金＝品牌與「可以點、目前在這裡」；模型色＝時序模型；
+   故障紅＝故障節點與性質被破壞；綠＝已核對。其餘用 Starlight 的中性灰。
+   :root 是淺色值，:root[data-theme='dark'] 是深色值（Starlight 一定會設 data-theme）。
+   ================================================================== */
+:root {
+  --bft-serif: 'Noto Serif', 'Noto Serif TC', 'Songti TC', 'PMingLiU', serif;
+  --bft-gold: #9a6608;
+
+  --bft-sync: #0b72b5;
+  --bft-partial: #c0560a;
+  --bft-async: #8338c4;
+  --bft-hybrid: #0f766e;
+  --bft-comm: #4d7c0f;
+  --bft-any: #6b7280;
+  --bft-fault: #b91c1c;
+  --bft-verified: #15803d;
+  --bft-chip-text: #ffffff;
+
+  /* Starlight 強調色改成金色（原本是藍） */
+  --sl-color-accent-low: #f6e9cc;
+  --sl-color-accent: #9a6608;
+  --sl-color-accent-high: #5a3b04;
+}
+:root[data-theme='dark'] {
+  --bft-gold: #e2ac3f;
+
+  --bft-sync: #5bb4d1;
+  --bft-partial: #ec8a3c;
+  --bft-async: #b88ad6;
+  --bft-hybrid: #3cc7b4;
+  --bft-comm: #a8d23e;
+  --bft-any: #9ca3af;
+  --bft-fault: #f87171;
+  --bft-verified: #4ade80;
+  --bft-chip-text: #111111;
+
+  --sl-color-accent-low: #3b2c0e;
+  --sl-color-accent: #e2ac3f;
+  --sl-color-accent-high: #f2d08c;
+}
+
+/* 定理區塊自動編號：每頁從 1 開始，各類型分開計數。 */
+.sl-markdown-content {
+  counter-reset: thm-definition thm-property thm-lemma thm-theorem thm-corollary;
+}
+
+/* ------------------------------------------------------------------
+   閱讀排版（繁體中文長篇技術內容）
+   依據：中文行高約 1.8 至 2、每行約 30 至 40 字、標題要短、
+   中英文與數字之間留細間距（text-autospace）。
+   ------------------------------------------------------------------ */
+:root {
+  --sl-font: 'PingFang TC', 'Noto Sans TC', 'Microsoft JhengHei', 'Heiti TC', system-ui, sans-serif;
+  --sl-content-width: 47rem;
+  --sl-text-body: 1.0625rem;
+  --sl-line-height: 1.9;
+  --sl-line-height-headings: 1.4;
+}
+
+body {
+  text-autospace: normal;
+}
+
+.sl-markdown-content :is(p, li) {
+  text-wrap: pretty;
+}
+
+.sl-markdown-content :is(h1, h2, h3, h4) {
+  text-wrap: balance;
+  letter-spacing: 0.01em;
+}
+
+/* 表格：欄位不要窄到把中文擠成直排，窄螢幕時整個表格橫向捲動。 */
+.sl-markdown-content table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+}
+.sl-markdown-content :is(th, td) {
+  min-width: 5.5em;
+}
+.sl-markdown-content :is(th, td):first-child {
+  min-width: 2.5em;
+}
+
+/* ------------------------------------------------------------------
+   側欄：各部分的模型色點
+   ------------------------------------------------------------------ */
+.sidebar-content ul.top-level > li > details > summary .large::before {
+  content: '';
+  display: inline-block;
+  width: 0.62em;
+  height: 0.62em;
+  margin-right: 0.5em;
+  border-radius: 50%;
+  background: var(--bft-any);
+  vertical-align: 0.05em;
+}
+.sidebar-content ul.top-level > li > details:has(a[href^='/sync/']) > summary .large::before {
+  background: var(--bft-sync);
+}
+.sidebar-content ul.top-level > li > details:has(a[href^='/partial-sync/']) > summary .large::before {
+  background: var(--bft-partial);
+}
+.sidebar-content ul.top-level > li > details:has(a[href^='/async/']) > summary .large::before {
+  background: var(--bft-async);
+}
+.sidebar-content ul.top-level > li > details:has(a[href^='/convergence/']) > summary .large::before {
+  background: var(--bft-hybrid);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    scroll-behavior: auto !important;
+    transition: none !important;
+  }
+}
+
+/* ------------------------------------------------------------------
+   整個側欄往左收起（桌面）。把手貼在側欄右緣，收起後貼在視窗左緣。
+   用 --sl-content-inline-start 讓正文往左延伸；不動 --sl-sidebar-width，
+   因為右側目錄也用它計算寬度。
+   ------------------------------------------------------------------ */
+.bft-sidebar-toggle {
+  display: none;
+}
+
+@media (min-width: 50rem) {
+  .sidebar-pane {
+    transition:
+      transform 0.2s ease,
+      visibility 0.2s;
+  }
+  .main-frame {
+    transition: padding-inline-start 0.2s ease;
+  }
+
+  html.bft-sidebar-hidden[data-has-sidebar] {
+    --sl-content-inline-start: 0rem;
+  }
+  html.bft-sidebar-hidden .sidebar-pane {
+    transform: translateX(-100%);
+    visibility: hidden;
+  }
+
+  .bft-sidebar-toggle {
+    display: block;
+    position: fixed;
+    top: 50%;
+    left: calc(var(--sl-sidebar-width) - 1px);
+    z-index: 20;
+    width: 1.25rem;
+    height: 3.5rem;
+    padding: 0;
+    transform: translateY(-50%);
+    font: inherit;
+    font-size: 1.1rem;
+    line-height: 1;
+    color: var(--sl-color-white);
+    background: var(--sl-color-gray-5);
+    border: 1px solid var(--sl-color-hairline-shade);
+    border-left: none;
+    border-radius: 0 0.5rem 0.5rem 0;
+    cursor: pointer;
+    transition: left 0.2s ease;
+  }
+  html.bft-sidebar-hidden .bft-sidebar-toggle {
+    left: 0;
+  }
+  .bft-sidebar-toggle:hover {
+    color: var(--sl-color-white);
+    background: var(--sl-color-gray-4);
+  }
+  .bft-sidebar-toggle:focus-visible {
+    outline: 2px solid var(--sl-color-accent);
+    outline-offset: 2px;
+  }
+}
+
+/* ------------------------------------------------------------------
+   收起左側欄後的版面：右側目錄固定寬度貼在右緣，中間內容變寬。
+   Starlight 預設在寬螢幕（>=72rem）把「目錄容器」做成
+   固定寬度 + 剩餘空間的一半，並把內容靠右貼著它，收起左側欄後剩餘空間變多，
+   目錄容器跟著變寬，右邊就多出一段空白。這裡改成：目錄容器固定為
+   --sl-sidebar-width，中間欄位占滿其餘寬度，內容置中並放寬到 60rem。
+   Starlight 的規則在 @layer starlight.core 裡，未分層的樣式一定勝出。
+   ------------------------------------------------------------------ */
+@media (min-width: 50rem) {
+  html.bft-sidebar-hidden {
+    --sl-content-width: 60rem;
+  }
+}
+@media (min-width: 72rem) {
+  html.bft-sidebar-hidden[data-has-sidebar][data-has-toc] .right-sidebar-container {
+    width: var(--sl-sidebar-width);
+  }
+  html.bft-sidebar-hidden[data-has-sidebar][data-has-toc] .main-pane {
+    --sl-content-margin-inline: auto;
+    width: calc(100% - var(--sl-sidebar-width));
+  }
+}
+
+/* ------------------------------------------------------------------
+   右側欄（本頁內容）收起（>=72rem 才有右側欄）。把手貼在分界線右側（目錄那一邊），
+   位置由腳本依 .right-sidebar 的實際位置設定；收起後貼在視窗右緣，
+   中間正文改成占滿整個寬度並置中，不留空白。
+   ------------------------------------------------------------------ */
+.bft-toc-toggle {
+  display: none;
+}
+@media (min-width: 72rem) {
+  .bft-toc-toggle {
+    display: block;
+    position: fixed;
+    top: 50%;
+    left: auto;
+    right: 0;
+    z-index: 20;
+    width: 1.25rem;
+    height: 3.5rem;
+    padding: 0;
+    transform: translateY(-50%);
+    font: inherit;
+    font-size: 1.1rem;
+    line-height: 1;
+    color: var(--sl-color-white);
+    background: var(--sl-color-gray-5);
+    border: 1px solid var(--sl-color-hairline-shade);
+    border-radius: 0.5rem 0 0 0.5rem;
+    border-right: none;
+    cursor: pointer;
+  }
+  .bft-toc-toggle:hover {
+    background: var(--sl-color-gray-4);
+  }
+  .bft-toc-toggle:focus-visible {
+    outline: 2px solid var(--sl-color-accent);
+    outline-offset: 2px;
+  }
+  html.bft-toc-hidden[data-has-toc] .right-sidebar-container {
+    display: none;
+  }
+  html.bft-toc-hidden[data-has-toc] {
+    --sl-content-width: 60rem;
+  }
+  html.bft-toc-hidden[data-has-toc] .main-pane,
+  html.bft-toc-hidden.bft-sidebar-hidden[data-has-sidebar][data-has-toc] .main-pane {
+    --sl-content-margin-inline: auto;
+    width: 100%;
+  }
+}
+
+/* 內頁嵌入的三將軍動畫：比首頁小一些，置中 */
+.bft-generals-small {
+  max-width: 24rem;
+  margin: 1.5rem auto;
+}
+
+/* ------------------------------------------------------------------
+   頁面標題（h1）用品牌宋體：內頁唯一的品牌元素（design.md 原則 5）
+   ------------------------------------------------------------------ */
+.content-panel h1#_top {
+  font-family: var(--bft-serif);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* ------------------------------------------------------------------
+   連結：正文色字＋金色底線，滑過變金。Term 用自己的點狀底線，不受影響。
+   ------------------------------------------------------------------ */
+.sl-markdown-content a:not(:where(.not-content *)) {
+  color: var(--sl-color-white);
+  text-decoration-line: underline;
+  text-decoration-color: color-mix(in srgb, var(--bft-gold) 70%, transparent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.22em;
+  transition: color 0.15s ease, text-decoration-color 0.15s ease;
+}
+.sl-markdown-content a:hover:not(:where(.not-content *)) {
+  color: var(--bft-gold);
+  text-decoration-color: var(--bft-gold);
+}
+
+/* ------------------------------------------------------------------
+   側欄目前頁：淡金底＋金字，不再是實心色塊
+   ------------------------------------------------------------------ */
+.sidebar-content a[aria-current='page'],
+.sidebar-content a[aria-current='page']:hover,
+.sidebar-content a[aria-current='page']:focus {
+  color: var(--bft-gold);
+  background-color: color-mix(in srgb, var(--bft-gold) 12%, transparent);
+}
+
+/* ------------------------------------------------------------------
+   頁面狀態圓點：用「填滿程度」表示核對進度，只有已核對有顏色。
+   用法：<span class="bft-status" data-status="draft"></span>
+   側欄 badge 的五種 variant 也套同一個圓點（見下方）。
+   ------------------------------------------------------------------ */
+.bft-status,
+.sidebar-content .sl-badge::before {
+  --fill: 0%;
+  --dot: var(--sl-color-gray-3);
+  content: '';
+  display: inline-block;
+  flex: none;
+  width: 0.62em;
+  height: 0.62em;
+  border: 1.5px solid var(--dot);
+  border-radius: 50%;
+  background: conic-gradient(var(--dot) 0 var(--fill), transparent var(--fill) 100%);
+  vertical-align: -0.02em;
+}
+.bft-status[data-status='outline'],
+.sidebar-content .sl-badge.default::before {
+  border-style: dashed;
+}
+.bft-status[data-status='draft'],
+.sidebar-content .sl-badge.caution::before {
+  --fill: 25%;
+}
+.bft-status[data-status='partial'],
+.sidebar-content .sl-badge.tip::before {
+  --fill: 50%;
+}
+.bft-status[data-status='verified'],
+.sidebar-content .sl-badge.success::before {
+  --fill: 100%;
+  --dot: var(--bft-verified);
+}
+
+/* 側欄 badge：統一成中性外框，靠圓點區分狀態 */
+.sidebar-content .sl-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  font-family: inherit;
+  font-weight: 500;
+  color: var(--sl-color-gray-2);
+  background: transparent;
+  border: 1px solid var(--sl-color-gray-5);
+  border-radius: 999px;
+  padding: 0.12rem 0.45rem 0.12rem 0.35rem;
+}
+/* 已核對是多數頁的常態，不再用綠色搶眼：文字與外框淡化，圓點仍是實心綠。
+   需要注意的反而是草稿、規劃中、大綱。 */
+.sidebar-content .sl-badge.success {
+  color: var(--sl-color-gray-3);
+  border-color: var(--sl-color-hairline);
+}
+.sidebar-content a[aria-current='page'] > .sl-badge {
+  color: inherit;
+  border-color: color-mix(in srgb, var(--bft-gold) 45%, transparent);
+}
+.sidebar-content a[aria-current='page'] > .sl-badge::before {
+  --dot: var(--bft-gold);
+}
+
+/* ------------------------------------------------------------------
+   提示框（:::note、:::caution）：淡中性底＋細左線；caution 用金色左線
+   ------------------------------------------------------------------ */
+.starlight-aside {
+  background-color: var(--sl-color-bg-nav);
+  border-inline-start-width: 3px;
+  border-radius: 0 0.375rem 0.375rem 0;
+}
+.starlight-aside--note,
+.starlight-aside--tip {
+  --sl-color-asides-border: var(--sl-color-gray-4);
+  --sl-color-asides-text-accent: var(--sl-color-white);
+}
+.starlight-aside--caution {
+  --sl-color-asides-border: var(--bft-gold);
+  --sl-color-asides-text-accent: var(--bft-gold);
+}
+.starlight-aside--danger {
+  --sl-color-asides-border: var(--bft-fault);
+  --sl-color-asides-text-accent: var(--bft-fault);
+}
+.starlight-aside .starlight-aside__content a {
+  color: var(--sl-color-white);
+}
+
+/* ------------------------------------------------------------------
+   表格裡的時序模型：前面一個模型色點，不換行（衝突清單 #3）
+   用法：<span class="bft-timing" data-timing="partial">部分同步</span>
+   ------------------------------------------------------------------ */
+.bft-timing {
+  white-space: nowrap;
+}
+.bft-timing::before {
+  content: '';
+  display: inline-block;
+  width: 0.62em;
+  height: 0.62em;
+  margin-inline-end: 0.4em;
+  border-radius: 50%;
+  background: var(--bft-any);
+  vertical-align: 0.05em;
+}
+.bft-timing[data-timing='sync']::before { background: var(--bft-sync); }
+.bft-timing[data-timing='partial']::before { background: var(--bft-partial); }
+.bft-timing[data-timing='async']::before { background: var(--bft-async); }
+.bft-timing[data-timing='hybrid']::before { background: var(--bft-hybrid); }
+.bft-timing[data-timing='comm']::before { background: var(--bft-comm); }
+
+/* 模型總覽表（impossibility/overview.mdx）：編號與核對欄縮到最窄，讓「容錯上界」有空間 */
+/* 模型總覽表：每個條目兩行（見 OverviewTable.astro）。第一行短欄位，第二行「容錯上界」占滿整行。 */
+.bft-overview-table {
+  container-type: inline-size;
+}
+.bft-overview-table table {
+  width: 100%;
+  font-size: 0.94em;
+}
+.bft-overview-table :is(th, td) {
+  min-width: 0;
+}
+.bft-overview-table :is(thead th:first-child, .ov-main td:first-child) {
+  white-space: nowrap;
+}
+.bft-overview-table tr {
+  background: none; /* 不要 Starlight 的斑馬紋：一個條目有兩行，斑馬紋會把它們拆開 */
+}
+.bft-overview-table .ov-main td {
+  margin: 0;
+  padding-bottom: 0.2rem;
+  border-bottom: 0;
+}
+.bft-overview-table .ov-bound td {
+  margin: 0;
+  padding-top: 0.1rem;
+  padding-bottom: 0.8rem;
+}
+.bft-overview-table .ov-label {
+  margin-inline-end: 0.7em;
+  font-size: var(--sl-text-xs);
+  color: var(--sl-color-gray-3);
+}
+.bft-overview-table tbody.ov-entry {
+  scroll-margin-top: 5rem;
+}
+.bft-overview-table tbody.ov-entry:target td {
+  background: color-mix(in srgb, var(--bft-gold) 12%, transparent);
+  transition: background 0.6s ease;
+}
+/* 框寬 < 34rem（手機、側欄打開的窄視窗）：第一行改成「小標＋值」的流式排列，不需要橫向捲動 */
+@container (max-width: 34rem) {
+  .bft-overview-table thead {
+    display: none;
+  }
+  .bft-overview-table :is(table, tbody, tr, td) {
+    display: block;
+  }
+  .bft-overview-table .ov-main {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 1rem;
+    padding: 0.8rem 0.2rem 0;
+  }
+  .bft-overview-table .ov-main td {
+    padding: 0;
+  }
+  .bft-overview-table .ov-main td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-gray-3);
+  }
+  .bft-overview-table .ov-bound td {
+    padding: 0.35rem 0.2rem 0.9rem;
+  }
+  .bft-overview-table tbody.ov-entry {
+    border-bottom: 1px solid var(--sl-color-hairline);
+  }
+  .bft-overview-table .ov-bound td {
+    border-bottom: 0;
+  }
+}
+
+/* ------------------------------------------------------------------
+   浮出提示（Term、Cite、數學符號共用；design.md §浮出提示）
+   觸發元素加 position: relative；提示用 .bft-pop，滑過或聚焦時顯示。
+   ------------------------------------------------------------------ */
+.bft-pop {
+  display: none;
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 0.4rem);
+  z-index: 30;
+  width: max-content;
+  max-width: min(22rem, 80vw);
+  padding: 0.55rem 0.8rem;
+  font-size: var(--sl-text-sm);
+  font-style: normal;
+  font-weight: 400;
+  line-height: 1.6;
+  text-align: start;
+  white-space: normal;
+  color: var(--sl-color-white);
+  background: var(--sl-color-gray-6);
+  border: 1px solid var(--sl-color-gray-4);
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.25);
+}
+:root[data-theme='light'] .bft-pop {
+  background: var(--sl-color-black);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.12);
+}
+
+/* 表格裡不想斷行的短詞（例如「條件」「BB → SMR」） */
+.bft-nowrap {
+  white-space: nowrap;
+}
+
+/* 手機寬度：表格欄不要被擠成一個字寬，寧可整張表橫向捲動（2026-11-13，問題之間的關係表） */
+@media (max-width: 40rem) {
+  .sl-markdown-content table:not(.not-content *) td:nth-child(n + 2),
+  .sl-markdown-content table:not(.not-content *) th:nth-child(n + 2) {
+    min-width: 8rem;
+  }
+}
+
+/* 數學式與緊貼的 ASCII 字元不可分行（renderInline 產生；避免「pre-prepare(」與「m)」被拆開） */
+.im {
+  white-space: nowrap;
+}

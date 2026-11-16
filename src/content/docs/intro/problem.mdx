@@ -1,0 +1,187 @@
+---
+title: 拜占庭問題與性質
+description: Byzantine Broadcast、Byzantine Agreement 與狀態機複製的精確定義，各種 validity 的名稱對照，以及 safety 與 liveness 的區分。
+takeaway: "拜占庭廣播（BB）、拜占庭同意（BA）、狀態機複製（SMR）是三個不同的問題。每個問題的性質都分成 safety（壞事永遠不會發生）與 liveness（好事最終會發生），而不同的時序模型對這兩類性質的保證不同。"
+symbols:
+  t: 故障節點數（DLS、Fitzi–Garay 等原文用 t，等同本站的 f）
+sidebar:
+  order: 3
+---
+
+import Term from '../../../components/Term.astro';
+import Cite from '../../../components/Cite.astro';
+import Check from '../../../components/Check.astro';
+import References from '../../../components/References.astro';
+import Sidenote from '../../../components/Sidenote.astro';
+
+後面每一章都會說「某協議解決了 X 問題」。本頁先把 X 寫清楚：先定下共用的設定與兩類性質，再依序介紹單次決定的問題（<Term id="bb">BB</Term>、<Term id="ba">BA</Term>）、持續服務的問題（廣播與 <Term id="smr">SMR</Term>），最後說明它們彼此的關係。
+
+## 一、設定
+
+有 $n$ 個節點，其中至多 $f$ 個是<Term id="byzantine" />（可以任意偏離協議，彼此合謀），其餘稱為<Term id="honest" />（見[什麼是拜占庭？](/intro/byzantine/)）。誠實節點嚴格遵守協議。所有性質都只約束誠實節點的行為，所以下文一律寫「所有誠實節點」，不省略「誠實」。
+
+## 二、Safety 與 Liveness
+
+後面每個問題的性質，都會標明屬於哪一類。形式化的定義來自 Alpern–Schneider（<Cite id="alpern1985" />），他們說這兩個概念最早由 Lamport 在 1977 年描述：
+
+- **Safety**：壞事永遠不會發生（<Term id="agreement">Agreement</Term>、Total order，以及 <Term id="validity">Validity</Term> 的「不會輸出非法值」部分）。形式上，若一個性質在某次執行中被違反，則存在一個**有限的前綴**，在那裡壞事已經發生且無法挽回。
+- **Liveness**：好事最終會發生（Termination，請求最終被提交）。形式上，**任何有限的前綴都還能被延伸成滿足該性質的執行**；也就是說，沒有任何有限前綴能證明違反了 <Term id="liveness">liveness</Term>，必須看無限執行才能判定。
+
+他們也證明：**每個性質都是某個 <Term id="safety">safety</Term> 性質與某個 liveness 性質的交集**。所以把一個協議的要求拆成 safety 與 liveness 兩份，不只是習慣，而是一定做得到的。
+
+這個區分之所以是整個站的主軸，是因為不同模型對兩者的保證不同。設計部分<Term id="sync">同步</Term>協議時，我們要求 safety 不論訊息延遲如何都要成立；liveness 則需要 <Term id="gst" /> 之後才有保證。<Term id="async">非同步</Term>下，確定性協議無法同時保證兩者（FLP）。同步協議的 safety 則依賴 $\Delta$。各模型的完整對照見[下一頁](/intro/models/)。
+
+### Termination 的寫法隨協議而異
+
+確定性協議的 Termination 是「每個誠實節點最終輸出」。隨機化是繞過 FLP 的標準手段，非同步的隨機化協議無法保證在固定步數內終止，所以 Termination 改成：
+
+- 以機率 1 終止；
+- 並給出**期望**的（非同步）輪數或訊息數。
+
+機率 1 終止不等於有最壞情況上界：個別執行可以任意久。因此「期望 $O(1)$ 輪」與「最壞情況輪數有界」是不同的敘述，不能混用。最壞 $O(f)$ 輪這類上界是確定性協議的說法，例如同步確定性協議。
+
+<Check q="Termination 是 safety 還是 liveness？">
+Liveness。任何有限長的執行前綴，都還能被延伸成「每個誠實節點最終輸出」的執行，所以沒有任何有限前綴能證明 Termination 被違反；要判定違反，必須看無限長的執行。這正是 liveness 的形式定義。相對地，Agreement 一旦被違反（兩個誠實節點輸出不同值），在某個有限時間點就已經無法挽回，所以是 safety。
+</Check>
+
+## 三、單次決定的問題：BB 與 BA
+
+### Byzantine Broadcast（拜占庭廣播，BB）
+
+指定一個發送者 $s$，持有輸入 $v$。每個誠實節點輸出一個值。
+
+- **Agreement**（safety）：任兩個誠實節點輸出相同的值。
+- **Validity**（safety）：若 $s$ 是誠實的，所有誠實節點輸出 $v$。
+- **Termination**（liveness）：所有誠實節點最終輸出。
+
+這就是 Lamport–Shostak–Pease 的「指揮官」版本（他們稱為 interactive consistency 的兩個條件 IC1、IC2；<Cite id="lsp1982" />）。
+
+### Byzantine Agreement（拜占庭同意，BA）
+
+每個節點 $i$ 持有輸入 $v_i$。
+
+- **Agreement**、**Termination**：同上。
+- **Validity**：有多種版本，強弱不同，**各論文的命名並不一致**，見下一節。
+
+:::caution
+Validity 的版本會改變可解性的邊界。談<Term id="resilience">容錯上界</Term>時，必須同時說明是哪一種 validity。
+:::
+
+### Validity 的名稱對照
+
+Validity 是「輸出與輸入之間的關係」，各論文取捨不同，連 strong 與 weak 這兩個名字都被拿去指不同的條件。為了讓後面的討論不混亂，本站把每個條件標上一個字母，再列出各文獻怎麼稱呼它。
+
+**四個條件**（「輸入」都是各節點自己的初始值）：
+
+| # | <span class="bft-nowrap">條件</span> | 本站用名 |
+| --- | --- | --- |
+| A | 若所有誠實節點的輸入都是 $v$，則誠實節點輸出 $v$ | *Strong validity* |
+| B | 若這次執行**沒有任何故障**（所有節點都誠實）且輸入同為 $v$，則輸出 $v$ | *Weak validity* |
+| C | 輸出必為**某個誠實節點的輸入** | *Correct-input validity* |
+| D | 輸出必須滿足一個外部可檢查的述詞 | *External validity* |
+
+**強弱關係。** C 蘊含 A，A 蘊含 B：誠實輸入全同時，C 要求輸出的值是某個誠實輸入，只能是那個 $v$；沒有故障時所有節點都誠實，所以 A 的前提成立。反方向不成立：輸入只有兩個值時 A 與 C 等價，但值域大於二時，A 允許在輸入不一致時輸出預設值，C 不允許。D 與 A、B、C 不可比較。
+
+**各文獻怎麼稱呼**：
+
+| <span class="bft-nowrap">條件</span> | 文獻與用語 |
+| --- | --- |
+| A | DLS 稱 *strong unanimity*（<Cite id="dls1988" />）；FLM 稱 *Validity*（<Cite id="flm1986" />）；Fitzi–Garay 稱標準版的 *Validity*（<Cite id="fitzi2003" />）；CKS 稱 *Validity*，並說這是「文獻中通常的定義」（<Cite id="cks2000" />）；Civit 等人稱 *Strong Validity*（<Cite id="civit2023" />）；**VABA 稱 *Weak validity*，並標註出處為 Dolev–Strong**（<Cite id="vaba2019" />；Dolev–Strong 原文是 BB 的設定，這裡是 VABA 的歸屬） |
+| B | Lamport 的 *weak Byzantine generals problem*（<Cite id="lamport1983" />）；FLM 的 *weak agreement*（<Cite id="flm1986" />）；DLS 稱 *weak unanimity*（<Cite id="dls1988" />）；Civit 等人稱 *Weak Validity* |
+| C | Neiger 稱 *Strong Validity*，在同步輪的模型下定義為「輸出是某個誠實節點的初始值」（<Cite id="neiger1994" />）；Fitzi–Garay 沿用此名（<Cite id="fitzi2003" />）；Civit 等人稱 *Correct-Proposal Validity*（<Cite id="civit2023" />） |
+| D | Cachin–Kursawe–Petzold–Shoup 提出 *External validity*：決定值必須滿足一個全域、多項式時間可計算、所有節點已知的述詞 $Q$，由上層應用決定（<Cite id="ckps2001" />，Definition 4）；VABA 沿用此名（<Cite id="vaba2019" />）。CKS 2000 已有前身：他們指出，初始值可以附帶驗證資料（例如數位<Term id="signature">簽章</Term>），誠實節點只能決定有對應驗證資料的值，因此即使所有誠實節點都從 0 開始，也可能決定 1（<Cite id="cks2000" />，Validity 一段），但沒有替它取名。Civit 等人提到這個概念但明說不在其研究範圍（<Cite id="civit2023" />）。Fitzi–Garay 對它的描述較寬鬆（輸出是某個節點提議的值，不必是誠實節點），本站以 CKPS 的述詞版為準。 |
+
+**讀論文時要注意：**
+
+1. **A 與 B 的名字在文獻裡可能是顛倒的。** 多數理論論文（DLS、FLM、Lamport、Civit 等）把 A 叫 strong、B 叫 weak，但 VABA 把 A 叫 weak validity。讀到 weak 或 strong 時，回頭看它怎麼定義，不要只看名字。
+2. **C 比 A 強，不是比 B 弱。** 有些二手整理把「輸出必為誠實節點的輸入」說成 weak validity，與原文的用法相反：Neiger 與 Fitzi–Garay 稱它為 *Strong Validity*。**注意 strong 這個字也撞名**：Civit 等人的 Strong Validity 是 A，他們把 C 另叫 Correct-Proposal Validity。
+3. **B 的「沒有故障」是執行的性質。** 誠實節點事先並不知道這次執行有沒有故障，它仍須滿足 Agreement 與 Termination。
+4. **「弱」不等於容錯更寬鬆。** Lamport 證明 B 在無簽章的設定下仍然需要 $n\ge 3f+1$（原文摘要：容忍的故障要少於三分之一，<Cite id="lamport1983" />）。
+5. **B 的設定因文獻而異。** Lamport 與 FLM 是有指揮官的版本（BB 型），DLS 是每個節點都有輸入的版本（BA 型）。
+6. **C 與 A 的差別會改變容錯上界。** Fitzi–Garay 證明 strong consensus（條件 C）在同步下需要 $n>\max(3,m)t$（無條件）或 $n>mt$（簽章），$m$ 是值域大小（<Cite id="fitzi2003" />）。二元時 C 與 A 一致。
+7. **區塊鏈協議多採 D。** 輸入來自不同客戶端，「大家輸入相同」幾乎不會發生，而 A 對輸入不一致的情況什麼都不保證（VABA 的討論：A 允許輸出預設值或拜占庭節點提議的值）。
+8. **FLP 的 nontriviality 不屬於上面任何一種。** FLP 只要求兩個值都「可能」成為決定值（可以對不同的初始配置），沒有把它叫 validity（<Cite id="flp1985" />）；它只是排除永遠輸出同一個值的平凡解，且沒有「無故障執行」的限定。
+
+<Sidenote title="用語因文獻而異：DLS">
+DLS 的 strong unanimity 以「所有初始值皆為 $v$」為條件，與「所有誠實節點輸入」的說法措辭不同，讀原文時要看它如何定義初始值。此外，DLS 指出在同步加簽章的模型下，容忍任意數量故障的 strong unanimity 只在有一個發送者簽署初始值時才可能，這其實是 BB 的設定（<Cite id="dls1988" />）。
+</Sidenote>
+
+## 四、持續服務的問題：廣播與 SMR
+
+BB 與 BA 都是「決定一次」。實際系統要持續接收請求，於是有下面幾個原語。
+
+### Reliable Broadcast（可靠廣播）與 Atomic Broadcast（原子廣播）
+
+以下是 Chandra–Toueg 對 crash 模型的寫法（<Cite id="chandra1996" />）；他們說拜占庭版本由 Bracha–Toueg 定義（<Cite id="bt1985" />）。
+
+- **Reliable Broadcast（可靠廣播）**：
+  - *Validity*（liveness）：若誠實發送者廣播 $m$，則它最終會交付 $m$。
+  - *Agreement*（liveness）：若某個誠實節點交付 $m$，則所有誠實節點最終都交付 $m$。
+  - *Uniform Integrity*（safety）：每則訊息至多被交付一次，且只有在發送者確實廣播過它時才被交付。
+- **Atomic Broadcast（原子廣播，又稱 Total Order Broadcast）**：Reliable Broadcast 再加上 *Total order*（safety）：若兩個誠實節點都交付 $m$ 與 $m'$，則它們交付這兩則訊息的先後順序相同。
+
+注意這裡的 *Agreement* 含有「最終」，所以是 liveness，和 BB、BA 的 Agreement（任兩個誠實節點輸出相同的值，是 safety）不同，名稱相同但性質的類別不同。
+
+兩者的差別在**順序**：Reliable Broadcast 只保證大家收到同一批訊息，Atomic Broadcast 還保證收到的順序一致。Atomic Broadcast 的 Agreement 與 Total order 合起來，就是「所有誠實節點交付同一個序列」，也就是 SMR。
+
+### 狀態機複製（State Machine Replication, SMR）
+
+節點持續接收客戶端請求，並各自輸出一個請求序列（日誌）。本站採用的寫法對齊 Sync HotStuff（<Cite id="synchs2020" />）：
+
+- **Safety（Total order）**：任兩個誠實節點不會在同一個日誌位置提交不同的值。若各節點依位置依序提交，這等價於「任兩個誠實節點的日誌互為前綴」。
+- **Liveness**：每筆客戶端請求最終會被所有誠實節點提交。
+
+請求要能被提交，前提是它至少送到了一個誠實節點；各協議對客戶端的要求不同（見下表）。SMR 可以由重複執行 BA 得到，但在不同模型下，其效率與證明方式差異很大。後面的 DAG 協議就是直接在 SMR 層設計，而不是反覆呼叫單次 BA。
+
+**SMR 的各種說法。**「SMR」一詞在不同論文裡寫成不同的性質，下表列出一些論文的寫法：
+
+| 文獻 | Safety 的寫法 | Liveness 的寫法 |
+| --- | --- | --- |
+| Schneider（<Cite id="schneider1990" />） | *Order*：每個非故障的 replica 以相同的相對順序處理它收到的請求 | *Agreement*：每個非故障的 replica 收到每一筆請求（這條約束的是客戶端如何把請求送給各 replica） |
+| Chandra–Toueg 的 Atomic Broadcast（<Cite id="chandra1996" />） | *Total order*、*Uniform Integrity* | *Validity*（誠實發送者廣播的訊息最終會被交付）、*Agreement*（若某個誠實節點交付，所有誠實節點最終都交付） |
+| PBFT（<Cite id="pbft2002" />） | 一種 linearizability（為拜占庭客戶端修改過的定義） | 客戶端最終收到對其請求的回覆（在 $\mathrm{delay}(t)=o(t)$ 的弱同步假設下） |
+| Sync HotStuff（<Cite id="synchs2020" />） | 非故障 replica 不會在同一個日誌位置提交不同的值 | 每筆客戶端請求最終會被所有非故障 replica 提交 |
+| HotStuff（<Cite id="hotstuff2019" />） | （在協議的 safety 證明中給出） | 客戶端把命令送給**所有**副本，等到 $f+1$ 份回覆 |
+
+差異主要在三處：safety 寫成「日誌位置」、「順序」還是 linearizability；liveness 是否把客戶端的行為（重送、送給多少節點）算進來；以及 PBFT 把回覆也納入規格，其他協議只談日誌。本站採用 Sync HotStuff 的寫法，是因為它最接近後面要用的日誌模型。
+
+## 五、問題之間的關係
+
+<Term id="consensus">共識</Term>（Consensus）是泛稱，文獻裡常拿來指上面任何一個問題；本站泛指時說共識，精確時一定寫 BB、BA 或 SMR。它們彼此有歸約，但等價（equivalent）要看模型與 validity，不能一概而論：
+
+| <span class="bft-nowrap">關係</span> | 做法 | 成立的條件與注意 |
+| --- | --- | --- |
+| <span class="bft-nowrap">BB → BA</span> | 每個節點把自己的輸入用一個 BB 廣播（$n$ 個 BB 並行），再對收到的整個向量套用同一個決定函數（例如多數） | 同步模型。要得到 strong validity（條件 A）需誠實節點占多數（$f<n/2$）。這就是 interactive consistency 的做法（<Cite id="psl1980" />） |
+| <span class="bft-nowrap">BA → BB</span> | 發送者先把 $v$ 送給所有節點，各節點以收到的值當輸入跑 BA | 同步模型，多一輪。若發送者故障，BA 的 Agreement 仍保證輸出一致；發送者誠實則所有誠實節點輸入同為 $v$，由 strong validity 得到 $v$。**非同步下不成立**：發送者故障時可能沒人收到值，Termination 無法保證 |
+| <span class="bft-nowrap">BA → SMR</span> | 每個日誌位置各跑一次 BA，決定該位置的內容 | 需要 external validity 一類的版本，輸出才會是合法請求 |
+| <span class="bft-nowrap">SMR → BA</span> | 每個節點把輸入當作請求提交，決定值取日誌的第一筆合法值 | 同上。Chandra–Toueg 證明在非同步 crash 模型下 atomic broadcast 與 consensus 可互相歸約；該文註腳說拜占庭模型下也等價，但省略證明（<Cite id="chandra1996" />） |
+| <span class="bft-nowrap"><Term id="rbc">RBC</Term></span> | 不等價，比 BB／BA 弱 | RBC 在非同步下用確定性協議就能解（如 Bracha），但發送者故障時不保證任何人輸出；BA 在同一模型下不可能用確定性演算法達成 |
+
+另外要注意兩點：
+
+- **容錯上界不一定相同。** 例如同步加簽章下，BB 可以容忍任意 $f$，但二元 BA（無指定發送者）只能容忍 $f<n/2$（見[模型總覽](/impossibility/overview/)第 3 列）。所以「BB 與 BA 可互相歸約」不代表它們在每個模型下容錯比例相同。
+- **名稱本身有歧義。** Lamport–Shostak–Pease 的 Byzantine Generals 問題有一位指揮官下令，嚴格說是 BB 的設定；而現在說 Byzantine Agreement，多半指每個節點各有輸入的 BA。讀論文時要看它實際定義的是哪一個。
+
+## 後面每頁的模型卡
+
+一個 <Term id="bft">BFT</Term> 結論只在特定模型下成立。本站每個協議頁都會標出下列模型卡，讀者可以先看卡片，再決定要不要往下讀。五個欄位分別在這幾頁說明：
+
+| 欄位 | 內容 | 在哪一頁 |
+| --- | --- | --- |
+| 故障 | crash／拜占庭，靜態／適應性 | [什麼是拜占庭？](/intro/byzantine/) |
+| 問題 | BB／BA／SMR | 本頁 |
+| 時序 | 同步／<Term id="psync">部分同步</Term>／非同步 | [三種時序模型](/intro/models/) |
+| 密碼學假設、確定性 | 無簽章／簽章／門檻簽章＋coin；確定性／隨機化 | [密碼學假設與確定性](/intro/crypto/) |
+
+## 小結
+
+寫下任何一個結論時，都要能回答這四件事：
+
+1. 哪個問題（BB、BA、SMR）？哪一種 validity（A 到 D 哪一個）？
+2. 什麼模型（時序、密碼學假設、故障）？
+3. 保證的是 safety 還是 liveness？是無條件的，還是依賴假設？
+4. 複雜度的單位與情境是什麼？
+
+## 參考文獻
+
+<References />

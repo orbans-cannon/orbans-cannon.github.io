@@ -1,0 +1,61 @@
+---
+/**
+ * 語言切換：「繁 | En」兩段式按鈕，取代 Starlight 預設的下拉選單。
+ * 位置在深淺色按鈕旁邊（Starlight 的 Header 本來就把 LanguageSelect 放在 ThemeSelect 後面）。
+ * 中文是預設語言，網址在根目錄；英文在 /en/。尚未翻譯的頁面，英文版會顯示中文內容並附提示（Starlight 的 fallback）。
+ */
+const path = Astro.url.pathname;
+const isEn = /^\/en(\/|$)/.test(path);
+const base = isEn ? path.replace(/^\/en/, '') || '/' : path;
+const zhHref = base;
+const enHref = '/en' + (base === '/' ? '/' : base);
+---
+
+<div class="bft-lang not-content" role="group" aria-label="語言 Language">
+  <a href={zhHref} lang="zh-TW" aria-current={!isEn ? 'true' : undefined} title="繁體中文">繁</a>
+  <a href={enHref} lang="en" aria-current={isEn ? 'true' : undefined} title="English">En</a>
+</div>
+
+<style>
+  .bft-lang {
+    display: inline-flex;
+    /* 手機選單裡的父層是 flex（align-items: stretch），不設的話會被旁邊的主題按鈕拉到兩倍高 */
+    align-self: center;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 0.5rem;
+    overflow: hidden;
+    font-size: var(--sl-text-sm);
+    line-height: 1;
+  }
+  .bft-lang a {
+    padding: 0.45rem 0.7rem;
+    color: var(--sl-color-gray-2);
+    text-decoration: none;
+    margin: 0;
+  }
+  .bft-lang a + a {
+    border-inline-start: 1px solid var(--sl-color-gray-5);
+  }
+  .bft-lang a:hover {
+    color: var(--sl-color-white);
+    background: var(--sl-color-gray-5);
+  }
+  /* 選中的一格：淺色＝金底白字；深色＝深金底白字（design.md §顏色系統） */
+  .bft-lang a[aria-current='true'] {
+    color: #fff;
+    background: var(--bft-gold);
+    font-weight: 600;
+  }
+  :global(:root[data-theme='dark']) .bft-lang a[aria-current='true'] {
+    background: color-mix(in srgb, var(--bft-gold) 42%, var(--sl-color-black));
+  }
+  /* 深色模式：兩個字都保持白色（作者要求；選中的那個靠金底區分） */
+  :global(:root[data-theme='dark']) .bft-lang a,
+  :global(:root[data-theme='dark']) .bft-lang a[aria-current='true'] {
+    color: #fff;
+  }
+  .bft-lang a:focus-visible {
+    outline: 2px solid var(--sl-color-accent);
+    outline-offset: -2px;
+  }
+</style>

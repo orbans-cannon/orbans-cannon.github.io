@@ -1,0 +1,274 @@
+---
+title: DAG-Rider：用 DAG 零額外通訊排序
+description: 在非同步網路上，把可靠廣播建成的 DAG 當作訊息歷史，只靠一個 global perfect coin 就在本地算出全序，不需要任何額外的通訊。
+takeaway: "每個節點把可靠廣播的提案連成一張 DAG，每個 wave 結束後才擲 coin 選出 leader，並用 2f+1 條 strong path 判斷能否 commit。排序完全在本地進行，每個誠實節點的提案最終都會被排進全序。"
+sidebar:
+  label: DAG-Rider
+  order: 20
+  badge:
+    text: 草稿
+    variant: caution
+---
+
+import ModelCard from '../../../components/ModelCard.astro';
+import Thm from '../../../components/Thm.astro';
+import Boundary from '../../../components/Boundary.astro';
+import StructuredProof from '../../../components/StructuredProof.astro';
+import Step from '../../../components/Step.astro';
+import Term from '../../../components/Term.astro';
+import Check from '../../../components/Check.astro';
+import Cite from '../../../components/Cite.astro';
+import Complexity from '../../../components/Complexity.astro';
+import References from '../../../components/References.astro';
+
+<ModelCard
+  status="draft"
+  timing="async"
+  crypto="threshold"
+  faults="byz"
+  adversary="adaptive"
+  determinism="rand"
+  problem="SMR"
+  resilience="f < n/3"
+  note="內容依原文第 2 至 6 節整理。safety 不依賴密碼學假設，只有 coin 的不可預測性（liveness）用到門檻簽章。第 6 節的 common core 證明，除了原文的歸約，另補了一個直接的計數證明，來自作者的簡報，已逐步檢查算術。"
+/>
+
+<Cite id="dagrider2021" /> 是第一個同時達到最佳容錯、最佳時間複雜度與最佳攤銷通訊複雜度的非同步 <Term id="bab">BAB</Term> 協議，而且在給定 coin 之後，<Term id="safety">safety</Term> 完全不用<Term id="signature">簽章</Term>與非對稱密碼學假設。它的設計分成兩層：
+
+1. **通訊層**：每個節點每輪用<Term id="rbc">可靠廣播</Term>送出一個提案，提案裡帶著對前一輪提案的引用，這些引用把所有提案連成一張 <Term id="dag">DAG</Term>。
+2. **排序層**：每個節點只看自己手上的 DAG，加上每個 <Term id="wave">wave</Term> 一次的 coin，就在本地算出全序，不需要任何額外的訊息。
+
+和 VABA、Dumbo 這類「每個 slot 跑一次非同步<Term id="consensus">共識</Term>，只選一個值，其餘 $O(n)$ 個提案作廢」的做法相比，DAG-Rider 沒有浪費任何訊息：<Term id="honest">誠實節點</Term>送出的每個提案，最終都會被排進全序。
+
+## 問題與模型
+
+### 模型
+
+- $n=3f+1$ 個 process，至多 $f$ 個是<Term id="byzantine">拜占庭節點</Term>。對手是<Term id="adaptive">自適應</Term>的，可以在執行過程中動態腐化最多 $f$ 個 process；一旦腐化，還能丟掉該 process 已送出但尚未送達的訊息。
+- 任兩個誠實節點之間的連線可靠：訊息最終會送達，接收者能驗證發送者身分。通訊是<Term id="async">非同步</Term>的，對手控制訊息到達的時間。
+
+### 兩個積木
+
+DAG-Rider 假設兩個已知的積木，把它們當成黑盒。
+
+**可靠廣播。** 每個發送者 $p_k$ 呼叫 $\mathrm{r\_bcast}_k(m,r)$（$r$ 是輪數），每個 process 輸出 $\mathrm{r\_deliver}_i(m,r,p_k)$，滿足：
+
+- **<Term id="agreement">Agreement</Term>**：若誠實的 $p_i$ 輸出 $\mathrm{r\_deliver}_i(m,r,p_k)$，則其他每個誠實的 $p_j$ 最終以機率 1 輸出同一個。
+- **Integrity**：對每個輪數 $r$ 與 process $p_k$，誠實節點至多輸出一次，不論 $m$ 是什麼。
+- **<Term id="validity">Validity</Term>**：若誠實的 $p_k$ 呼叫 $\mathrm{r\_bcast}_k(m,r)$，則每個誠實節點最終以機率 1 輸出它。
+
+這裡的「以機率 1」是為了允許用機率式的 gossip 協議來實現。可以用 Bracha broadcast（<Cite id="bracha1987" />），也可以用 Cachin–Tessaro 的 AVID（<Cite id="avid2005" />）。
+
+**Global perfect coin。** 實例 $w$ 由 $\mathrm{choose\_leader}_i(w)$ 呼叫，回傳一個 process，滿足：
+
+- **Agreement**：任兩個誠實節點的回傳值相同。
+- **Termination**：只要至少 $f+1$ 個 process 呼叫，每個呼叫最終都會回傳。
+- **Unpredictability**：只要呼叫的 process 少於 $f+1$ 個，回傳值就和隨機值無法區分（除了可忽略的機率 $\epsilon$）。
+- **Fairness**：每個 process 被選中的機率都是 $1/n$。
+
+這和本站的 <Term id="common-coin" /> 是同一類東西。原文建議用 $(f+1)$-of-$n$ 的門檻簽章實現：呼叫時對 $w$ 簽名並把份額送給所有人，收到 $f+1$ 份就能合成並雜湊出一個 process。通常用 <Term id="trusted-dealer" /> 設置金鑰，也可以改用 $O(n^4)$ 訊息的非同步 <Term id="dkg">DKG</Term> 取代。不論哪種做法，只有 Unpredictability 依賴「對手算力有限」。
+
+### BAB 問題
+
+<Thm kind="definition" title="Byzantine Atomic Broadcast" id="def-bab">
+每個誠實節點可以呼叫 $\mathrm{a\_bcast}_i(m,r)$ 並輸出 $\mathrm{a\_deliver}_i(m,r,k)$。一個 BAB 協議滿足可靠廣播的 Agreement、Integrity、Validity，以及：
+
+**Total order**：若誠實的 $p_i$ 先輸出 $\mathrm{a\_deliver}_i(m,r,k)$ 再輸出 $\mathrm{a\_deliver}_i(m',r',k')$，則沒有誠實的 $p_j$ 會在輸出前者之前先輸出後者。
+</Thm>
+
+這裡的 Validity 比多數 <Term id="smr">SMR</Term> 協議強：它要求**每一則**誠實節點廣播的訊息最終都被排序（以機率 1），而不是只保證無限的執行裡有無限多次決定。<Term id="async">非同步</Term>下確定性的協議做不到這件事（見 [FLP](/impossibility/async/flp/)），所以用 coin 讓 <Term id="liveness">liveness</Term> 以機率 1 成立。原文另外指出，這個協議滿足 chain quality：長度為 $(2f+1)r$ 的任何已排序前綴中，至少有 $(f+1)r$ 則是誠實節點廣播的。
+
+## DAG 層
+
+### 頂點與邊
+
+DAG 的每個頂點對應一則可靠廣播的訊息，每個頂點 $v$ 帶有：所屬的輪數 $v.\mathrm{round}$、發送者 $v.\mathrm{source}$、一個交易區塊，以及兩種向外的邊：
+
+- **strong edges**：指向 $v.\mathrm{round}-1$ 的頂點，至少 $2f+1$ 條。
+- **weak edges**：指向更早（輪數小於 $v.\mathrm{round}-1$）的頂點，用來連到「否則沒有路徑通到」的頂點。
+
+每個 process 維護自己看到的 $\mathrm{DAG}_i$，$\mathrm{DAG}_i[r]$ 是它已加入的第 $r$ 輪頂點。因為可靠廣播不允許 <Term id="equivocation">equivocation</Term>，每個 process 每輪至多一個頂點，所以 $|\mathrm{DAG}_i[r]|\le n$。
+
+### 建構 DAG
+
+- 收到可靠廣播交付的頂點後，檢查它至少有 $2f+1$ 條 strong edges，放進緩衝區。
+- 只有當它引用的所有頂點都已經在 $\mathrm{DAG}_i$ 中，才把它加入 DAG。所以每個頂點被加入時，它完整的 causal history 都已在 DAG 裡。
+- 當 $|\mathrm{DAG}_i[r]|\ge 2f+1$，$p_i$ 進入下一輪：建立新頂點，strong edges 指向 $\mathrm{DAG}_i[r]$ 的全部頂點，weak edges 指向所有尚無路徑通到的更早頂點，然後可靠廣播它。
+
+晚到的頂點仍會被加入 DAG，只是 $p_i$ 之後的頂點不再有 strong edge 指向它。weak edge 就是為這種被落下的頂點（orphan）準備的。
+
+### strong 與 weak 的分工
+
+- **strong edges 負責 safety**：commit 規則只數 strong path，後面的證明靠的是兩個 $2f+1$ 的集合必相交。
+- **weak edges 負責 Validity**：慢的節點的提案可能沒有任何後來頂點的 strong edge 指向它，若沒有 weak edge，它永遠不會出現在 leader 的 causal history 裡，也就永遠不會被排序。
+
+原文在這一節寫「weak edges 至多 $f$ 條」，但偽碼 `set_weak_edges` 是對每個尚無路徑的更早頂點都加邊，兩者的關係原文沒有進一步說明。這裡先照偽碼理解，這一點需要再核對。
+
+## 排序層
+
+### Wave 與 commit 規則
+
+每個 process 把自己的 $\mathrm{DAG}_i$ 切成 wave，每個 wave 是連續 4 輪。第 $w$ 個 wave 的第 $k$ 輪是 $\mathrm{round}(w,k)=4(w-1)+k$，$k\in\{1,2,3,4\}$。當 $\mathrm{DAG}_i[r]$ 有至少 $2f+1$ 個頂點，就說 $p_i$ 完成了第 $r$ 輪；完成 $\mathrm{round}(w,4)$ 就完成第 $w$ 個 wave。
+
+每個 wave 在完成之後才呼叫 coin，事後選出一個 process，它在 $\mathrm{round}(w,1)$ 的頂點 $v$ 就是這個 wave 的 <Term id="leader">leader</Term>（若 $p_i$ 的 DAG 裡還沒有這個頂點，這個 wave 就不 commit，直接進入下一個 wave）。
+
+**commit 規則**：若 $\mathrm{DAG}_i[\mathrm{round}(w,4)]$ 中至少有 $2f+1$ 個頂點到 $v$ 有 strong path，$p_i$ commit $v$。
+
+commit 了 $v$ 之後，$p_i$ 還要補上先前自己沒能 commit 的 leader：從 wave $w-1$ 往回走，只要目前的候選 leader 到某個舊 wave 的 leader $v'$ 有 strong path，就把 $v'$ 放到候選之前，並把 $v'$ 當成新的候選，繼續往回，直到上一個已經決定的 wave。最後依 wave 由小到大，逐一以某個確定性的順序交付每個 leader 的 causal history 中尚未交付的區塊。
+
+下面是原文圖 2 的情形（$n=4$，$f=1$）：wave 2 的 leader $v_2$ 在 round 8 只有不到 $3$ 個頂點到它有 strong path，不 commit；wave 3 的 leader $v_3$ 在 round 12 有 $3$ 個頂點到它有 strong path，commit。因為 $v_3$ 到 $v_2$ 有 strong path，所以 $p_i$ 先 commit $v_2$，再 commit $v_3$。
+
+為什麼回頭補 leader 是安全的，要看下一節的引理 1。
+
+## 正確性
+
+<Thm kind="theorem" title="DAG-Rider 是 BAB 協議" id="thm-dagrider-bab">
+在上述模型下，DAG-Rider 滿足 Byzantine Atomic Broadcast 的 Integrity、Total order、Agreement 與 Validity。
+</Thm>
+
+四條性質的論證來源如下，下面只展開最關鍵的兩個引理。
+
+| 性質 | 靠什麼 |
+| --- | --- |
+| Integrity | 可靠廣播的 Integrity：同一輪同一個發送者至多一個頂點，所以每個區塊至多交付一次 |
+| Total order | 引理 1（跨 wave）、每個 wave 至多一個 leader、commit 的 wave 編號遞增，加上相同的 causal history 與確定性順序 |
+| Agreement | 引理 2 與 Claim 6：任何誠實節點最終都會在某個 wave commit，由 Total order 它也會交付同一份歷史 |
+| Validity | weak edges 讓每個誠實頂點最終進入某個被 commit 的 leader 的 causal history |
+
+### 引理 1：commit 過的 leader 不會被後面的 wave 丟掉
+
+<Thm kind="lemma" title="跨 wave 的 safety" id="lemma-cross-wave">
+若某個 process $p_i$ commit 了 wave $w$ 的 leader $v$，則對任何 $w'>w$、任何 process $p_j$，只要 wave $w'$ 的 leader $u$ 在 $\mathrm{DAG}_j$ 裡，就有從 $u$ 到 $v$ 的 strong path。
+</Thm>
+
+證明用兩個 $2f+1$ 的集合在 $3f+1$ 個可能的頂點中必相交（交集至少 $2(2f+1)-(3f+1)=f+1$ 個），這是 [Quorum 交集](/impossibility/quorum/)的直接應用。
+
+<StructuredProof assumes="可靠廣播：每輪每個發送者至多一個頂點，所有誠實節點看到的頂點與邊都相同；加入 DAG 的頂點，其 causal history 已在 DAG 裡">
+  <Step open>
+    <span slot="claim">**Claim 3**：若 $\mathrm{DAG}_i[r]$ 中有至少 $2f+1$ 個頂點到某個頂點 $u$ 有 strong path，則任何完成第 $r$ 輪的 process $p_j$，在 $\mathrm{DAG}_j[r]$ 中至少有 $f+1$ 個頂點到 $u$ 有 strong path。</span>
+
+    $p_j$ 完成第 $r$ 輪時，$|\mathrm{DAG}_j[r]|\ge 2f+1$。這個集合與前述 $2f+1$ 個頂點，都是同一輪至多 $3f+1$ 個頂點的子集，所以交集至少 $f+1$ 個。交集中的頂點已經在 $\mathrm{DAG}_j$ 裡，它們的 causal history 也在，所以在 $\mathrm{DAG}_j$ 裡同樣有到 $u$ 的 strong path。
+  </Step>
+
+  <Step uses="commit 規則">
+    <span slot="claim">每個誠實的 $p_j$ 在 $\mathrm{DAG}_j[\mathrm{round}(w,4)]$ 中，都有至少 $f+1$ 個頂點到 $v$ 有 strong path。</span>
+
+    $p_i$ commit $v$，所以 $\mathrm{DAG}_i[\mathrm{round}(w,4)]$ 中至少 $2f+1$ 個頂點到 $v$ 有 strong path，套用 Claim 3。
+  </Step>
+
+  <Step uses="步驟 2">
+    <span slot="claim">每個在 $\mathrm{round}(w,4)+1$ 的頂點 $x$，都有到 $v$ 的 strong path。</span>
+
+    $x$ 有至少 $2f+1$ 條 strong edges 指向第 $\mathrm{round}(w,4)$ 輪，而步驟 2 的 $f+1$ 個頂點也在這一輪，兩者都落在至多 $3f+1$ 個頂點中，交集至少 $(2f+1)+(f+1)-(3f+1)=1$ 個。所以 $x$ 的某條 strong edge 指到一個到 $v$ 有 strong path 的頂點。
+  </Step>
+
+  <Step uses="步驟 3">
+    <span slot="claim">對所有 $r>\mathrm{round}(w,4)$，第 $r$ 輪的每個頂點都有到 $v$ 的 strong path。</span>
+
+    對 $r$ 歸納。第 $r+1$ 輪頂點的每條 strong edge 都指向第 $r$ 輪的頂點，而依歸納假設那些頂點都有到 $v$ 的 strong path。
+  </Step>
+
+  <Step uses="步驟 4">
+    <span slot="claim">任何 $w'>w$ 的 leader $u$ 都有到 $v$ 的 strong path。</span>
+
+    $u$ 在 $\mathrm{round}(w',1)\ge\mathrm{round}(w,4)+1$。
+  </Step>
+</StructuredProof>
+
+引理 1 說的是：一個 leader 一旦被某個 process commit，之後所有可能被 commit 的 leader 都「看得見」它。所以其他 process 即使當下沒有 commit 它，往後在某個更晚的 wave commit 時，往回走就一定會把它補上，大家交付的 leader 序列相同。
+
+### 引理 2：每個 wave 都有一批人人看得見的頂點
+
+這個引理決定 liveness：它保證每個 wave 有相當高的機率能 commit。
+
+<Thm kind="lemma" title="common core" id="lemma-common-core">
+設 $p_i$ 完成了 wave $w$。則存在 $V\subseteq\mathrm{DAG}_i[\mathrm{round}(w,1)]$ 與 $U\subseteq\mathrm{DAG}_i[\mathrm{round}(w,4)]$，滿足 $|V|\ge 2f+1$、$|U|\ge 2f+1$，且對所有 $v\in V$、$u\in U$，$u$ 到 $v$ 有 strong path。
+</Thm>
+
+原文的證明，是把一個 wave 的前三輪對應到 <Term id="common-core">common core</Term> 抽象的三階段演算法（<Cite id="canetti1996" />最早提出，<Cite id="dolevgafni2016" />改寫並證明拜占庭版），再用該抽象的保證。本站另補一個不需要借助該抽象的直接證明，來自作者的簡報；算術我逐步檢查過，但這不是原文的證法。
+
+<StructuredProof assumes="每輪至多 $3f+1$ 個頂點；每個頂點有至少 $2f+1$ 條 strong edges；$p_i$ 完成 wave $w$，所以 $|\mathrm{DAG}_i[\mathrm{round}(w,4)]|\ge 2f+1$">
+  <Step open>
+    <span slot="claim">令 $r_1,\dots,r_4$ 為 $\mathrm{round}(w,1),\dots,\mathrm{round}(w,4)$。取 $\mathrm{DAG}_i[r_3]$ 中的 $2f+1$ 個頂點為 $S$，則 $S$ 向 $r_2$ 的 strong edges 至少有 $(2f+1)^2=4f^2+4f+1$ 條，而 $r_2$ 至多有 $3f+1$ 個頂點。</span>
+  </Step>
+
+  <Step uses="步驟 1">
+    <span slot="claim">存在 $r_2$ 的頂點 $z$，被 $S$ 中至少 $f+1$ 個頂點指到。</span>
+
+    反證：若每個 $r_2$ 頂點最多被指到 $f$ 次，邊的總數至多 $f(3f+1)=3f^2+f$，小於 $4f^2+4f+1$。
+  </Step>
+
+  <Step uses="步驟 2">
+    <span slot="claim">$\mathrm{DAG}_i[r_4]$ 中的每個頂點 $u$，都有到 $z$ 的 strong path。</span>
+
+    $u$ 有至少 $2f+1$ 條 strong edges 指向 $r_3$，而 $r_3$ 至多 $3f+1$ 個頂點，所以 $u$ 至多漏掉 $f$ 個。$z$ 有至少 $f+1$ 個支持者（指到它的 $r_3$ 頂點），不可能全被漏掉，於是 $u$ 有一條 strong edge 指到某個支持者，再從支持者走到 $z$。
+  </Step>
+
+  <Step uses="步驟 3">
+    <span slot="claim">令 $V$ 為 $z$ 的 strong edges 指到的 $r_1$ 頂點，$U=\mathrm{DAG}_i[r_4]$，則 $|V|\ge 2f+1$、$|U|\ge 2f+1$，且 $U$ 的每個頂點到 $V$ 的每個頂點都有 strong path。</span>
+
+    $|V|\ge 2f+1$ 因為 $z$ 是合法頂點。每個 $u\in U$ 先到 $z$，再從 $z$ 到 $V$。
+  </Step>
+</StructuredProof>
+
+### 期望需要幾個 wave
+
+coin 要等 $p_i$ 完成 wave $w$ 之後才擲。引理 2 的集合 $V$ 在這一刻之前就已經由 DAG 決定，對手無法在知道 leader 之前操縱它；由 Unpredictability，對手在這之前猜中 leader 的機率不超過 $1/n+\epsilon$。若 leader 落在 $V$，$p_i$ 完成 wave 時就會 commit。所以每個 wave 的 commit 機率至少是 $(2f+1)/(3f+1)-\epsilon\ge 2/3-\epsilon$。到 commit 為止的 wave 數服從幾何分布，期望至多 $\frac{3f+1}{2f+1}+\epsilon<\frac{3}{2}+\epsilon$。
+
+<Check q="為什麼 coin 一定要等 wave 結束後才擲？">
+因為只要對手事先知道 leader 是誰，它就能控制訊息的到達順序，讓這個 leader 的頂點拿不到 $2f+1$ 條 strong path，永遠無法 commit。等到 wave 完成之後才揭曉 leader，集合 $V$ 已經固定，對手就沒有辦法再針對它動手腳。
+</Check>
+
+## 複雜度
+
+<Complexity
+  kind="upper"
+  measure="time"
+  value="O(1)"
+  scope="per-decision"
+  scopeNote="每次 commit 交付 O(n) 個由不同誠實節點提出的值；單位是非同步時間單位（誠實節點之間訊息延遲的最大值）"
+  case="expected"
+  condition="非同步、f < n/3 個拜占庭、自適應對手、global perfect coin"
+  cite="dagrider2021"
+/>
+
+<Complexity
+  kind="upper"
+  measure="bits"
+  value="O(n)"
+  scope="per-tx"
+  scopeNote="攤銷：平均到每筆被排序的交易"
+  case="expected"
+  condition="可靠廣播用 Cachin–Tessaro 的 AVID，每則訊息批次 O(n log n) 筆交易；不含 coin 的設置"
+  cite="dagrider2021"
+/>
+
+原文表 1 把不同可靠廣播實例的結果並排比較：
+
+| 協議 | 通訊複雜度 | 期望時間 | post-quantum safety | 最終公平（所有誠實提案最終被排序） |
+| --- | --- | --- | --- | --- |
+| VABA SMR | $O(n^2)$ | $O(\log n)$ | 否 | 否 |
+| Dumbo SMR | 攤銷 $O(n)$ | $O(\log n)$ | 否 | 否 |
+| DAG-Rider + Bracha broadcast | 攤銷 $O(n^2)$ | $O(1)$ | 是 | 是 |
+| DAG-Rider + Guerraoui 等人的 gossip 廣播 | 攤銷 $O(n\log n)$ | $O\!\left(\frac{\log n}{\log\log n}\right)$ | 是 | $(1-\epsilon)$-fair |
+| DAG-Rider + AVID | 攤銷 $O(n)$ | $O(1)$ | 是 | 是 |
+
+用 Bracha 廣播、每則訊息一個值時，每個決定的通訊是 $O(n^3)$，因為 Bracha 廣播是 $O(n^2)$，而且形成 DAG 時每則訊息要帶 $O(n)$ 個引用；批次 $O(n)$ 個提案可以省掉一個 $n$ 因子。VABA、Dumbo 兩列的時間欄，原文是為了公平比較，允許它們同時跑 $n$ 個 slot，但輸出仍要依序，並引用 [6] 的證明得到 $O(\log n)$。
+
+在延遲方面，一個 wave 是 4 輪，而 commit 的期望 wave 數接近 $3/2$，所以期望約 6 輪才 commit 一個 leader；精確地說是 $4\cdot\frac{3f+1}{2f+1}$ 輪，$n=4$ 時約 $5.33$，$n=100$ 時約 $5.97$（這是用上面的機率下界換算，不是原文給的數字）。Tusk 的論文在一般情況下（訊息延遲隨機）把 DAG-Rider 每個區塊的期望 commit 時間估為 5.5 輪（<Cite id="narwhal2022" />）。
+
+## 邊界
+
+<Boundary>
+**拿掉 coin：** 沒有 coin，確定性的協議逃不出 FLP，liveness 無法保證，見 [FLP](/impossibility/async/flp/)。DAG-Rider 的 safety 不依賴 coin，只有 liveness 依賴 coin 的不可預測性，所以即使量子電腦破壞了不可預測性，也只能讓協議停滯，不能破壞 safety（這是原文 post-quantum safe 的意思）。表 1 對三種可靠廣播實例都標了 post-quantum safe。
+
+**拿掉 weak edges：** 慢節點的提案可能永遠不被排序，Validity 會被破壞。但保留 weak edges 的代價是無法垃圾回收：為了能在任何時候回頭補 orphan，節點必須保存整張 DAG，這在實務上需要無限的記憶體。Bullshark 論文進一步指出，在完全非同步下，同時要求有界記憶體與 Validity 是做不到的（見 [Bullshark](/convergence/bullshark/)）。
+
+**太慢：** 期望約 6 輪才 commit 一個 leader。Narwhal 與 Tusk、Bullshark 就是從這裡出發，分別改進資料傳播與 commit 規則（見 [Narwhal 與 Tusk](/convergence/narwhal-tusk/)）。
+
+**模型限制：** 原文假設誠實節點之間的連線可靠（訊息最終一定送達），這在實作中需要無限保存重送；Narwhal 因此把這一點放寬成「有限但未知個訊息可能遺失」。
+</Boundary>
+
+## 參考文獻
+
+<References />

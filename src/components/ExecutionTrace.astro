@@ -1,0 +1,286 @@
+---
+const lang = Astro.locals.starlightRoute.lang?.startsWith('en') ? 'en' : 'zh';
+const L = (zh: string, en: string) => (lang === 'en' ? en : zh);
+/**
+ * 執行追蹤表：逐步列出每個節點的狀態。
+ * 每一步只需寫「有變的節點」，其餘沿用上一步；有變的格子會標亮。
+ *
+ * 可獨立使用（例如正常情況的協議流程），也被 <Counterexample> 包起來並加上強制檢查。
+ * 字串可含 $...$ 數學式（建置時用 KaTeX 渲染）。
+ * 欄位錯誤（節點名稱不一致、缺初始狀態…）會讓建置失敗。
+ */
+import { renderInline } from '../lib/inline-math';
+import {
+  computeRows,
+  faultKindLabel as faultKindLabelZh,
+  faultKindLabelEn,
+  stepKindLabel as stepKindLabelZh,
+  stepKindLabelEn,
+  validateTrace,
+  type FaultKind,
+  type TraceStep,
+} from '../lib/trace';
+
+interface Props {
+  nodes: string[];
+  /** 每個節點的初始狀態，沒有狀態就寫 "—" */
+  initial: Record<string, string>;
+  steps: TraceStep[];
+  /** 故障節點與類型；提供時，表頭會標示，並檢查每步的「訊息合法性」 */
+  faulty?: Record<string, FaultKind>;
+}
+const { nodes, initial, steps, faulty } = Astro.props;
+
+validateTrace('<ExecutionTrace>', nodes, initial, steps, faulty);
+const faultKindLabel = lang === 'en' ? faultKindLabelEn : faultKindLabelZh;
+const stepKindLabel = lang === 'en' ? stepKindLabelEn : stepKindLabelZh;
+const rows = computeRows(nodes, initial, steps, L('初始', 'Start'));
+// 窄螢幕卡片式時，每個狀態格上方顯示節點名稱（含故障標記）
+const nodeLabel = (n: string) => n + (faulty && n in faulty ? `（${faultKindLabel[faulty[n]]}）` : '');
+---
+
+<div class="et-wrap not-content">
+  <table class="et">
+    <thead>
+      <tr>
+        <th scope="col" class="et-no">{L('步', 'Step')}</th>
+        <th scope="col" class="et-event-h">{L('事件', 'Event')}</th>
+        {
+          nodes.map((n) => (
+            <th scope="col" class="et-node">
+              {n}
+              {faulty && n in faulty && <small class="et-faulty-tag">{faultKindLabel[faulty[n]]}</small>}
+            </th>
+          ))
+        }
+      </tr>
+    </thead>
+    <tbody>
+      {
+        rows.map((r) => (
+          <tr class:list={['et-row', !r.step && 'et-initrow', r.step?.violation && 'et-violation']}>
+            <th scope="row" class="et-no" data-sl={r.step ? L('步 ', 'Step ') : ''}>{r.label}</th>
+            <td class="et-event">
+              {!r.step && <span class="et-init">{L('各節點的初始狀態', 'Initial state of each node')}</span>}
+              {
+                r.step && (
+                  <>
+                    {r.step.actor && (
+                      <span class={`et-actor et-kind-${r.step.kind ?? 'none'}`}>{r.step.actor}</span>
+                    )}
+                    {r.step.kind && <span class={`et-kind et-kind-${r.step.kind}`}>{stepKindLabel[r.step.kind]}</span>}
+                    {r.step.delay && <span class="et-tag">{L('訊息延遲', 'Message delay')}</span>}
+                    {r.step.gst && <span class="et-tag">{lang === 'en' ? `${r.step.gst === 'before' ? 'Before' : 'After'} GST` : `GST ${r.step.gst === 'before' ? '前' : '後'}`}</span>}
+                    {r.step.violation && <span class="et-tag et-tag-violation">{L('違反', 'Violation')}</span>}
+                    <span class="et-text" set:html={renderInline(r.step.event)} />
+                    {r.step.note && <small class="et-note" set:html={renderInline(r.step.note)} />}
+                  </>
+                )
+              }
+            </td>
+            {
+              r.cells.map((c, ci) => (
+                <td class:list={['et-cell', c.changed && 'et-changed']} data-node={nodeLabel(nodes[ci])} set:html={renderInline(c.text)} />
+              ))
+            }
+          </tr>
+        ))
+      }
+    </tbody>
+  </table>
+</div>
+
+<style is:global>
+  /* 全域而非 scoped：set:html 渲染出來的 KaTeX 節點不會有 scoped 屬性。 */
+  .et-wrap {
+    container-type: inline-size; /* 窄螢幕改卡片式，依這個框自己的寬度判斷（側欄打開時也適用） */
+    margin: 1rem 0 1.25rem;
+    overflow-x: auto;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 0.5rem;
+  }
+  .et-wrap .et {
+    display: table; /* 蓋掉 custom.css 對內容區表格設的 display:block */
+    width: 100%;
+    margin: 0;
+    border-collapse: collapse;
+    font-size: var(--sl-text-sm);
+  }
+  .et-wrap .et th,
+  .et-wrap .et td {
+    min-width: 0;
+    padding: 0.4rem 0.6rem;
+    text-align: start;
+    vertical-align: top;
+    border: 0;
+    border-bottom: 1px solid var(--sl-color-hairline);
+  }
+  .et-wrap .et thead th {
+    position: sticky;
+    top: 0;
+    background: var(--sl-color-bg-nav);
+    color: var(--sl-color-white);
+    white-space: nowrap;
+  }
+  .et-wrap .et .et-no {
+    width: 2.5rem;
+    color: var(--sl-color-gray-3);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .et-wrap .et .et-node {
+    min-width: 6rem;
+  }
+  .et-wrap .et-faulty-tag {
+    margin-inline-start: 0.35rem;
+    padding: 0 0.35rem;
+    font-size: var(--sl-text-xs);
+    font-weight: 600;
+    color: var(--bft-fault);
+    border: 1px solid var(--bft-fault);
+    border-radius: 999px;
+  }
+  /* min-width 不含 padding；步驟＋事件＋4 個節點欄要能塞進 47rem 的內文寬 */
+  .et-wrap .et .et-event {
+    min-width: 13rem;
+  }
+  /* 標籤（誰、哪一類）一行，事件敘述另起一行，避免敘述被標籤擠碎 */
+  .et-wrap .et-text {
+    display: block;
+    margin-top: 0.2rem;
+    line-height: 1.7;
+  }
+  .et-wrap .et-init {
+    color: var(--sl-color-gray-3);
+  }
+  .et-wrap .et-actor {
+    display: inline-block;
+    margin-inline-end: 0.35rem;
+    padding: 0 0.45rem;
+    font-weight: 700;
+    color: var(--sl-color-white);
+    background: var(--sl-color-gray-5);
+    border-radius: 0.25rem;
+  }
+  .et-wrap .et-kind,
+  .et-wrap .et-tag {
+    display: inline-block;
+    margin-inline-end: 0.35rem;
+    padding: 0 0.4rem;
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-gray-2);
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .et-wrap .et-kind-faulty {
+    color: var(--bft-fault);
+    border-color: var(--bft-fault);
+  }
+  .et-wrap .et-actor.et-kind-faulty {
+    color: var(--bft-chip-text);
+    background: var(--bft-fault);
+  }
+  /* 網路與逾時不是故障，也不是時序模型：用中性色，靠虛線／字重區分（design.md §顏色系統） */
+  .et-wrap .et-kind-network {
+    border-style: dashed;
+    border-color: var(--sl-color-gray-3);
+  }
+  .et-wrap .et-kind-timeout {
+    color: var(--sl-color-white);
+    border-color: var(--sl-color-gray-3);
+  }
+  .et-wrap .et-tag-violation {
+    font-weight: 700;
+    color: var(--bft-chip-text);
+    background: var(--bft-fault);
+    border-color: var(--bft-fault);
+  }
+  .et-wrap .et-note {
+    display: block;
+    margin-top: 0.2rem;
+    color: var(--sl-color-gray-3);
+  }
+  .et-wrap .et-cell {
+    color: var(--sl-color-gray-3);
+  }
+  /* 變動的格子：淡前景色底＋粗字（不用彩色整格填滿） */
+  .et-wrap .et-cell.et-changed {
+    color: var(--sl-color-white);
+    font-weight: 600;
+    background: color-mix(in srgb, var(--sl-color-white) 7%, transparent);
+  }
+  .et-wrap .et-violation td,
+  .et-wrap .et-violation th {
+    background: color-mix(in srgb, var(--bft-fault) 10%, transparent);
+  }
+  .et-wrap .et-violation .et-cell.et-changed {
+    background: color-mix(in srgb, var(--bft-fault) 20%, transparent);
+  }
+
+  /*
+   * 窄螢幕（框寬 < 42rem）：每一步變成一張小卡，只列「這一步有變的節點」與新狀態
+   * （資料本來就只記有變的）；初始那一列列出全部節點。表頭隱藏，節點名稱改放在每格上方。
+   * 純 CSS，沒有 JavaScript；讀螢幕器仍照原本的表格順序唸（display 改變可能讓部分讀螢幕器
+   * 失去表格語意，內容順序不變）。見 design.md §衝突清單 #6、#7。
+   */
+  @container (max-width: 42rem) {
+    .et-wrap .et,
+    .et-wrap .et tbody,
+    .et-wrap .et tr,
+    .et-wrap .et th,
+    .et-wrap .et td {
+      display: block;
+    }
+    .et-wrap .et thead {
+      display: none;
+    }
+    .et-wrap .et tr.et-row {
+      padding: 0.65rem 0.8rem;
+      border-bottom: 1px solid var(--sl-color-hairline);
+    }
+    .et-wrap .et th,
+    .et-wrap .et td {
+      width: auto;
+      min-width: 0;
+      padding: 0;
+      border: 0;
+      background: none;
+    }
+    .et-wrap .et th.et-no {
+      margin-bottom: 0.2rem;
+      font-size: var(--sl-text-xs);
+    }
+    .et-wrap .et th.et-no::before {
+      content: attr(data-sl);
+    }
+    .et-wrap .et .et-event {
+      min-width: 0;
+    }
+    .et-wrap .et .et-cell {
+      display: none;
+    }
+    .et-wrap .et .et-cell.et-changed,
+    .et-wrap .et tr.et-initrow .et-cell {
+      display: block;
+      margin-top: 0.4rem;
+      padding: 0.3rem 0.55rem;
+      border-radius: 0.3rem;
+      background: color-mix(in srgb, var(--sl-color-white) 7%, transparent);
+      color: var(--sl-color-white);
+    }
+    .et-wrap .et .et-cell::before {
+      content: attr(data-node);
+      display: block;
+      font-size: var(--sl-text-xs);
+      font-weight: 600;
+      color: var(--sl-color-gray-3);
+    }
+    .et-wrap .et tr.et-violation {
+      background: color-mix(in srgb, var(--bft-fault) 10%, transparent);
+    }
+    .et-wrap .et tr.et-violation .et-cell.et-changed {
+      background: color-mix(in srgb, var(--bft-fault) 20%, transparent);
+    }
+  }
+</style>

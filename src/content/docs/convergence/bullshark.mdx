@@ -1,0 +1,220 @@
+---
+title: Bullshark：好情況兩輪，壞情況退回 DAG-Rider
+description: Bullshark 在 DAG 上同時放進預先指定的 steady-state leader（同步時兩輪 commit）與事後以 coin 選出的 fallback leader（非同步時保證 liveness），並提供公平的垃圾回收。
+takeaway: "每個 wave 有三個 leader：兩個預先指定、同步時兩輪就能 commit 的 steady-state leader，與一個事後由 coin 選出的 fallback leader。每個節點的投票類型寫在 DAG 裡，沒人能說謊，所以不需要 view change。"
+sidebar:
+  label: Bullshark
+  order: 40
+  badge:
+    text: 草稿
+    variant: caution
+---
+
+import ModelCard from '../../../components/ModelCard.astro';
+import Thm from '../../../components/Thm.astro';
+import Boundary from '../../../components/Boundary.astro';
+import StructuredProof from '../../../components/StructuredProof.astro';
+import Step from '../../../components/Step.astro';
+import Term from '../../../components/Term.astro';
+import Check from '../../../components/Check.astro';
+import Cite from '../../../components/Cite.astro';
+import Complexity from '../../../components/Complexity.astro';
+import References from '../../../components/References.astro';
+
+<ModelCard
+  status="draft"
+  timing="hybrid"
+  crypto="threshold"
+  faults="byz"
+  determinism="any"
+  problem="SMR"
+  resilience="f < n/3"
+  note="內容依原文第 2 至 7 節整理。原文把完整證明放在 full paper，所以本頁只展開原文正文裡寫出的論證。含 fallback 的完整版使用 coin（隨機化）；只保留 steady-state 的部分同步版本是確定性的，所以確定性一欄是「不限」。"
+/>
+
+<Cite id="bullshark2022" /> 在 [DAG-Rider](/convergence/dag-rider/) 與 [Narwhal／Tusk](/convergence/narwhal-tusk/) 的基礎上，解決三個實務問題：
+
+1. **好情況太慢**：DAG-Rider 與 Tusk 為了最壞的<Term id="async">非同步</Term>情況而設計，完全不利用<Term id="sync">同步</Term>期。Bullshark 加上一條快路徑，同步時只需要 2 輪就能 commit，同時保留 DAG-Rider 在非同步下的期望 6 輪。
+2. **只有非同步版本**：原文以快路徑為基礎，進一步給出一個完全嵌在 DAG 裡的<Term id="psync">部分同步</Term>版本，沒有 <Term id="view">view</Term> change，也不需要 view synchronization。
+3. **公平與垃圾回收只能二選一**：Bullshark 在同步期間同時達到有界記憶體與公平。
+
+它仍然建立在 Narwhal 的 DAG 之上，資料傳播的部分不變。
+
+## 問題與模型
+
+### 模型
+
+- $n$ 個 process，動態對手最多腐化 $f<n/3$ 個，算力有限。<Term id="byzantine">拜占庭節點</Term>的行為任意，<Term id="honest">誠實節點</Term>照協議。
+- 協議描述假設誠實節點之間的連線可靠（所有訊息最終送達），並可驗證發送者身分；實作上以實務的角度處理這一點。
+- 已知上界 $\Delta$。一次執行是**最終同步**的，若存在 <Term id="gst">GST</Term>，在它之後誠實節點之間所有訊息都在 $\Delta$ 內送達；**同步**執行是 GST 在時間 0；**非同步**執行是 GST 永遠不發生。
+- 兩種要分析的情境：**最壞情況**是非同步執行加上 $f$ 個拜占庭節點；**一般情況**是同步執行沒有故障（對最終同步的無故障執行，在 GST 之後的分析相同）。
+
+積木與 [DAG-Rider](/convergence/dag-rider/) 相同：<Term id="rbc">可靠廣播</Term>，以及 global perfect coin。coin 的 <Term id="agreement">Agreement</Term>、Termination、Fairness 是資訊理論保證，只有 Unpredictability 需要「算力有限」，而它只影響 <Term id="liveness">liveness</Term>，所以 <Term id="safety">safety</Term> 是 post-quantum 安全的。
+
+### BAB 問題與有界記憶體
+
+問題定義與 DAG-Rider 的 <Term id="bab">BAB</Term> 相同。原文對 <Term id="validity">Validity</Term> 有兩處放寬，因為它與模型有關：
+
+- 非同步執行下，由於 FLP（見 [FLP](/impossibility/async/flp/)），BAB 不能被確定性地解決，所以 Validity 放寬為「以機率 1」。
+- 實務版本在有界記憶體下，Validity 只要求在 GST 之後成立。
+
+<Thm kind="definition" title="GST 之後的 Validity" id="def-validity-after-gst">
+若誠實的 $p_k$ 在 GST 之後呼叫 $\mathrm{r\_bcast}_k(m,r)$，則每個誠實的 $p_i$ 最終輸出 $\mathrm{r\_deliver}_i(m,r,k)$。
+</Thm>
+
+原文指出：在完全非同步的執行中，有界記憶體與 Validity（公平）無法同時做到，因為誠實節點的區塊可以被任意延遲到相關的 DAG 前綴被回收之後；這和 FLP 的核心觀察一樣，在非同步下無法分辨「永遠不會廣播區塊的故障節點」與「需要等待的慢節點」。
+
+## DAG 構造
+
+DAG 的頂點、strong edges（至少 $2f+1$ 條，指向上一輪）、weak edges 與 DAG-Rider 相同（<Term id="dag">DAG</Term> 的定義見該頁）。差別在**何時進入下一輪**。
+
+DAG-Rider 只在乎非同步，所以只要收到 $2f+1$ 個當輪頂點就進入下一輪。但這樣在同步期仍沒有確定性的 liveness：對手可以決定誠實節點先收到哪 $2f+1$ 個頂點，讓大家在收到預先指定的 leader 之前就進入下一輪，這是任何確定性協議都躲不開的（原文引用 FLP 的結論）。原文評估了兩種做法，決定把 timeout 放進 DAG 構造裡。
+
+- **落後的節點**：只要 $p_i$ 在某個大於目前輪的輪 $r$ 收到 $2f+1$ 個頂點，就直接跳到 $r$，在那一輪廣播頂點並重新計時。這取代了外部的 view synchronization。
+- **跟上的節點**：要進入下一輪必須滿足額外條件。進入第 2 輪與第 4 輪，必須等到 timeout 過期，或收到該 wave 第一／第二個預先指定 leader 的頂點。進入第 3 輪與下一個 wave 的第 1 輪，則必須等到 timeout 過期，或收到 $2f+1$ 個當輪頂點，其類型是 steady-state、且對第一／第二個 leader 有 strong edge。
+
+這些條件確保：只要 leader 誠實，GST 之後 timeout 就不會過期，DAG 以網路速度前進（證明在 full paper）。
+
+## 三種 leader 與投票類型
+
+Bullshark 的 wave 和 DAG-Rider 一樣是 4 輪，但每個 wave 有**三個** <Term id="leader">leader</Term>：
+
+- **第一個 steady-state leader $S^A$**：預先指定，在第 1 輪。
+- **第二個 steady-state leader $S^B$**：預先指定，在第 3 輪。
+- **fallback leader $F$**：在第 1 輪，由第 4 輪產生的隨機性事後選出，和 DAG-Rider 的 leader 一樣。
+
+在這些 leader 之後的下一輪裡，指向 leader 頂點的 strong edge 被解讀為**投票**：第 2 輪的頂點可以投給 $S^A$，第 4 輪的頂點可以投給 $S^B$ 或 $F$。
+
+每個節點在每個 wave 有一個**投票類型**：steady-state 或 fallback，同一個頂點不能同時投給兩種 leader。節點在 wave $w$ 的類型，取決於它是否在 wave $w-1$ commit 了 $S^B$ 或 $F$：commit 了就是 steady-state，否則是 fallback。wave 1 時大家都是 steady-state。這個資訊編碼在 DAG 裡，而 DAG 建立在可靠廣播之上，所以連拜占庭節點也不能對自己的投票類型說謊。
+
+## commit 規則
+
+- **第一個 steady-state leader $S^A$**：它在第 1 輪，是否 commit 看第 3 輪頂點的 strong edges 所指的第 2 輪頂點。若至少 $2f+1$ 個第 2 輪頂點是 steady-state 類型，且到 $S^A$ 有 strong path，就 commit。換句話說，只要 leader 之後的那一輪有足夠的票，從 leader 所在輪算起兩輪就能 commit。
+- **第二個 steady-state leader $S^B$**：在第 3 輪，同理，看下一個 wave 第 1 輪頂點的 strong edges 所指的第 4 輪頂點：至少 $2f+1$ 個是 steady-state 類型，且到 $S^B$ 有 strong path。
+- **fallback leader $F$**：看第 4 輪的頂點：至少 $2f+1$ 個是 fallback 類型，且到 $F$ 有 strong path。注意 fallback 的票在第 4 輪，比 DAG-Rider 的「第 4 輪有 $2f+1$ 個到 leader 有 strong path」多了類型的限制。
+
+因為投票類型沒人能說謊，兩種類型的 leader 不可能在同一個 wave 都被 commit。這也是這裡要 $2f+1$ 條 strong path，而 Tusk 只要 $f+1$ 的原因。
+
+### 回頭補排與交付
+
+commit 一個 leader $v$ 之後，$p_i$ 要先補上先前它自己沒有 commit、但其他誠實節點可能已經 commit 的 leader。這個部分比 DAG-Rider 複雜，因為每個 wave 有三個潛在的 leader。做法是從 $v$ 往回，每兩輪看一次：
+
+- 對一個輪（每個 wave 的第 1 輪有兩個潛在 leader：steady-state 與 fallback；第 3 輪只有一個），$p_i$ 把「到最後一個已排序 leader 有 strong path」的下一輪頂點當作潛在的票，依類型分別數出 steady-state 與 fallback 的票。
+- 若某一種 leader 至少有 $f+1$ 票，而另一種至多 $f$ 票，就把該 leader 排在 $v$ 之前，並把它當作新的 $v$ 繼續往回。其他情形，就跳過這一輪（保證它們不可能已被 commit）。
+- 最後依序交付每個 leader 的 causal history（含 strong 與 weak edges）中尚未交付的區塊，順序是某個確定性的規則。
+
+### 例：兩個 wave
+
+原文圖 1（$n=4$，$f=1$）：
+
+1. wave 1 中大家都是 steady-state 類型。$p_1$ 在第 2 輪看到 3（$=2f+1$）張 steady-state 票投給 $S^A_1$，commit $S^A_1$。
+2. 第 4 輪 $p_1$ 只看到 1 張票投給 $S^B_1$，不 commit $S^B_1$。因為沒有 commit $S^B_1$，$p_1$ 在 wave 2 是 fallback 類型；從第 5 輪的 DAG 它也看到 $p_2,p_3,p_4$ 都沒 commit $S^B_1$，所以大家在 wave 2 都是 fallback 類型。
+3. 因此 wave 2 的 $S^A_2$、$S^B_2$ 不可能被 commit（所有投票都是 fallback 類型）。
+4. 第 8 輪 $p_1$ 看到 3 張 fallback 票投給 $F_2$，commit $F_2$。commit 後往回檢查：$S^B_1$ 只有 1 張 steady-state 票（少於 $f+1$），所以不 commit $S^B_1$，因為若有其他誠實節點 commit 了它，$p_1$ 至少會看到 $f+1$ 張票。
+
+## 正確性
+
+原文把完整的 safety 與 liveness 證明放在 full paper（我們沒有），正文只給了論證的骨架。以下是正文中寫出的兩個關鍵事實，它們是 [Quorum 交集](/impossibility/quorum/)的直接應用。
+
+<Thm kind="lemma" title="commit 的 leader 至少有 f+1 張票被所有人看到" id="lemma-bullshark-votes">
+若某個誠實節點因為看到 $2f+1$ 張票而 commit 了一個（steady-state 或 fallback）leader，則其他每個誠實節點在自己的 DAG 裡，至少看到其中 $f+1$ 張票。
+</Thm>
+
+<Thm kind="lemma" title="兩種 leader 不會都被 commit" id="lemma-bullshark-types">
+若某個誠實節點看到一種類型的 leader 有至少 $f+1$ 張票，則沒有任何誠實節點能 commit 另一種類型的 leader。
+</Thm>
+
+<StructuredProof assumes="可靠廣播：每個頂點對所有誠實節點都相同，所以頂點的投票類型沒有人能說謊；每一輪至多 $3f+1$ 個頂點；每個節點在每個 wave 只有一種投票類型">
+  <Step open>
+    <span slot="claim">**引理的第一部分**：commit 的 leader，其他人至少看到 $f+1$ 張票。</span>
+
+    設 $p_i$ 看到 $2f+1$ 張票。其他誠實節點 $p_j$ 完成該輪時也有至少 $2f+1$ 個頂點；這兩個集合落在至多 $3f+1$ 個頂點裡，交集至少 $f+1$ 個。因為頂點與它的 causal history 對所有誠實節點都相同，交集中的票在 $p_j$ 的 DAG 裡同樣是對該 leader 的票。
+  </Step>
+
+  <Step>
+    <span slot="claim">**引理的第二部分**：看到一種類型 $f+1$ 張票，另一種類型就湊不到 $2f+1$。</span>
+
+    假設 $p_i$ 看到 $f+1$ 個 fallback 類型的票。每個節點在這個 wave 只有一種類型，且沒人能說謊，所以投票的那一輪裡 steady-state 類型的頂點至多 $(3f+1)-(f+1)=2f$ 個，湊不到 $2f+1$ 張 steady-state 票，因此沒有誠實節點能 commit steady-state leader。反過來（看到 $f+1$ 張 steady-state 票）同理。
+  </Step>
+
+  <Step uses="步驟 1、2">
+    <span slot="claim">所以回頭補排時，「一邊至少 $f+1$ 票、另一邊至多 $f$ 票」的規則，與其他誠實節點的 commit 一致。</span>
+
+    設其他誠實節點 commit 了 leader $L$。由步驟 1，$p_i$ 至少看到 $L$ 的 $f+1$ 張票。另一種類型的票在 $p_i$ 看來至多 $f$ 張：若它也至少有 $f+1$ 張，依步驟 2，$L$ 那一種類型的頂點至多 $2f$ 個，不可能有 $2f+1$ 張票，與 $L$ 被 commit 矛盾（投票類型對所有誠實節點都相同）。所以「一邊至少 $f+1$ 票、另一邊至多 $f$ 票」的條件，在有人 commit 時一定成立，而且指向的正是被 commit 的那個 leader。
+  </Step>
+</StructuredProof>
+
+**Liveness：** 在非同步下，每個 wave 的 fallback leader 以至少 $2/3$ 的機率被 commit，所以期望每 6 輪 commit 一個，以機率 1 保證 liveness。在最終同步下，若 wave 的第一個 steady-state leader 誠實，GST 之後所有誠實節點大約同時進入第 3 輪；若第二個也誠實，所有誠實節點都會等它再進入第 4 輪，於是都看到 $2f+1$ 張票並 commit。
+
+<Check q="為什麼一個節點的投票類型要靠「有沒有 commit 上一個 wave 的 $S^B$ 或 $F$」決定，而不是自己隨便選？">
+因為 safety 需要「兩種類型的 leader 不可能在同一個 wave 都被 commit」，也就是每個節點只能屬於一種類型，而且要讓所有人對它的類型有<Term id="consensus">共識</Term>。類型由它的 causal history 決定，而 causal history 對所有誠實節點都相同（可靠廣播不允許 <Term id="equivocation">equivocation</Term>），所以拜占庭節點也不能謊報。如果類型是自己選的，它就可以同時對兩種 leader 投票，上一節兩個引理的論證就不成立。
+</Check>
+
+## 部分同步版本
+
+在完整版的 steady-state 部分之上，原文給出一個只保證部分同步的版本：**沒有 fallback leader**，節點持續嘗試 commit 預先指定的 steady-state leader。
+
+- 在每個 wave 的第 1 輪頂點被加入時，嘗試 commit 上一個 wave 的第二個 leader；在第 3 輪頂點被加入時，嘗試 commit 這一個 wave 的第一個 leader。
+- 只要至少 $f+1$ 個票（頂點的 strong edges 所指的頂點）到該 leader 有 strong path，就 commit。因為沒有 fallback，不會有兩種類型衝突，所以門檻從 $2f+1$ 降到 $f+1$。
+- 回頭補排時，只要目前候選到某個先前 wave 的 steady-state leader 有 strong path，就排進去。
+- liveness：GST 之後，兩個連續的誠實預先指定 leader，保證第二個會被所有誠實節點 commit。
+
+這是第一個完全嵌在 DAG 裡的最終同步協議。它是對稱的，不需要 view change 或 view synchronization，因為 DAG 已經編碼了安全所需的全部資訊，節點在 commit 之後只需要在本地沿 DAG 往回走。這個版本比 HotStuff over Narwhal 簡單很多：原文寫它只需要額外約 200 行程式，而 Narwhal 上的 HotStuff 是 4000 行；而且它已經由 Mysten Labs 實作成可用於生產，也正被整合進 Aptos。
+
+## 垃圾回收
+
+Narwhal 的垃圾回收用共識決定要回收哪一輪，但代價是犧牲 Validity，因為慢節點的區塊可能還沒被排序就被回收。DAG-Rider 用 weak edges 保證每個區塊最終被排序，但需要保存整張 DAG。Bullshark 的辦法：只在同步期間保證公平，其餘時間用 Tusk 的重送機制。
+
+做法如下：
+
+1. 每個頂點帶一個時間戳 $v.\mathrm{ts}$，是誠實節點廣播它的時間。節點維護一個回收輪 $\mathrm{GCround}$，不接受低於它的輪的頂點。
+2. 每 commit 一個 leader $v$，它的時間戳取它的 strong-edge 父頂點時間戳的**中位數**。
+3. 沿著 $v$ 的 causal history 往回走時，對每一輪也取該輪頂點時間戳的中位數；若 leader 的時間戳減去該輪的時間戳大於 $3\Delta$，這一輪就被回收。
+
+所有節點對 leader 的 causal history 看法一致，所以一旦大家同意要 commit 哪些 leader，就同意要回收哪些輪，回收機制因此不影響 safety 與 liveness。每一輪至少有 $2f+1$ 個頂點，所以該輪時間戳的中位數一定來自某個誠實節點。
+
+**公平的論證（原文）：** 設誠實節點在 GST 之後的時間 $t$ 廣播頂點 $v$。可靠廣播的延遲在 GST 之後是 $\Delta$，所以所有誠實節點在 $t+\Delta$ 之前交付 $v$；又，誠實節點在 $t$ 進入某一輪，則所有誠實節點最晚在 $t+2\Delta$ 進入該輪（full paper 的結論），所以那一輪的時間戳至少是 $t-2\Delta$。這一輪要等到一個時間戳超過 $t+\Delta$ 的 leader 被排序才會被回收；這個 leader 的 strong-edge 父頂點中，至少有一個由誠實節點在 $t+\Delta$ 之後廣播，而經由 weak edge，它和 $v$ 之間有邊，所以兩者在同一個 leader 的 causal history 裡一起被排序。**有界記憶體**的部分，原文只說 full paper 證明了每一輪之後都會有一個被 commit 的 leader，所以最終它的時間戳夠高讓該輪被回收。
+
+## 複雜度與比較
+
+<Complexity
+  kind="upper"
+  measure="rounds"
+  value="2"
+  scope="per-decision"
+  scopeNote="DAG 的輪數；每個 steady-state leader 從所在輪到被 commit"
+  case="good"
+  condition="同步、沒有故障（最終同步的無故障執行在 GST 之後也成立）；f < n/3"
+  cite="bullshark2022"
+/>
+
+<Complexity
+  kind="upper"
+  measure="rounds"
+  value="6"
+  scope="per-decision"
+  scopeNote="DAG 的輪數；每個被 commit 的 fallback leader"
+  case="expected"
+  condition="非同步、f < n/3 個拜占庭；每個 wave 的 fallback leader 以至少 2/3 的機率被 commit，wave 為 4 輪"
+  cite="bullshark2022"
+/>
+
+原文的實驗（在廣域網路上，不是理論保證）：Bullshark 的延遲約 2 秒，與委員會大小無關，比 Tusk 低約 33%；吞吐量在 10 個節點時約 110,000 tx/s，50 個節點時約 130,000 tx/s，超過 HotStuff 的 2 倍。因為 Bullshark 兩輪就 commit，而 Tusk 需要 4 輪。在 10 個節點中有 1 至 3 個 crash 時，HotStuff 的吞吐量下降超過 10 倍、延遲升高 15 倍，Tusk 與 Bullshark 則維持不錯的吞吐量（DAG 仍持續收集與傳播交易，下降主要來自失去故障節點的容量）；3 個故障時，兩者相對 HotStuff 都有約 10 倍的吞吐量與約 7 倍的延遲改善。落在 fallback 模式時，Bullshark 會失去相對 Tusk 的延遲優勢，回到 steady-state 後又恢復。
+
+## 邊界
+
+<Boundary>
+**拿掉 timeout：** 好情況的快路徑就無法保證。同步期的確定性 liveness 需要 timeout，這是 FLP 的直接結果；所以 Bullshark 把 timeout 放進 DAG 構造，但保留 DAG-Rider 的非同步機制（fallback）當作後盾，兩種 leader 靠投票類型隔開。
+
+**拿掉 fallback：** 得到部分同步版本，簡單得多，也不需要 coin，但失去非同步下的 liveness；非同步期間只能等 GST。
+
+**公平與有界記憶體：** 在完全非同步下兩者不可兼得，所以公平只在 GST 之後成立，之前仍用 Tusk 的重送，保證只在無窮的執行中成立。
+
+**只有一半的證明在這裡：** 完整的 safety、liveness 與有界記憶體證明在 full paper，本頁依據的是 CCS 版，所以本頁的正確性是正文中寫出的骨架，不是完整證明。
+
+**post-quantum：** 共識邏輯的 safety 不依賴任何密碼學假設，但底下的 Narwhal 可用性憑證依賴<Term id="signature">簽章</Term>，所以整個系統不是 post-quantum safe。
+</Boundary>
+
+## 參考文獻
+
+<References />

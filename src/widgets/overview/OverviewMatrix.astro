@@ -1,0 +1,209 @@
+---
+/**
+ * 模型總覽的矩陣圖：列＝時序，欄＝確定性與密碼學假設的組合。每格列出落在這格的表格列，
+ * 點一下跳到下方表格的那一列。資料與表格共用 src/data/overview.ts，版面與自我檢查也在那裡。
+ * 「不可能」的格子用灰色斜線底（不可能不是故障，不用故障紅）；本表沒收錄的格子寫「{L('本表未收錄', 'Not covered in this table')}」，
+ * 不寫「無」或「—」（例如同步下確有隨機化結果，只是不在這張表裡）。規則見 design.md §總覽矩陣。
+ */
+import { matrixColumns, matrixLayout, overviewRows, overviewRowsEn, matrixColumnsEn, matrixTimingLabelEn } from '../../data/overview';
+import { renderInline } from '../../lib/inline-math';
+
+const en = Astro.locals.starlightRoute.lang?.startsWith('en');
+const L = (zh: string, e: string) => (en ? e : zh);
+const rowById = new Map(overviewRows.map((r) => [r.id, r]));
+// 每個格子涵蓋哪幾欄（跨欄的格子要顯示全部欄名）；窄螢幕直排時用作小標
+const withCols = (cells: (typeof matrixLayout)[number]['cells']) => {
+  let start = 0;
+  return cells.map((c) => {
+    const labels = matrixColumns.slice(start, start + c.span).map((col, k) => (en ? matrixColumnsEn[start + k] : col.label));
+    start += c.span;
+    return { ...c, colLabel: labels.join(' ／ ') };
+  });
+};
+---
+
+<figure class="bft-matrix not-content" id="ov-matrix" aria-label={L('模型總覽矩陣', 'Model overview matrix')}>
+  <div class="bft-matrix-scroll">
+    <div class="bft-matrix-grid" role="table">
+      <div class="mx-row" role="row">
+        <div class="mx-corner" role="columnheader"><span>{L('時序', 'Timing')}</span></div>
+        {matrixColumns.map((c, i) => <div class="mx-colhead" role="columnheader">{en ? matrixColumnsEn[i] : c.label}</div>)}
+      </div>
+      {
+        matrixLayout.map((r) => (
+          <div class="mx-row" role="row">
+            <div class="mx-rowhead" role="rowheader">
+              <span class="bft-timing" data-timing={r.timing}>
+                {en ? matrixTimingLabelEn[r.timing] : r.label}
+              </span>
+            </div>
+            {withCols(r.cells).map((c) => {
+              const rows = c.rows.map((id) => rowById.get(id)!);
+              const impossible = rows.some((x) => x.strong === '不可能');
+              return (
+                <div
+                  class:list={['mx-cell', impossible && 'mx-impossible', rows.length === 0 && 'mx-empty']}
+                  style={`grid-column: span ${c.span}`}
+                  data-col={c.colLabel}
+                  role="cell"
+                >
+                  {rows.length === 0 ? (
+                    <span class="mx-none">{L('本表未收錄', 'Not covered in this table')}</span>
+                  ) : (
+                    rows.map((x) => (
+                      <a class="mx-item" href={`#ov-row-${x.id}`}>
+                        <span class="mx-no">{L(`第 ${x.id} 列`, `Row ${x.id}`)}</span>
+                        <span class="mx-text" set:html={renderInline(en ? overviewRowsEn[x.id].short : x.short)} />
+                      </a>
+                    ))
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ))
+      }
+    </div>
+  </div>
+  <figcaption>{L('每格是一組模型假設下的容錯界線，點一下跳到下方表格的那一列。灰色斜線＝不可能。', 'Each cell is the fault-tolerance bound under one set of model assumptions; click to jump to that row of the table below. Gray stripes = impossible.')}</figcaption>
+</figure>
+
+<style is:global>
+  .bft-matrix {
+    container-type: inline-size; /* 窄螢幕改成依時序直排，依這個框自己的寬度判斷 */
+    margin: 1.5rem 0 2rem;
+  }
+  .bft-matrix-scroll {
+    overflow-x: auto;
+  }
+  .bft-matrix-grid {
+    display: grid;
+    grid-template-columns: 6.5rem repeat(4, minmax(8.5rem, 1fr));
+    min-width: 40rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 0.5rem;
+    overflow: hidden;
+  }
+  /* 每一列用 display: contents，讓格子直接參與外層 grid，又保留 role="row" 給讀螢幕器 */
+  .bft-matrix .mx-row {
+    display: contents;
+  }
+  .bft-matrix .mx-row > * {
+    margin: 0;
+    padding: 0.7rem 0.8rem;
+    border-top: 1px solid var(--sl-color-gray-5);
+    border-left: 1px solid var(--sl-color-gray-5);
+  }
+  .bft-matrix .mx-row:first-child > * {
+    border-top: 0;
+  }
+  .bft-matrix .mx-row > :first-child {
+    border-left: 0;
+  }
+  .bft-matrix .mx-corner,
+  .bft-matrix .mx-colhead {
+    font-size: var(--sl-text-xs);
+    font-weight: 600;
+    color: var(--sl-color-gray-2);
+    background: var(--sl-color-bg-nav);
+  }
+  .bft-matrix .mx-rowhead {
+    display: flex;
+    align-items: center;
+    font-size: var(--sl-text-sm);
+    font-weight: 700;
+    color: var(--sl-color-white);
+    background: var(--sl-color-bg-nav);
+  }
+  .bft-matrix .mx-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    font-size: var(--sl-text-sm);
+    line-height: 1.6;
+  }
+  .bft-matrix .mx-item {
+    display: block;
+    color: var(--sl-color-white);
+    text-decoration: none;
+    border-radius: 0.25rem;
+  }
+  .bft-matrix .mx-item:hover .mx-no,
+  .bft-matrix .mx-item:focus-visible .mx-no {
+    color: var(--bft-gold);
+  }
+  .bft-matrix .mx-item:hover .mx-text {
+    text-decoration: underline;
+    text-decoration-color: var(--bft-gold);
+    text-underline-offset: 0.2em;
+  }
+  .bft-matrix .mx-item:focus-visible {
+    outline: 2px solid var(--sl-color-accent);
+    outline-offset: 2px;
+  }
+  .bft-matrix .mx-no {
+    display: block;
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-gray-3);
+  }
+  .bft-matrix .mx-impossible {
+    background: repeating-linear-gradient(
+      -45deg,
+      transparent 0 7px,
+      color-mix(in srgb, var(--sl-color-gray-4) 35%, transparent) 7px 8px
+    );
+  }
+  .bft-matrix .mx-impossible .mx-text {
+    font-weight: 700;
+  }
+  .bft-matrix .mx-none {
+    margin: auto 0;
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-gray-3);
+  }
+  .bft-matrix figcaption {
+    margin-top: 0.6rem;
+    font-size: var(--sl-text-sm);
+    color: var(--sl-color-gray-3);
+  }
+
+  /*
+   * 窄螢幕（框寬 < 40rem，也就是放不下 40rem 的最小格線）：不再整張橫向捲動，
+   * 改成每個時序一張卡片直排，每格上方用小標寫它屬於哪一欄（確定性／密碼學假設的組合）。
+   */
+  @container (max-width: 40rem) {
+    .bft-matrix-grid {
+      display: block;
+      min-width: 0;
+      border: 0;
+      border-radius: 0;
+      overflow: visible;
+    }
+    .bft-matrix .mx-row:first-child {
+      display: none;
+    }
+    .bft-matrix .mx-row {
+      display: block;
+      margin: 0 0 0.9rem;
+      border: 1px solid var(--sl-color-gray-5);
+      border-radius: 0.5rem;
+      overflow: hidden;
+    }
+    .bft-matrix .mx-row > * {
+      border: 0;
+    }
+    .bft-matrix .mx-row .mx-cell {
+      border-top: 1px solid var(--sl-color-gray-5);
+    }
+    .bft-matrix .mx-rowhead {
+      padding: 0.5rem 0.8rem;
+    }
+    .bft-matrix .mx-cell::before {
+      content: attr(data-col);
+      display: block;
+      font-size: var(--sl-text-xs);
+      font-weight: 600;
+      color: var(--sl-color-gray-2);
+    }
+  }
+</style>

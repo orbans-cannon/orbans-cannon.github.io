@@ -1,0 +1,30 @@
+---
+title: 同步模型
+description: 延遲有已知上界 Δ 時，簽章改變了什麼。
+sidebar:
+  badge:
+    text: 大綱
+    variant: default
+  order: 10
+---
+import PartRoute from '../../../components/PartRoute.astro';
+import ModelCard from '../../../components/ModelCard.astro';
+
+<ModelCard status="outline" timing="sync" crypto="any" faults="byz" determinism="det" problem="BB-BA" />
+
+:::note[大綱]
+本部分只有大綱，尚未撰寫。以下是規劃。
+:::
+
+**開場問題**：簽章改變了什麼？（極限見[不可能性與下界](/impossibility/)）
+
+## 規劃章節
+
+<PartRoute timing="sync">
+
+1. **本部分的極限**：同步下的不可能性與下界集中在[不可能性與下界](/impossibility/)一部分（$3f+1$ 與連通度、$f+1$ 輪）。本部分直接引用其結論。
+2. **Dolev–Strong**：加簽章後 $f+1$ 輪、容忍任意 $f<n$ 的 BB。
+3. **Sync HotStuff**：$f<n/2$，提交延遲約 $2\Delta$，以及它為什麼不能搬到部分同步。
+4. **同步下的通訊下界**：Dolev–Reischuk 的 $\Omega(f^2)$，與 Momose–Ren 的匹配結果。
+
+</PartRoute>

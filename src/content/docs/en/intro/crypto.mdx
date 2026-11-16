@@ -1,0 +1,58 @@
+---
+title: Cryptographic Assumptions and Determinism
+description: "Authenticated channels, signatures and common coins; what signatures change under each timing model; deterministic and randomized protocols."
+takeaway: "Signatures raise the fault-tolerance bound of the synchronous model from $f<n/3$ to $f<n$ (BB); they change nothing in the partially synchronous model; in the asynchronous model, the same conclusion can be inferred from existing results. Randomization is the standard way around FLP in the asynchronous model."
+sidebar:
+  order: 5
+  badge:
+    text: Draft
+    variant: caution
+---
+
+import Term from '../../../../components/Term.astro';
+import Cite from '../../../../components/Cite.astro';
+import References from '../../../../components/References.astro';
+
+<details>
+<summary>Verification status: Draft (open to read)</summary>
+
+The Chinese version of this page is verified; this English translation has not yet been reviewed by a person, so it is labeled Draft.
+
+</details>
+
+This page follows [Three Timing Models](/en/intro/models/), because the effects of signatures and randomness depend on the timing model.
+
+## Authenticated channels, signatures and coins
+
+- <Term id="auth-channel" />: the receiver knows which direct sender a message came from, but cannot prove it to a third party.
+- <Term id="signature" /> (PKI): a signature can be **forwarded**, that is, $A$ can show $C$ a message signed by $B$ as evidence. The difference between *oral messages* and *signed messages* in Lamport–Shostak–Pease is exactly this (<Cite id="lsp1982" />).
+- <Term id="threshold-sig" />, aggregate signatures: used to build quorum certificates (QCs) and to compress communication.
+- <Term id="common-coin" />: a shared source of randomness commonly used by randomized protocols; it usually needs a setup (a <Term id="trusted-dealer" /> or <Term id="dkg" />).
+- **Computational assumptions**: signatures rely on computational assumptions, so the adversary must be computationally bounded. Protocols **without signatures** (such as Bracha <Term id="rbc">RBC</Term>) stay secure even against an adversary with unbounded computing power.
+
+## What signatures change depends on the timing model
+
+- **<Term id="sync">Synchronous</Term>**: they raise the fault-tolerance bound from $f<n/3$ to $f<n$ (<Term id="bb">BB</Term>, <Cite id="dls1988" />).
+- **<Term id="psync">Partially synchronous</Term>**: DLS Table I states that with or without signatures the minimum number of nodes for Byzantine faults is $3t+1$; signatures **do not change** the fault-tolerance bound.
+- **<Term id="async">Asynchronous</Term>**: there is no original paper that proves this specifically, but it can be inferred from existing results that signatures do not change the bound. There are three supports:
+  1. The lower bound of Fitzi–Garay for strong <Term id="consensus">consensus</Term> in the asynchronous model is $n>(m+1)t$ ($m$ is the size of the value domain), the same in the unconditional and the signature settings; for binary values it is $n>3t$ (<Cite id="fitzi2003" />).
+  2. Bracha–Toueg prove that in the asynchronous model with Byzantine (malicious) faults, consensus needs $t<n/3$, and protocols achieve it (Theorems 3 and 4; <Cite id="bt1985" />, §3). Their model only requires that the receiver can verify the sender's identity; there are no signatures.
+  3. Protocols that use signatures stop at the same ratio: the protocol of CKS needs $n>3t$ (<Cite id="cks2000" />), and VABA tolerates $f<n/3$ (<Cite id="vaba2019" />).
+
+In the partially synchronous and asynchronous models, signatures mainly improve communication complexity. The [model overview](/en/impossibility/overview/) shows this.
+
+## Determinism and randomness
+
+- **Deterministic protocols**: given the inputs and the order of message delivery, the behavior is uniquely determined. In the asynchronous model they cannot guarantee both <Term id="safety">safety</Term> and <Term id="liveness">liveness</Term> (the FLP impossibility also holds when the only faults are <Term id="crash">crash faults</Term>, <Cite id="flp1985" />).
+- **Randomized protocols**: nodes can flip coins. A *Local Coin* is flipped independently by each node (Ben-Or, <Cite id="benor1983" />); with a *Common Coin* all nodes see the same value (Rabin, <Cite id="rabin1983" />; Cachin–Kursawe–Shoup, <Cite id="cks2000" />).
+
+  The termination of such protocols differs from that of deterministic ones. They do not guarantee finishing within a fixed time: if the coins keep coming out unfavorably an execution can take very long. But the probability of never finishing is 0 (called "terminating with probability 1"), and the average number of rounds is finite. "Expected $O(1)$ rounds" speaks of the average, not of every single execution being that fast; when discussing complexity, always distinguish "expected" from "worst case".
+
+Randomization plays a different role in the two timing models:
+
+- **Asynchronous**: randomization is the standard way around FLP.
+- **Synchronous**: deterministic protocols can already solve the problem (FLP does not apply), but the worst case needs $f+1$ rounds (<Cite id="fl1982" />); randomized protocols bring the expected number of rounds down to a constant (Feldman–Micali, <Cite id="fm1997" />; Rabin, <Cite id="rabin1983" />).
+
+## References
+
+<References />

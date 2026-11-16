@@ -1,0 +1,64 @@
+/* 步進外框（StepBar.astro）共用樣式：貼頂的步進列、40px 觸控目標、列印。
+   顏色規則：「下一步」是唯一的實心金，其餘中性（design.md §互動圖的視覺要求）。 */
+.stepbar {
+  position: sticky;
+  top: var(--bft-stick-top, 0px);
+  z-index: 5;
+  margin: 0 0 0.5rem;
+  padding: 0.4rem 0 0.35rem;
+  background: var(--sl-color-bg);
+  border-bottom: 1px solid var(--sl-color-hairline);
+}
+.stepbar .sb-row { display: flex; align-items: center; gap: 0.5rem; }
+.stepbar .sb-sp { flex: 1; }
+.stepbar .sb-progress {
+  min-width: 3.6em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-size: var(--sl-text-base, 1rem);
+  font-weight: 700;
+  color: var(--sl-color-white);
+}
+.stepbar .sb-btn {
+  font: inherit;
+  min-height: 2.5rem;
+  min-width: 4.5rem;
+  padding: 0.3rem 0.9rem;
+  border: 1px solid var(--sl-color-gray-3);
+  border-radius: 0.3rem;
+  background: transparent;
+  color: var(--sl-color-white);
+  cursor: pointer;
+}
+.stepbar .sb-btn:hover:not(:disabled) { background: var(--sl-color-gray-6); border-color: var(--sl-color-gray-2); }
+.stepbar .sb-btn[data-act='next'] { background: var(--bft-gold); border-color: var(--bft-gold); color: var(--bft-chip-text); font-weight: 700; }
+.stepbar .sb-btn[data-act='next']:hover:not(:disabled) { background: var(--bft-gold); filter: brightness(1.1); }
+.stepbar .sb-btn:disabled { opacity: 0.4; cursor: default; }
+.stepbar .sb-btn:focus-visible { outline: 2px solid var(--bft-gold); outline-offset: 2px; }
+.stepbar [hidden] { display: none !important; }
+/* 這一步的標題：貼在步進列下面，按下一步就看得到，不必捲到圖下方的說明 */
+.stepbar .sb-title {
+  margin: 0.35rem 0 0;
+  min-height: 1.5em;
+  font-size: var(--sl-text-base);
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--sl-color-white);
+}
+.stepbar .sb-title:empty { display: none; }
+/* 窄的時候（圖上下堆疊）所有圖內按鈕都放大到好按 */
+[data-mode='tall'] :is(.ct-bar, .fp-bar) button,
+[data-mode='tall'] :is(.ct-bar2, .fp-bar2) button,
+[data-mode='tall'] :is(.ct-bar2, .fp-bar2) select { min-height: 2.5rem; min-width: 2.5rem; }
+
+/* 貼頂的位置要避開 Starlight 的頁首與手機版「本頁內容」列 */
+:root { --bft-stick-top: calc(var(--sl-nav-height, 3.5rem) + 0.25rem); }
+@media (max-width: 71.99rem) {
+  :root[data-has-toc] { --bft-stick-top: calc(var(--sl-nav-height, 3.5rem) + var(--sl-mobile-toc-height, 3rem) + 0.25rem); }
+}
+
+@media print {
+  .stepbar { position: static; border-bottom: 0; }
+  .stepbar .sb-row { display: none; }
+  .flm-ct :is(.ct-bar, .ct-bar2), .flp-fig :is(.fp-bar, .fp-bar2), .flp-fig .fp-hint, .flm-ct .ct-hint { display: none !important; }
+}

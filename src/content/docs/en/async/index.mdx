@@ -1,0 +1,35 @@
+---
+title: Asynchronous Model
+description: "How randomization and reliable broadcast build BFT with no timing assumption at all, after FLP."
+sidebar:
+  order: 30
+  badge:
+    text: Outline
+    variant: default
+---
+
+import PartRoute from '../../../../components/PartRoute.astro';
+import ModelCard from '../../../../components/ModelCard.astro';
+
+<ModelCard status="outline" timing="async" crypto="any" faults="byz" determinism="rand" problem="BA-SMR" />
+
+:::note[Outline]
+This part is only an outline and has not been written yet. Below is the plan. This is the site's main selling point: in Chinese, the whole line of asynchronous BFT has almost no complete introduction.
+:::
+
+**Opening question**: FLP says determinism is impossible, so what exactly does randomization buy?
+
+## Planned chapters
+
+<PartRoute timing="async">
+
+1. **After FLP**: the impossibility itself is in [Impossibility and Lower Bounds](/en/impossibility/async/flp/); this part starts from its boundary and asks which assumption can be relaxed to get around it.
+2. **Ben-Or**: the prototype of getting around FLP with randomization, local coin and expected rounds.
+3. **Bracha reliable broadcast (RBC)**: no signatures, echo / ready thresholds, proof of totality.
+4. **Common coin**: the threshold-signature implementation of Cachin–Kursawe–Shoup, and the role of DKG.
+5. **MMR ABA**: modern asynchronous BA with no signatures and $O(n^2)$ messages.
+6. **VABA**: BA with external validity and expected $O(n^2)$ communication.
+7. **AVID**: asynchronous verifiable information dispersal, the foundation of Narwhal-style designs.
+8. **HoneyBadgerBFT and Dumbo-NG**: from a single BA to practical asynchronous SMR.
+
+</PartRoute>

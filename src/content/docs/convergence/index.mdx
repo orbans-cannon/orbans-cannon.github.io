@@ -1,0 +1,48 @@
+---
+title: 合流：DAG-BFT
+description: DAG 協議如何同時使用非同步的穩健性與部分同步期的低延遲。
+sidebar:
+  badge:
+    text: 大綱
+    variant: default
+  order: 10
+---
+import PartRoute from '../../../components/PartRoute.astro';
+import ModelCard from '../../../components/ModelCard.astro';
+
+<ModelCard status="outline" timing="hybrid" crypto="threshold" faults="byz" determinism="any" problem="SMR" />
+
+:::note[進度]
+DAG-Rider、Narwhal 與 Tusk、Bullshark 三章已有草稿，其餘章節只有大綱。
+:::
+
+**開場問題**：如何把非同步工具與部分同步優化放進同一個協議？
+
+## 規劃章節
+
+<PartRoute timing="hybrid">
+
+1. **為什麼是 DAG**：資料傳播與排序解耦；從 Aleph 說起。
+2. **[DAG Rider](/convergence/dag-rider/)**：從 DAG 零額外通訊導出排序，coin 與 RBC 的角色。
+3. **[Narwhal 與 Tusk](/convergence/narwhal-tusk/)**：certified DAG 與資料可用性。
+4. **[Bullshark](/convergence/bullshark/)**：保留非同步 liveness、利用同步期 fast path，以及獨立的部分同步版本。
+5. **Cordial Miners 與 Mysticeti**：uncertified DAG 與延遲下界。
+6. **延遲與強健性的演進**：Shoal、Shoal++、Sailfish、Autobahn。以比較表為主，每個協議一列加一小段，說明各自解決 Bullshark 的哪一項限制。
+
+</PartRoute>
+
+## 三個協議的對照
+
+三個協議使用同一種 DAG，差別在 commit 規則與周邊機制。下表的數字都來自各章對照原文的結果（輪數是 DAG 的輪數；「一般情況」指訊息延遲隨機或同步無故障）。
+
+| | DAG-Rider | Narwhal 與 Tusk | Bullshark |
+| --- | --- | --- | --- |
+| 時序模型 | 非同步 | 非同步（Tusk）；Narwhal 本身與部分同步協議也能組合 | 非同步 liveness 加同步快路徑；另有部分同步版本 |
+| wave | 4 輪 | 3 輪（相鄰 wave 共用一輪） | 4 輪 |
+| commit 規則 | coin 事後選 leader，$2f+1$ 條 strong path | coin 事後選 leader，$f+1$ 個支持者 | steady-state（預先指定）與 fallback（coin），皆為 $2f+1$ 票，且票有類型 |
+| 非同步下期望 | 約 6 輪（wave 數至多 $3/2+\epsilon$） | 7 輪 | 6 輪 |
+| 一般情況 | 約 5.5 輪（Tusk 論文的估計） | 4.5 輪 | 2 輪（同步無故障） |
+| 垃圾回收 | 沒有（靠 weak edges，需要無界記憶體） | 由共識決定回收輪，不保證公平 | 同步期間公平且記憶體有界 |
+| 共識邏輯 safety 的密碼學假設 | 無 | 無，但 Narwhal 的憑證用簽章 | 無，但 Narwhal 的憑證用簽章 |
+
+由上往下，是同一張 DAG 上「好的 commit 規則」逐步改進：期望約 6 輪、4.5 輪、2 輪。細節與證明見各章。

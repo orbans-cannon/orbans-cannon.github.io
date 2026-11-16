@@ -1,0 +1,83 @@
+---
+/**
+ * 側註：主線之外的補充（文獻差異、另一個版本、讀論文時要注意的細節）。
+ * 原始碼裡放在它補充的那一段「之後」（閱讀順序＝手機、讀螢幕器、列印、搜尋看到的順序）。
+ * 寬螢幕（≥64rem）時，下面的腳本把它移到那一段之前並浮到右側，兩者頂端對齊；
+ * 視窗變窄時再移回段落之後。沒有 JavaScript 時維持原始碼順序。
+ * 用法：
+ *   某段正文。
+ *
+ *   <Sidenote title="DLS 的另一個版本">…Markdown…</Sidenote>
+ * 使用規則（頻率上限等）見 design.md §側註。
+ */
+interface Props {
+  /** 側註的小標題（一行） */
+  title?: string;
+}
+const { title } = Astro.props;
+---
+
+<aside class="bft-sidenote">
+  {title && <p class="bft-sidenote-title">{title}</p>}
+  <div class="bft-sidenote-body"><slot /></div>
+</aside>
+
+<script>
+  // 依視窗寬度決定側註的位置：寬螢幕放在「被補充的段落」之前（浮到右側、頂端對齊），
+  // 窄螢幕放回段落之後。「被補充的段落」＝往前找第一個不是側註的兄弟元素。
+  const mq = window.matchMedia('(min-width: 64rem)');
+  type Note = HTMLElement & { __anchor?: Element | null };
+  const notes = Array.from(document.querySelectorAll<Note>('.sl-markdown-content .bft-sidenote'));
+  for (const n of notes) {
+    let a = n.previousElementSibling;
+    while (a && a.classList.contains('bft-sidenote')) a = a.previousElementSibling;
+    n.__anchor = a;
+  }
+  function place() {
+    if (mq.matches) {
+      // 依原順序逐一插到段落之前：P S1 S2 → S1 S2 P
+      for (const n of notes) n.__anchor?.before(n);
+    } else {
+      // 反向逐一插到段落之後，才能保持 S1 S2 的順序
+      for (const n of [...notes].reverse()) n.__anchor?.after(n);
+    }
+  }
+  place();
+  mq.addEventListener('change', place);
+</script>
+
+<style is:global>
+  .bft-sidenote {
+    margin: 1.25rem 0;
+    padding: 0.1rem 0 0.1rem 0.9rem;
+    border-inline-start: 1px solid var(--sl-color-gray-4);
+    font-size: var(--sl-text-sm);
+    line-height: 1.75;
+    color: var(--sl-color-gray-2);
+  }
+  .bft-sidenote-title {
+    margin: 0 0 0.2rem;
+    font-weight: 700;
+    color: var(--sl-color-white);
+  }
+  .sl-markdown-content .bft-sidenote-body > * {
+    margin-top: 0;
+  }
+  .sl-markdown-content .bft-sidenote-body > * + * {
+    margin-top: 0.5rem;
+  }
+
+  /* 寬螢幕：浮到右側。64rem 以上內文欄夠寬，正文繞排後每行仍有約 30 字（側註 13rem＋間距 1.5rem）。 */
+  @media (min-width: 64rem) {
+    .sl-markdown-content .bft-sidenote {
+      float: right;
+      clear: right;
+      width: 13rem;
+      margin: 0.35rem 0 1rem 1.5rem;
+    }
+    /* 側註比它旁邊的段落長時，不要讓下一個標題被擠到旁邊 */
+    .sl-markdown-content:has(.bft-sidenote) :is(h2, h3) {
+      clear: both;
+    }
+  }
+</style>

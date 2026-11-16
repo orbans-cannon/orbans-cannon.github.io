@@ -1,0 +1,48 @@
+---
+/**
+ * 引理 3 的互動圖：選相鄰那一步 e′ 是別人做的還是 p 自己做的，逐步看兩種情形怎麼推出矛盾。
+ * 每一步只讓用得到的部分保持清楚；三種步驟用線條樣式區分。畫圖都在 cases.ts（純函式）。
+ * 沒有 JavaScript 時顯示情形二的最後一步。
+ */
+import './flp.css';
+import StepBar from '../StepBar.astro';
+import { CASES, C } from './strings';
+import { renderSvg, renderDesc, captionOf, lastStep } from './cases';
+
+const lang = Astro.locals.starlightRoute.lang?.startsWith('en') ? 'en' : 'zh-TW';
+const T = CASES(lang);
+const K = C(lang);
+const state = { step: lastStep('eq'), c: 'eq' as const };
+const svg = renderSvg(state, 'wide', lang);
+const desc = renderDesc(state, lang);
+---
+
+<div class="flp-fig not-content" data-kind="cases" data-lang={lang} role="group" aria-label={T.aria}>
+  <StepBar prev={K.prev} next={K.next} progress={K.progress(lastStep('eq') + 1, lastStep('eq') + 1)} caption={captionOf(state, lang)} />
+  <div class="fp-bar fp-bar2">
+    <span>{T.askWho}</span>
+    <button type="button" data-act="case-ne" data-case="ne">{T.caseNe}</button>
+    <button type="button" data-act="case-eq" data-case="eq" aria-pressed="true">{T.caseEq}</button>
+  </div>
+  <div class="fp-fig" data-fig set:html={svg} />
+  <p class="fp-hint" data-hint aria-live="polite">{T.hintIdle}</p>
+  <p class="fp-legend">
+    <span><i class="lg-line k-e"></i>{T.legendE}</span>
+    <span><i class="lg-line"></i>{T.legendEp}</span>
+    <span><i class="lg-line k-sig"></i>{T.legendSig}</span>
+  </p>
+  <p class="fp-legend">
+    <span><i class="lg lg-0"></i>{K.legend.v0}</span>
+    <span><i class="lg lg-1"></i>{K.legend.v1}</span>
+    <span><i class="lg lg-b"></i>{K.legend.vb}</span>
+    <span><i class="lg lg-q"></i>{K.legend.vq}</span>
+    <span><i class="lg lg-bad"></i>{K.legend.bad}</span>
+  </p>
+  <div class="fp-desc" data-desc aria-live="polite" set:html={desc} />
+</div>
+
+<script>
+  import { mount } from './controller';
+  import { casesModel } from './cases';
+  document.querySelectorAll<HTMLElement>('.flp-fig[data-kind="cases"]').forEach((r) => mount(r, casesModel));
+</script>

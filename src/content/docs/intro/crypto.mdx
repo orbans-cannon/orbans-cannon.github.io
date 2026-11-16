@@ -1,0 +1,48 @@
+---
+title: 密碼學假設與確定性
+description: 通道認證、簽章與 common coin；簽章在三個時序模型下各改變什麼；確定性與隨機化協議。
+takeaway: "簽章把同步下的容錯上界從 $f<n/3$ 提升到 $f<n$（BB）；在部分同步下不改變；非同步下可由手上的結果推出同樣不改變。隨機化是非同步下繞過 FLP 的標準手段。"
+sidebar:
+  order: 5
+---
+
+import Term from '../../../components/Term.astro';
+import Cite from '../../../components/Cite.astro';
+import References from '../../../components/References.astro';
+
+本頁接在[三種時序模型](/intro/models/)之後，因為簽章與隨機性的效果都依時序模型而定。
+
+## 通道認證、簽章與 coin
+
+- <Term id="auth-channel" />：接收者知道訊息來自哪個直接發送者，但無法向第三者證明。
+- <Term id="signature" />（PKI）：簽章可以**轉述**，即 $A$ 可以向 $C$ 出示 $B$ 簽過的訊息作為證據。Lamport–Shostak–Pease 區分的 *oral messages* 與 *signed messages* 就是這個差別（<Cite id="lsp1982" />）。
+- <Term id="threshold-sig" />、聚合簽章：用來構造 <Term id="qc">quorum certificate</Term>（QC）並壓縮通訊。
+- <Term id="common-coin" />：隨機化協議常用的共同隨機源，通常需要 setup（<Term id="trusted-dealer" />或 <Term id="dkg" />）。
+- **計算假設**：簽章依賴計算假設，對手需為計算有界。**免簽章**的協議（如 Bracha <Term id="rbc">RBC</Term>）則在對手擁有無限算力時仍然安全。
+
+## 簽章改變什麼，取決於時序模型
+
+- **<Term id="sync">同步</Term>**：它把<Term id="resilience">容錯上界</Term>從 $f<n/3$ 提升到 $f<n$（<Term id="bb">BB</Term>，<Cite id="dls1988" />）。
+- **<Term id="psync">部分同步</Term>**：DLS Table I 明確指出，有簽章與無簽章的拜占庭故障，最小節點數都是 $3t+1$，簽章**不改變**容錯上界。
+- **<Term id="async">非同步</Term>**：沒有專門證明這件事的原文，但可以從現有的結果推出簽章不改變上界。依據有三：
+  1. Fitzi–Garay 對 strong consensus 的下界在非同步下是 $n>(m+1)t$（$m$ 為值域大小），無條件與簽章兩種設定相同，二元時就是 $n>3t$（<Cite id="fitzi2003" />）。
+  2. Bracha–Toueg 證明非同步、拜占庭（malicious）故障下，<Term id="consensus">共識</Term>需要 $t<n/3$，也有協議達到（Theorem 3 與 4；<Cite id="bt1985" />，§3）。它的模型只要求接收者能驗證發送者身分，沒有簽章。
+  3. 使用簽章的協議也停在同一個比例：CKS 的協議需要 $n>3t$（<Cite id="cks2000" />），VABA 容忍 $f<n/3$（<Cite id="vaba2019" />）。
+
+簽章在部分同步與非同步下，主要改善的是通訊複雜度。這點在[模型總覽](/impossibility/overview/)會看到。
+
+## 確定性與隨機性
+
+- **確定性協議**：給定輸入與訊息送達順序，行為唯一決定。非同步下無法同時保證 <Term id="safety">safety</Term> 與 <Term id="liveness">liveness</Term>（FLP 的不可能在只有 crash 故障時也成立，<Cite id="flp1985" />）。
+- **隨機化協議**：節點可以擲硬幣。*Local Coin* 各自獨立擲（Ben-Or，<Cite id="benor1983" />）；*Common Coin* 所有節點看到同一個值（Rabin，<Cite id="rabin1983" />；Cachin–Kursawe–Shoup，<Cite id="cks2000" />）。
+
+  這類協議的終止性與確定性協議不同。它不保證在固定時間內結束：如果硬幣一直擲出不利的結果可以拖很久，但永遠不結束的機率是 0（稱為「以機率 1 終止」），而且平均要跑的輪數是有限的。「期望 $O(1)$ 輪」說的是平均，不是每一次執行都這麼快；注意討論複雜度時要分清楚是「期望」還是「最壞情況」。
+
+隨機化在兩種時序模型下的角色不同：
+
+- **非同步**：隨機化是繞過 FLP 的標準手段。
+- **同步**：確定性協議已經可以解（不受 FLP 限制），但最壞情況需要 $f+1$ 輪（<Cite id="fl1982" />）；隨機化協議把期望輪數降到常數（Feldman–Micali，<Cite id="fm1997" />；Rabin，<Cite id="rabin1983" />）。
+
+## 參考文獻
+
+<References />

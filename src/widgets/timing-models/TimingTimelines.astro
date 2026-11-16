@@ -1,0 +1,271 @@
+---
+/**
+ * 三個時序模型的時間軸（靜態 SVG）：每一列是一個模型，上線是「送出」、下線是「送達」，
+ * 每支斜線是一則訊息，橫向長度就是它的實際延遲 δ。右上角的短橫條是 Δ 的長度。
+ *   同步：每支斜線都不比 Δ 長。
+ *   部分同步：GST 前可以任意長，但最晚在 max(t, GST) + Δ 送達；GST 後都不比 Δ 長。
+ *   非同步：沒有 Δ，可以任意長，只保證最終送達（有一支延伸到畫面外）。
+ * 用於 intro/models.mdx。幾何資料都在下面的陣列裡，改數字前先確認上述規則仍成立。
+ */
+const lang = Astro.locals.starlightRoute.lang?.startsWith('en') ? 'en' : 'zh';
+const L = (zh: string, en: string) => (lang === 'en' ? en : zh);
+
+const W = 720; // viewBox 寬
+const X0 = 64; // 時間軸起點
+const X1 = 704; // 時間軸終點
+const DELTA = 84; // Δ 的長度（同一張圖內共用）
+const ROW_H = 168;
+const GST = 420;
+
+type Msg = { s: number; r: number };
+type Row = {
+  key: 'sync' | 'partial' | 'async';
+  title: string;
+  rule: string;
+  msgs: Msg[];
+  gst?: boolean;
+  hasDelta: boolean;
+};
+
+const rows: Row[] = [
+  {
+    key: 'sync',
+    title: L('同步', 'Synchronous'),
+    rule: L('δ ≤ Δ 一直成立，Δ 已知', 'δ ≤ Δ always holds; Δ is known'),
+    msgs: [
+      { s: 92, r: 150 },
+      { s: 196, r: 272 },
+      { s: 300, r: 340 },
+      { s: 410, r: 488 },
+      { s: 520, r: 572 },
+      { s: 616, r: 694 },
+    ],
+    hasDelta: true,
+  },
+  {
+    key: 'partial',
+    title: L('部分同步', 'Partially synchronous'),
+    rule: L('GST 前延遲任意（最晚 GST + Δ 送達）；GST 後 δ ≤ Δ', 'Before GST: any delay (delivered by GST + Δ); after GST: δ ≤ Δ'),
+    msgs: [
+      { s: 92, r: 330 },
+      { s: 170, r: 496 },
+      { s: 270, r: 318 },
+      { s: 452, r: 512 },
+      { s: 548, r: 600 },
+      { s: 628, r: 700 },
+    ],
+    gst: true,
+    hasDelta: true,
+  },
+  {
+    key: 'async',
+    title: L('非同步', 'Asynchronous'),
+    rule: L('沒有 Δ：延遲有限但沒有上界，只保證最終送達', 'No Δ: delays are finite but unbounded; messages are eventually delivered'),
+    msgs: [
+      { s: 92, r: 410 },
+      { s: 200, r: 252 },
+      { s: 300, r: 780 }, // 延伸到畫面外：最終才送達
+      { s: 470, r: 640 },
+      { s: 600, r: 646 },
+    ],
+    hasDelta: false,
+  },
+];
+
+// 規則自我檢查：圖畫錯就建置失敗，避免示意圖和正文矛盾
+for (const row of rows) {
+  for (const m of row.msgs) {
+    if (m.r <= m.s) throw new Error(`TimingTimelines：${row.key} 有一則訊息送達早於送出`);
+    if (row.key === 'sync' && m.r - m.s > DELTA) throw new Error('TimingTimelines：同步列有訊息延遲超過 Δ');
+    if (row.key === 'partial') {
+      if (m.r > Math.max(m.s, GST) + DELTA) throw new Error('TimingTimelines：部分同步列有訊息晚於 max(t, GST) + Δ 送達');
+    }
+  }
+}
+
+const H = rows.length * ROW_H - 4;
+const top = (i: number) => i * ROW_H + 76;
+const bot = (i: number) => i * ROW_H + 136;
+
+const summary = L(
+  '示意圖：三條時間軸。每支斜線是一則訊息，從上方「送出」連到下方「送達」，橫向長度就是實際延遲 δ。同步列每支斜線都不比 Δ 長；部分同步列在 GST 之前有幾支很長，但都在 GST + Δ 之前送達，GST 之後每支都不比 Δ 長；非同步列沒有 Δ，有一支延伸到畫面之外，表示最終才送達。',
+  'Diagram: three timelines. Each slanted line is a message from "sent" (top) to "delivered" (bottom); its horizontal length is the actual delay δ. In the synchronous row no line is longer than Δ. In the partially synchronous row a few lines before GST are long but all arrive by GST + Δ, and after GST none is longer than Δ. The asynchronous row has no Δ, and one line runs past the edge: it is delivered only eventually.',
+);
+---
+
+<figure class="bft-tl not-content">
+  <div class="bft-tl-scroll">
+    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={summary}>
+      <defs>
+        {
+          rows.map((row) => (
+            <marker
+              id={`bft-tl-arrow-${row.key}`}
+              viewBox="0 0 8 8"
+              refX="7"
+              refY="4"
+              markerWidth="7"
+              markerHeight="7"
+              orient="auto-start-reverse"
+            >
+              <path d="M0,0 L8,4 L0,8 z" class={`tl-fill-${row.key}`} />
+            </marker>
+          ))
+        }
+      </defs>
+
+      {
+        rows.map((row, i) => (
+          <g class={`tl-row tl-${row.key}`}>
+            {/* 列標題 */}
+            <text x="0" y={i * ROW_H + 22} class="tl-title">
+              <tspan class={`tl-fill-${row.key}`}>●</tspan>
+              <tspan dx="6">{row.title}</tspan>
+            </text>
+            <text x="0" y={i * ROW_H + 46} class="tl-rule">{row.rule}</text>
+
+            {/* Δ 比例尺 */}
+            {row.hasDelta ? (
+              <g>
+                <line x1={X1 - DELTA} x2={X1} y1={i * ROW_H + 17} y2={i * ROW_H + 17} class={`tl-delta tl-stroke-${row.key}`} />
+                <line x1={X1 - DELTA} x2={X1 - DELTA} y1={i * ROW_H + 11} y2={i * ROW_H + 23} class={`tl-delta tl-stroke-${row.key}`} />
+                <line x1={X1} x2={X1} y1={i * ROW_H + 11} y2={i * ROW_H + 23} class={`tl-delta tl-stroke-${row.key}`} />
+                <text x={X1 - DELTA / 2} y={i * ROW_H + 40} class="tl-delta-label" text-anchor="middle">
+                  Δ
+                </text>
+              </g>
+            ) : (
+              <text x={X1} y={i * ROW_H + 22} class="tl-delta-label" text-anchor="end">
+                {L('沒有 Δ', 'no Δ')}
+              </text>
+            )}
+
+            {/* 送出／送達兩條線 */}
+            <text x="0" y={top(i) + 4} class="tl-lane-label">{L('送出', 'sent')}</text>
+            <text x="0" y={bot(i) + 4} class="tl-lane-label">{L('送達', 'recv')}</text>
+            <line x1={X0} x2={X1} y1={top(i)} y2={top(i)} class="tl-lane" />
+            <line x1={X0} x2={X1} y1={bot(i)} y2={bot(i)} class="tl-lane" />
+
+            {/* GST */}
+            {row.gst && (
+              <g>
+                <rect x={X0} y={top(i)} width={GST - X0} height={bot(i) - top(i)} class="tl-before-gst" />
+                <line x1={GST} x2={GST} y1={top(i) - 8} y2={bot(i) + 8} class="tl-gst" />
+                <text x={GST + 5} y={bot(i) + 20} class="tl-gst-label">GST</text>
+              </g>
+            )}
+
+            {/* 訊息 */}
+            {row.msgs.map((m) => {
+              const off = m.r > X1;
+              const r = off ? X1 + 2 : m.r;
+              // 延伸到畫面外的訊息：只畫到右緣，按比例算出與右緣交點
+              const y2 = off ? top(i) + ((bot(i) - top(i)) * (X1 + 2 - m.s)) / (m.r - m.s) : bot(i);
+              return (
+                <g>
+                  <circle cx={m.s} cy={top(i)} r="3" class={`tl-fill-${row.key}`} />
+                  <line
+                    x1={m.s}
+                    y1={top(i)}
+                    x2={r}
+                    y2={y2}
+                    class={`tl-msg tl-stroke-${row.key}`}
+                    stroke-dasharray={off ? '5 4' : undefined}
+                    marker-end={off ? undefined : `url(#bft-tl-arrow-${row.key})`}
+                  />
+                </g>
+              );
+            })}
+            {row.key === 'async' && (
+              <text x={X1} y={bot(i) + 20} class="tl-note" text-anchor="end">
+                {L('…最終才送達', '…delivered eventually')}
+              </text>
+            )}
+          </g>
+        ))
+      }
+    </svg>
+  </div>
+  <figcaption>
+    {L(
+      '每支斜線是一則訊息，橫向長度就是它的實際延遲 δ；右上角的橫條是 Δ。比較三列：差別只在「斜線什麼時候保證不比 Δ 長」。',
+      'Each slanted line is one message; its horizontal length is its actual delay δ. The bar at top right is Δ. The rows differ only in when a line is guaranteed to be no longer than Δ.',
+    )}
+  </figcaption>
+</figure>
+
+<style>
+  .bft-tl {
+    margin: 1.75rem 0;
+  }
+  .bft-tl-scroll {
+    overflow-x: auto;
+  }
+  .bft-tl svg {
+    display: block;
+    /* 最寬就是 viewBox 的寬度（1 單位＝1px），所以圖裡的字永遠不會比內文大；
+       欄位較窄時等比縮小，窄到 30rem 以下改成橫向捲動，避免字小到讀不到。 */
+    width: 100%;
+    max-width: 720px;
+    min-width: 30rem;
+    height: auto;
+    font-family: var(--sl-font);
+  }
+  .bft-tl figcaption {
+    margin-top: 0.6rem;
+    font-size: var(--sl-text-sm);
+    line-height: 1.7;
+    color: var(--sl-color-gray-3);
+  }
+
+  /* 字級對齊內文：標題＝內文 17px，說明＝小字 14px，標註 13px（design.md §核心論點的圖） */
+  .tl-title {
+    font-size: 17px;
+    font-weight: 700;
+    fill: var(--sl-color-white);
+  }
+  .tl-rule {
+    font-size: 14px;
+    fill: var(--sl-color-gray-2);
+  }
+  .tl-lane-label,
+  .tl-gst-label,
+  .tl-note,
+  .tl-delta-label {
+    font-size: 13px;
+    fill: var(--sl-color-gray-3);
+  }
+  .tl-delta-label {
+    font-style: italic;
+  }
+  .tl-gst-label {
+    font-weight: 700;
+    fill: var(--sl-color-gray-2);
+  }
+  .tl-lane {
+    stroke: var(--sl-color-gray-4);
+    stroke-width: 1;
+  }
+  .tl-gst {
+    stroke: var(--sl-color-gray-2);
+    stroke-width: 1.5;
+    stroke-dasharray: 4 3;
+  }
+  .tl-before-gst {
+    fill: var(--sl-color-gray-5);
+    opacity: 0.35;
+  }
+  .tl-msg {
+    stroke-width: 2;
+    fill: none;
+  }
+  .tl-delta {
+    stroke-width: 2;
+  }
+  .tl-stroke-sync { stroke: var(--bft-sync); }
+  .tl-stroke-partial { stroke: var(--bft-partial); }
+  .tl-stroke-async { stroke: var(--bft-async); }
+  .tl-fill-sync { fill: var(--bft-sync); }
+  .tl-fill-partial { fill: var(--bft-partial); }
+  .tl-fill-async { fill: var(--bft-async); }
+</style>

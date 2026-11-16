@@ -1,0 +1,77 @@
+---
+const lang = Astro.locals.starlightRoute.lang?.startsWith('en') ? 'en' : 'zh';
+const L = (zh: string, en: string) => (lang === 'en' ? en : zh);
+/**
+ * 行內術語：<Term id="quorum" /> 顯示本站用詞，滑過或聚焦時顯示英文與定義，
+ * 點擊跳到術語表。id 不在 glossary.ts 會讓建置失敗。
+ *
+ *   <Term id="quorum" />            → quorum
+ *   <Term id="sync" en />            → 同步（synchronous）   首次出現時用，附上英文
+ *   <Term id="gst">GST 之後</Term>   → 用自己的文字，但提示與連結仍指向 GST
+ */
+import { glossary, capTerm } from '../data/glossary';
+
+interface Props {
+  id: string;
+  /** 在詞後面附上英文（當詞本身與英文不同時） */
+  en?: boolean;
+  /** 自訂懸浮說明（取代術語表的定義）；只給特殊場合用，例如 about 頁的玩笑。仍連到術語表。 */
+  tip?: string;
+}
+const { id, en = false, tip } = Astro.props;
+
+const entry = glossary[id];
+if (!entry) {
+  throw new Error(`<Term>：glossary.ts 找不到術語「${id}」`);
+}
+
+const hasSlot = Astro.slots.has('default');
+const shownTerm = lang === 'en' ? (entry.termEn ?? entry.term) : entry.term;
+const sameName = entry.en.toLowerCase() === shownTerm.toLowerCase();
+const showEn = en && !hasSlot && !sameName && lang !== 'en';
+const defText = tip ?? (lang === 'en' ? entry.defEn : entry.def);
+---
+
+<a class="term" href={`${lang === 'en' ? '/en' : ''}/intro/glossary/#term-${id}`}>
+  {hasSlot ? <slot /> : shownTerm}{showEn && `（${entry.en}${entry.abbr ? `, ${entry.abbr}` : ''}）`}
+  <span class="term-pop bft-pop" role="tooltip">
+    <strong>{capTerm(shownTerm)}</strong>
+    {entry.abbr && <span class="term-en">({entry.abbr})</span>}
+    {!sameName && <span class="term-en">{entry.en}</span>}
+    {entry.zh && <span class="term-zh">{L('中文：', 'Chinese: ')}{entry.zh}*</span>}
+    <span class="term-def">{defText}</span>
+  </span>
+</a>
+
+<style>
+  .term {
+    position: relative;
+    color: inherit;
+    text-decoration: underline dotted;
+    text-decoration-color: var(--sl-color-gray-3);
+    text-underline-offset: 0.25em;
+  }
+  .term:hover,
+  .term:focus-visible {
+    text-decoration-color: var(--sl-color-accent);
+  }
+  .term:hover .term-pop,
+  .term:focus-visible .term-pop {
+    display: block;
+  }
+  .term-en {
+    margin-inline-start: 0.5rem;
+    color: var(--sl-color-gray-2);
+    font-size: var(--sl-text-xs);
+  }
+  .term-zh {
+    display: block;
+    margin-top: 0.15rem;
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-gray-2);
+  }
+  .term-def {
+    display: block;
+    margin-top: 0.25rem;
+  }
+</style>

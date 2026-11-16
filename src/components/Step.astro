@@ -1,0 +1,148 @@
+---
+import { renderInline } from '../lib/inline-math';
+const lang = Astro.locals.starlightRoute.lang?.startsWith('en') ? 'en' : 'zh';
+const L = (zh: string, en: string) => (lang === 'en' ? en : zh);
+/**
+ * 分層證明的一個步驟，放在 <StructuredProof> 或另一個 <Step> 裡。
+ *
+ * 主張（這一步要證明什麼）：
+ *   - 純文字：用 title prop。
+ *   - 含數學式：用具名插槽，<span slot="claim">$n\ge 3f+1$</span>。
+ * 內容（這一步的證明）：預設插槽，可包含段落、公式與巢狀的 <Step>。
+ *   沒有內容的 Step 是一行葉節點，不可摺疊。
+ *
+ * uses：這一步依賴什麼（一行文字，例如「步驟 1、引理 2」；可含 $…$，由 inline-math 渲染）。
+ * open：預設是否展開。預設收合。
+ * id：讓別處可以用 #id 連到這一步。
+ */
+interface Props {
+  title?: string;
+  uses?: string;
+  open?: boolean;
+  id?: string;
+}
+const { title, uses, open = false, id } = Astro.props;
+const hasBody = Astro.slots.has('default');
+const hasClaimSlot = Astro.slots.has('claim');
+---
+
+{
+  hasBody ? (
+    <details class="sstep" open={open} id={id}>
+      <summary>
+        <span class="sstep-num" aria-hidden="true" />
+        <span class="sstep-claim">
+          {hasClaimSlot ? <slot name="claim" /> : title}
+        </span>
+        {uses && <span class="sstep-uses">{L('依賴：', 'Uses: ')}<Fragment set:html={renderInline(uses)} /></span>}
+      </summary>
+      <div class="sstep-body">
+        <slot />
+      </div>
+    </details>
+  ) : (
+    <div class="sstep sstep-leaf" id={id}>
+      <div class="sstep-row">
+        <span class="sstep-num" aria-hidden="true" />
+        <span class="sstep-claim">
+          {hasClaimSlot ? <slot name="claim" /> : title}
+        </span>
+        {uses && <span class="sstep-uses">{L('依賴：', 'Uses: ')}<Fragment set:html={renderInline(uses)} /></span>}
+      </div>
+    </div>
+  )
+}
+
+<style is:global>
+  /* 全域而非 scoped：巢狀 Step 與插槽內容需要共用同一組 counter 與選擇器。 */
+  .sproof .sstep {
+    counter-increment: sstep;
+    margin: 0;
+  }
+  /* Starlight 會替內容區的 details 加內距、邊框與背景，這裡重設，讓可摺疊步驟與葉節點對齊。 */
+  .sproof details.sstep {
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+  }
+  .sproof .sstep > summary,
+  .sproof .sstep-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0;
+    padding: 0.3rem 0.5rem;
+    border-radius: 0.375rem;
+    list-style: none;
+  }
+  .sproof .sstep > summary {
+    cursor: pointer;
+  }
+  .sproof .sstep > summary::-webkit-details-marker {
+    display: none;
+  }
+  .sproof .sstep > summary::before {
+    content: '▸';
+    flex: 0 0 1.25em;
+    text-align: center;
+    color: var(--sl-color-gray-3);
+    transition: transform 0.15s ease;
+  }
+  .sproof .sstep-leaf .sstep-row::before {
+    content: '';
+    flex: 0 0 1.25em;
+  }
+  .sproof .sstep[open] > summary::before {
+    transform: rotate(90deg);
+  }
+  .sproof .sstep > summary:hover {
+    background: var(--sl-color-gray-6);
+  }
+  .sproof .sstep > summary:focus-visible {
+    outline: 2px solid var(--sl-color-accent);
+    outline-offset: 1px;
+  }
+  .sproof .sstep-num::before {
+    content: counters(sstep, '.') '.';
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--sl-color-gray-2);
+  }
+  .sproof .sstep-num {
+    flex: none;
+    min-width: 2.4em;
+  }
+  .sproof .sstep-claim {
+    flex: 1;
+    min-width: 0;
+    color: var(--sl-color-white);
+  }
+  .sproof .sstep-uses {
+    flex: none;
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-gray-3);
+  }
+  .sproof .sstep-body {
+    counter-reset: sstep;
+    margin: 0.15rem 0 0.4rem 1.1rem;
+    padding: 0.25rem 0 0.25rem 0.9rem;
+    border-left: 2px solid var(--sl-color-gray-5);
+  }
+  .sproof .sstep-body > :first-child {
+    margin-top: 0;
+  }
+  .sproof .sstep-body > :last-child {
+    margin-bottom: 0;
+  }
+  @media (max-width: 40rem) {
+    .sproof .sstep > summary,
+    .sproof .sstep-row {
+      flex-wrap: wrap;
+    }
+    .sproof .sstep-uses {
+      flex-basis: 100%;
+      padding-inline-start: 3.2em;
+    }
+  }
+</style>

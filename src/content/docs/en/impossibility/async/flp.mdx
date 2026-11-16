@@ -1,0 +1,319 @@
+---
+title: "FLP: Impossibility in Asynchrony"
+description: "In a fully asynchronous system where even one process may stop, no deterministic consensus protocol can keep safety and also guarantee that every admissible run reaches a decision."
+takeaway: "In a fully asynchronous system you cannot tell whether another process has stopped or is just slow. A protocol that tolerates one stopped process by not waiting for it must decide with incomplete information. FLP shows that if even one process may stop, the schedule can keep postponing the step that is about to settle the outcome, and the resulting run is completely legal (messages are only late, and all are eventually delivered), so no deterministic protocol can guarantee both safety and liveness. The core of the proof is the bivalent configuration (both decisions still possible)."
+sidebar:
+  order: 1
+  badge:
+    text: Draft
+    variant: caution
+---
+
+import ModelCard from '../../../../../components/ModelCard.astro';
+import Thm from '../../../../../components/Thm.astro';
+import Proof from '../../../../../components/Proof.astro';
+import StructuredProof from '../../../../../components/StructuredProof.astro';
+import Step from '../../../../../components/Step.astro';
+import Term from '../../../../../components/Term.astro';
+import Check from '../../../../../components/Check.astro';
+import Cite from '../../../../../components/Cite.astro';
+import References from '../../../../../components/References.astro';
+import ChainFigure from '../../../../../widgets/flp/ChainFigure.astro';
+import CasesFigure from '../../../../../widgets/flp/CasesFigure.astro';
+import StagesFigure from '../../../../../widgets/flp/StagesFigure.astro';
+import FlpCheck from '../../../../../widgets/flp/FlpCheck.astro';
+
+<details>
+<summary>Verification status: Draft (open to read)</summary>
+
+The Chinese version of this page is verified; this English translation has not yet been reviewed by a person, so it is labeled Draft.
+
+</details>
+
+<ModelCard
+  status="draft"
+  timing="async"
+  crypto="any"
+  faults="crash"
+  determinism="det"
+  problem="BA"
+  resilience="one crash already rules out keeping both safety and liveness"
+  note="The section The Intuition First is new plain-language material and has not been reviewed yet. Theorems and lemmas follow Sections 2 and 3 of the original. The original considers only crash faults, uses no signatures, and assumes a fully asynchronous model, so the cryptography field is Any."
+/>
+
+<Cite id="flp1985" /> proves one thing: in a fully <Term id="async">asynchronous</Term> system, if even one process may stop without anyone noticing, a deterministic <Term id="consensus">consensus</Term> protocol may never reach a decision. The model is deliberately generous (messages are never lost, the only faults are <Term id="crash">crash faults</Term>, and the requirements on the protocol are pushed as low as possible), so the result applies very widely, and it is the wall that every asynchronous protocol later on this site has to get around.
+
+The original has two theorems, and this page treats them as follows:
+
+| Content | Where in the original | This page |
+| --- | --- | --- |
+| Theorem 1: no protocol tolerates one fault | §3, Theorem 1 | full proof |
+| Theorem 2: if all faults happen before the start, a majority being alive is enough | §4, Theorem 2 | the algorithm and the conclusion in the Boundary section |
+
+## The Intuition First
+
+Start with a concrete protocol: three processes each have an input, send it to each other, and wait until **all three inputs have arrived** before taking the majority. It never decides wrongly (the decision is the majority of the three inputs), but as soon as one process stops, the other two wait forever for the third input, and nobody can decide.
+
+To repair it, let it decide after **only two inputs**, so that even if one process stops the others can still decide. But then the other two processes cannot see the input of the stopped process, so they cannot tell apart the two cases "its input is 0" and "its input is 1"; if the correct outcomes of these two cases differ, the protocol must decide wrongly in one of them.
+
+FLP pushes this contradiction to every deterministic protocol, and it can be summarized in three sentences:
+
+1. **There is a situation where the outcome is not yet settled from the very start.** However the protocol is designed, some initial state has both decisions still possible (bivalent).
+2. **The step that is about to settle the outcome can always be postponed.** The schedule can let other processes move first and handle that step later, and the situation is still unsettled.
+3. **Postponing is legal.** In asynchrony a message may be delayed arbitrarily long as long as it is eventually delivered, so a run scheduled this way violates no assumption, yet nobody ever decides.
+
+The proof below makes these three sentences precise: the first is Lemma 2, the second is Lemma 3, and the third is the final "run that never decides".
+
+## Problem and Model
+
+### The system
+
+The original uses a very small state-machine system as its model, so that the impossibility applies to as many real systems as possible.
+
+- **Processes**: there are $n\ge 2$ of them (the original writes $N$). Each process $p$ has a one-bit input register $x_p$, an output register $y_p$ and unbounded internal storage. The value of $y_p$ is $b$, $0$ or $1$; it starts at $b$, meaning undecided, and once it enters $0$ or $1$ (the **decision state**) it can never change. $p$ acts by a fixed transition function, so every process is **deterministic**.
+- **The message system** keeps a message buffer holding messages that have been sent but not yet delivered, $(p,m)$ with $p$ the recipient. $\mathrm{send}(p,m)$ puts a message into the buffer; $\mathrm{receive}(p)$ either removes a message for $p$ and returns it, or returns the null value $\varnothing$ and leaves the buffer unchanged.
+- **Delivery condition**: the message system may choose freely, with one restriction: as long as $p$ keeps executing $\mathrm{receive}(p)$, every message for $p$ in the buffer is eventually delivered. In other words, messages can be delayed arbitrarily long and reordered but never lost; and even when the buffer holds a message for $p$, $\mathrm{receive}(p)$ may return $\varnothing$ a finite number of times first.
+- **Atomic broadcast**: a process can send the same message to everyone in a single step, and if one non-faulty process receives it, all non-faulty processes do. This assumption favors the protocol, so the impossibility result is that much stronger.
+- **No clocks and no failure detection**: processes have no synchronized clocks, so timeouts are useless; and a process cannot tell whether another has stopped or is merely slow.
+
+"Asynchronous" here does not mean the network is slow. There is no bound on how fast a process runs or how long a message takes, so at any finite moment a silent peer is equally consistent with "already stopped" and "just not delivered yet".
+
+### Configurations, schedules and correctness
+
+A step of a process is determined by an **event** $e=(p,m)$: $p$ first performs $\mathrm{receive}$ and gets $m$ (possibly $\varnothing$), then moves to a new state according to its internal state and $m$, and sends finitely many messages. The event $(p,\varnothing)$ can always happen, so a process can always take another step.
+
+- A **configuration** is the internal states of all processes together with the contents of the message buffer. The configuration in which every process is in its initial state and the buffer is empty is an **initial configuration**.
+- A **schedule** is a sequence $\sigma$ of events that happen one after another from a configuration $C$; the corresponding sequence of steps is a **run**. A finite schedule $\sigma$ takes $C$ to $\sigma(C)$, and we say $\sigma(C)$ is **reachable** from $C$. A configuration reachable from some initial configuration is **accessible**; all configurations below are accessible.
+
+<Thm kind="lemma" title="Commutativity of schedules" id="lemma-commutativity">
+Let schedules $\sigma_1,\sigma_2$ take a configuration $C$ to $C_1,C_2$. If the sets of processes taking steps in $\sigma_1$ and in $\sigma_2$ are disjoint, then $\sigma_2$ can follow $C_1$, $\sigma_1$ can follow $C_2$, and both lead to the same configuration.
+</Thm>
+
+<Proof assumes="Only the definition of the system">
+Each schedule changes only the states of its own processes and removes from the buffer only messages addressed to its own processes, so they do not affect each other, and whichever goes first, the result is the same.
+</Proof>
+
+The next two definitions split "the consensus protocol is correct" into a safety part and a liveness part.
+
+<Thm kind="definition" title="Partial correctness" id="def-partial-correct">
+A consensus protocol $P$ is **partially correct** if:
+
+1. No accessible configuration has more than one decision value.
+2. For each $v\in\{0,1\}$, some accessible configuration has decision value $v$.
+</Thm>
+
+Condition 1 is <Term id="agreement">Agreement</Term>, which is <Term id="safety">safety</Term>. Condition 2 only rules out meaningless protocols such as "always decide 0": both values must be possible decision values (possibly for different initial configurations). The original does not call it <Term id="validity">validity</Term>, and this site also keeps the two apart in [Problems and Properties](/en/intro/problem/).
+
+<Thm kind="definition" title="Admissible runs and total correctness" id="def-total-correct">
+In a run, a process that takes infinitely many steps is **non-faulty**; otherwise it is **faulty**. A run is **admissible** if at most one process is faulty and every message sent to a non-faulty process is eventually delivered. A run is **deciding** if some process enters a decision state in it.
+
+A protocol $P$ is **totally correct in spite of one fault** if it is partially correct and every admissible run is deciding.
+</Thm>
+
+Total correctness adds only one thing to partial correctness: some process decides in every admissible run, which is <Term id="liveness">liveness</Term>. And it asks for **some one** process to decide, not for all non-faulty processes to decide. The requirement is set this low so that the impossibility result is stronger.
+
+## Proof
+
+<Thm kind="theorem" title="The FLP impossibility" id="thm-flp">
+No consensus protocol is totally correct in spite of one fault.
+
+In other words, every partially correct consensus protocol has at least one admissible run that is not deciding.
+</Thm>
+
+### The shape of the proof
+
+Suppose $P$ is a consensus protocol that is totally correct in spite of one fault. The original derives a contradiction in two steps:
+
+1. Find an initial configuration whose outcome is **not yet settled**.
+2. From it, build an admissible run that avoids, at every step, the step that would settle the outcome, and therefore never decides.
+
+"Settled or not" needs a precise definition. Let $V(C)$ be the set of decision values that occur among all configurations reachable from $C$.
+
+<Thm kind="definition" title="Bivalent and univalent" id="def-valence">
+A configuration $C$ is **<Term id="bivalent">bivalent</Term>** if $|V(C)|=2$, that is, both decision values are still possible; it is **univalent** if $|V(C)|=1$, that is, the outcome is already settled. According to the unique decision value, a univalent configuration is **0-valent** or **1-valent**.
+</Thm>
+
+Since $P$ is totally correct and admissible runs always exist, $V(C)$ is never empty. Two facts will be used again and again: a successor of a univalent configuration is univalent with the same value; and a configuration in which some process is already in a decision state is always univalent (the output register can no longer change, and an accessible configuration has at most one decision value).
+
+### Lemma 2: a bivalent initial configuration exists
+
+<Thm kind="lemma" title="A bivalent initial configuration" id="lemma-bivalent-initial">
+$P$ has a bivalent initial configuration.
+</Thm>
+
+The example in "The Intuition First" is this lemma in miniature: a protocol that waits for only two inputs cannot tell whether the other process's input is 0 or 1. Lemma 2 spells this contradiction out: however the protocol is designed, some initial configuration has both outcomes still possible (bivalent).
+
+The figure below starts out prefilled with the "wait for three" protocol, so you can see the outcome of every initial configuration, and then step through how the contradiction appears. You can also click configurations and label them yourself, playing the protocol.
+
+<ChainFigure />
+
+<StructuredProof assumes="$P$ is totally correct in spite of one fault; definitions are not cited again">
+  <Step open>
+    <span slot="claim">Suppose, for contradiction, that every initial configuration is univalent.</span>
+
+    <Step uses="condition 2 of partial correctness">
+      <span slot="claim">There is a 0-valent initial configuration and also a 1-valent one.<FlpCheck chip="chain.counts" /></span>
+
+      Condition 2 says some accessible configuration has decision value $0$; it is reachable from some initial configuration $C$, so $C$ can decide $0$. By assumption $C$ is univalent, hence 0-valent. The case of $1$ is the same.
+    </Step>
+
+    <Step uses="1.1">
+      <span slot="claim">There are two adjacent initial configurations $C_0,C_1$ that differ only in the input $x_p$ of some process $p$, with $C_0$ 0-valent and $C_1$ 1-valent.<FlpCheck chip="chain.pair" /></span>
+
+      Any two initial configurations can be joined by a chain in which one step changes the input of one process only. One end of the chain is 0-valent and the other 1-valent, so somewhere along the chain it changes from 0-valent to 1-valent.
+    </Step>
+
+    <Step uses="1.2">
+      <span slot="claim">From $C_0$ there is an admissible deciding run in which $p$ takes no step at all; call its schedule $\sigma$.</span>
+
+      This run treats $p$ as the one faulty process, so it is admissible; $P$ is totally correct, so it is deciding.
+    </Step>
+
+    <Step uses="1.3">
+      <span slot="claim">$\sigma$ can also be run from $C_1$, and it reaches the same decision value as from $C_0$.<FlpCheck chip="chain.decide" /></span>
+
+      $p$ has no step in $\sigma$, and $C_0$ and $C_1$ differ only in the input of $p$, so every step of the other processes is exactly the same on both sides; corresponding configurations differ only in the internal state of $p$. The process that decides is not $p$ (it takes no step, so its output register is unchanged), so the decision value is the same.
+    </Step>
+
+    <Step uses="1.4">
+      <span slot="claim">Contradiction.<FlpCheck chip="chain.contra" /></span>
+
+      If this decision value is $1$, then $C_0$ can decide $1$, contradicting that it is 0-valent; if it is $0$, then $C_1$ can decide $0$, contradicting that it is 1-valent.
+    </Step>
+  </Step>
+
+  <Step uses="step 1">
+    <span slot="claim">Hence a bivalent initial configuration exists.</span>
+  </Step>
+</StructuredProof>
+
+### Lemma 3: a bivalent configuration can always reach another bivalent configuration
+
+This is the heart of the proof. It says: even if we insist that a particular event $e$ must happen, the system can still arrange to be bivalent after $e$.
+
+<Thm kind="lemma" title="Extending a bivalent configuration" id="lemma-bivalent-step">
+Let $C$ be a bivalent configuration and $e=(p,m)$ an event that can happen at $C$. Let $\mathcal{C}$ be the set of configurations reachable from $C$ without $e$ happening, and $\mathcal{D}=\{e(E)\mid E\in\mathcal{C}\}$. Then $\mathcal{D}$ contains a bivalent configuration.
+</Thm>
+
+$e$ can happen at every configuration of $\mathcal{C}$: $m$ is in the buffer of $C$, and a schedule without $e$ never removes it; messages are only delayed, never lost (if $m=\varnothing$, the event can happen at any time anyway). The proof is by contradiction: assume every configuration in $\mathcal{D}$ is univalent.
+
+Here is the argument in three sentences. Suppose that however we go, once $p$ is forced to do $e$ first (to receive one message), the outcome is already settled; then we can find a pair of adjacent configurations such that after $e$ one can only decide 0 and the other can only decide 1. Now look at who takes the "adjacent step" $e'$: if it is **another process**, $e$ and $e'$ can swap places, both sides reach the same configuration, and the outcome cannot be both 0 and 1; if it is **$p$ itself**, let $p$ do nothing at all, find a detour, and again reach a contradiction.
+
+The figure below lets you choose whether the adjacent step is taken by another process or by $p$ itself, and shows step by step how each case reaches a contradiction. The three kinds of line stand for three kinds of steps: the thick line is the forced $e$, the thin line is the adjacent $e'$, and the dashed line is a sequence $\sigma$ of steps in which $p$ does nothing at all. In every step only the parts being used are clear; the rest fades out.
+
+<CasesFigure />
+
+<StructuredProof assumes="Lemma 1; $P$ is totally correct in spite of one fault">
+  <Step open>
+    <span slot="claim">Suppose, for contradiction, that every configuration in $\mathcal{D}$ is univalent.</span>
+
+    <Step uses="$C$ is bivalent">
+      <span slot="claim">$\mathcal{D}$ contains both 0-valent and 1-valent configurations.</span>
+
+      Since $C$ is bivalent, for $i=0,1$ there is an $i$-valent configuration $E_i$ reachable from $C$. If $E_i\in\mathcal{C}$, let $F_i=e(E_i)\in\mathcal{D}$; otherwise $e$ happened somewhere on the way to $E_i$, so some $F_i\in\mathcal{D}$ can reach $E_i$. Either way, one of $F_i$ and $E_i$ can reach the other, and $F_i$ is univalent, so $F_i$ is also $i$-valent.
+    </Step>
+
+    <Step uses="1.1">
+      <span slot="claim">There are two configurations $C_0,C_1$ in $\mathcal{C}$ with $C_1=e'(C_0)$ ($e'=(p',m')$ is some event), $e(C_0)$ 0-valent and $e(C_1)$ 1-valent.</span>
+
+      Every configuration in $\mathcal{C}$ is reachable from $C$, so if we join configurations that are one step apart, $\mathcal{C}$ is connected. By 1.1 there are two configurations that are 0-valent and 1-valent after $e$; walking along a path between them, the value after $e$ must change from one to the other at some pair of adjacent configurations. In that pair, one is the result of a single step from the other; swapping the names $0$ and $1$ if necessary gives the desired $C_0,C_1$.
+    </Step>
+
+    <Step uses="1.2">
+      <span slot="claim">Case $p'\ne p$: contradiction.<FlpCheck chip="cases.ne" /></span>
+
+      $e$ and $e'$ are events of different processes, so by Lemma 1, $e(e'(C_0))=e'(e(C_0))$, that is, $e(C_1)=e'(e(C_0))$. $e(C_0)$ is 0-valent, so its successor $e(C_1)$ is also 0-valent, contradicting that $e(C_1)$ is 1-valent.
+    </Step>
+
+    <Step uses="1.2">
+      <span slot="claim">Case $p'=p$: contradiction.<FlpCheck chip="cases.eq" /></span>
+
+      Take a finite deciding run from $C_0$ in which $p$ takes no step (treat $p$ as the faulty process, so this is an admissible run), with schedule $\sigma$, and let $A=\sigma(C_0)$. $\sigma$ involves processes disjoint from those of $e$ and $e'$, so by Lemma 1, $\sigma$ can follow $e(C_0)$ and $e(C_1)$, giving $E_0=\sigma(e(C_0))$ and $E_1=\sigma(e(C_1))$, which are 0-valent and 1-valent (successors of a univalent configuration keep the value). By Lemma 1 again, $e(A)=E_0$ and $e(e'(A))=E_1$. So from $A$ we can reach both the 0-valent $E_0$ and the 1-valent $E_1$, and $A$ is bivalent. But $A$ is the end of a deciding run, so some process is already in a decision state, and $A$ must be univalent: contradiction.
+    </Step>
+  </Step>
+
+  <Step uses="step 1">
+    <span slot="claim">Hence $\mathcal{D}$ contains a bivalent configuration.</span>
+  </Step>
+</StructuredProof>
+
+### Building a never-deciding admissible run
+
+Imagine you are the adversary who controls the order in which messages are delivered. There are two rules: every process must get its turn in rotation, and every message must be delivered sooner or later. Your goal is to keep the system from ever deciding.
+
+The danger is that some ways of delivering messages settle the outcome, and the system falls into "can only decide 0" or "can only decide 1". Lemma 3 guarantees you can always avoid this: whichever message the rules force you to deliver first, you can first let other processes take a few steps and then deliver that message, and the system still sits in a bivalent configuration where both outcomes are possible. Doing this stage after stage gives a run that never decides yet obeys all the rules.
+
+The upper part of the figure below shows the path of the system staying in the undecided region, and the lower part shows who receives a message in each stage; you can also turn on "Withhold one message" to see which schedules are not admissible.
+
+<StagesFigure />
+
+<StructuredProof assumes="Lemma 2, Lemma 3">
+  <Step open>
+    <span slot="claim">Maintain a queue of processes (in any starting order); the message buffer is ordered by sending time, earliest first.</span>
+  </Step>
+
+  <Step uses="step 1">
+    <span slot="claim">Each **stage** starts at a bivalent configuration $C$ and ends at another bivalent configuration $C'$.</span>
+
+    <Step>
+      <span slot="claim">Let $p$ be the process at the head of the queue, $m$ the earliest message for $p$ in the buffer (or $\varnothing$ if there is none), and $e=(p,m)$.</span>
+    </Step>
+
+    <Step uses="Lemma 3">
+      <span slot="claim">There is a bivalent configuration $C'$ reachable from $C$ by a schedule ending with $e$.</span>
+
+      Lemma 3 says $\mathcal{D}$ contains a bivalent configuration, and every configuration of $\mathcal{D}$ is obtained as "a schedule without $e$, followed by $e$".
+    </Step>
+
+    <Step>
+      <span slot="claim">Move $p$ to the back of the queue.</span>
+    </Step>
+  </Step>
+
+  <Step uses="Lemma 2, step 2">
+    <span slot="claim">Starting from the bivalent initial configuration of Lemma 2, we can carry on stage after stage and obtain an infinite run.</span>
+  </Step>
+
+  <Step uses="step 3">
+    <span slot="claim">This run is admissible.<FlpCheck chip="stages.sched" /></span>
+
+    The queue rotates, so every process takes infinitely many steps; every message moves closer to the front of the buffer and is eventually received by its recipient. Hence no process is faulty and all messages are delivered.
+  </Step>
+
+  <Step uses="step 3">
+    <span slot="claim">No process enters a decision state in this run.<FlpCheck chip="stages.nodecide" /></span>
+
+    If some process entered a decision state at some step, the output register can no longer change, so the decision would persist until the end of that stage and make the configuration at the end of the stage univalent, contradicting that every stage ends at a bivalent configuration.
+  </Step>
+
+  <Step uses="steps 4, 5">
+    <span slot="claim">This is an admissible run that is not deciding, so $P$ is not totally correct.</span>
+  </Step>
+</StructuredProof>
+
+<Check q="No process is faulty in this never-deciding run. So where is the assumption of tolerating one fault used?">
+In the arguments of Lemma 2 and Lemma 3: both need a deciding run from $C_0$ in which "$p$ takes no step at all", and such a run exists because the protocol must tolerate some process stopping. The run built in the end has no stopped process; the adversary uses only **scheduling and message delays** to keep the system from ever deciding.
+</Check>
+
+## Boundary
+
+**The conclusion is "cannot be guaranteed together", not "consensus is impossible in practice".** The original's own conclusion says that these results do not mean such problems cannot be "solved" in practice, but that more refined models are needed, and somewhat weaker requirements on the solution (for example, termination only with probability 1). The routes after FLP all start from here:
+
+- **Relax the timing assumption**: do not ask for full asynchrony. Under <Term id="psync">partial synchrony</Term>, deterministic protocols can guarantee liveness after <Term id="gst">GST</Term> (see the [model overview](/en/impossibility/overview/) and [DLS](/en/impossibility/partial-sync/dls/), <Cite id="dls1988" />).
+- **Relax the termination requirement**: use randomization and ask for termination only with probability 1. This is the main thread of the whole asynchronous part (<Cite id="benor1983" />, <Cite id="rabin1983" />, see [Asynchrony](/en/async/)).
+- **Relax the fault model**: if faults happen only before the start, the problem can be solved; see Theorem 2 below.
+
+**Theorem 2 (original §4).** The original proves that there is a partially correct consensus protocol in which all non-faulty processes decide, provided no process dies during the execution and a strict majority of the processes are alive initially. The protocol does not know who was dead from the start, and works in two stages:
+
+1. Let $L=\lceil (n+1)/2\rceil$. Each process broadcasts its own number and then waits for messages from $L-1$ other processes. Recording "$j$ received a message from $i$" as an edge $i\to j$ gives a directed graph $G$ in which every node has $L-1$ incoming edges.
+2. Each process broadcasts its own number, its initial value, and the $L-1$ processes it heard from in the first stage, then waits until it has received the second-stage message of every ancestor it knows about, and from this computes the relevant part of the transitive closure $G^+$ of $G$.
+
+Every node of $G^+$ has at least $L-1$ predecessors, so there is **exactly one** initial clique, a clique with no incoming edges; its size is at least $L$, and every process that completes the second stage can compute the same clique. Everyone decides by an agreed rule from the initial values of the members of this clique, so the decisions agree.
+
+This shows how precisely FLP draws its wall: as long as a process can stop in the middle of the execution without anyone noticing, the impossibility holds; if all faults happen before the start, a majority being alive is enough.
+
+**Byzantine faults are stronger.** The original considers only crash faults. The behavior of a Byzantine node includes stopping, so a protocol that tolerates one Byzantine process also tolerates one crash; hence this impossibility holds in the Byzantine model as well (the original does not say so explicitly; this is my inference).
+
+## References
+
+<References />

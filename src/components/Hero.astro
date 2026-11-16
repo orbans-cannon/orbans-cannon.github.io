@@ -1,0 +1,314 @@
+---
+/**
+ * 覆寫 Starlight 的 Hero：版面沿用預設（標題、標語、按鈕），
+ * 主視覺改成三將軍動畫（src/widgets/home-generals/）。
+ * 語言取頁面的 lang：英文頁（之後加 en 語系）會自動用英文字串。
+ */
+import { LinkButton } from '@astrojs/starlight/components';
+import ByzantineGenerals from '../widgets/home-generals/ByzantineGenerals.astro';
+
+const route = Astro.locals.starlightRoute;
+const { data } = route.entry;
+const { title = data.title, tagline, actions = [] } = data.hero || {};
+const lang = route.lang?.startsWith('en') ? 'en' : 'zh-TW';
+// 站名是典故（烏爾班大砲），標題上方用一行小字說明這是什麼網站
+// 標題「主標：副標」拆成兩行：主標大字、副標金色小一號（全形或半形冒號都可）
+const [titleMain, titleSub] = String(title).split(/：|:\s*/, 2);
+const sep = lang === 'en' ? ': ' : '：';
+// 站名由來：放在按鈕下方（寬螢幕時左欄按鈕下本來就有空白，讀者看到標題後馬上能找到答案）
+const nameNote =
+  lang === 'en'
+    ? 'Named after Orban’s Cannon, which pounded the walls of Constantinople during the Ottoman siege of 1453.'
+    : '站名取自 1453 年鄂圖曼軍圍攻君士坦丁堡時，轟擊城牆的烏爾班大砲。';
+const eyebrow = lang === 'en' ? 'A theory guide to Byzantine fault tolerance' : '拜占庭容錯理論導讀';
+---
+
+<div class="hero-wrap">
+<div class="hero bft-home-hero">
+  <div class="hero-art">
+    <ByzantineGenerals lang={lang} />
+  </div>
+  <div class="sl-flex stack">
+    <div class="sl-flex copy">
+      <p class="eyebrow">{eyebrow}</p>
+      <h1 id="_top" data-page-title>
+        <span class="h1-main">{titleMain}</span>{
+          titleSub && (
+            <>
+              <span class="sr-only">{sep}</span>
+              <span class="h1-sub">{titleSub}</span>
+            </>
+          )
+        }
+      </h1>
+      {tagline && <div class="tagline" set:html={tagline} />}
+    </div>
+    {
+      actions.length > 0 && (
+        <div class="sl-flex actions">
+          {actions.map(({ attrs: { class: className, ...attrs } = {}, icon, link: href, text, variant }) => (
+            <LinkButton {href} {variant} icon={icon?.name} class:list={[className]} {...attrs}>
+              {text}
+            </LinkButton>
+          ))}
+        </div>
+      )
+    }
+    <p class="name-note">
+      <svg viewBox="10 8 110 108" aria-hidden="true">
+        <g transform="translate(4 -7)">
+          <path d="M12 116 L100 116 L100 104 L12 112 Z" />
+          <g transform="rotate(-24 54 84)">
+            <rect x="6" y="73" width="30" height="24" rx="5" />
+            <rect x="30" y="64" width="58" height="42" rx="6" />
+            <ellipse cx="90" cy="85" rx="6.5" ry="22" />
+          </g>
+        </g>
+        <circle cx="108" cy="22" r="10" />
+      </svg>
+{nameNote}
+    </p>
+  </div>
+</div>
+</div>
+
+<script>
+  // 主要按鈕的觸碰回饋：從按下的位置擴散一圈光。
+  // iOS Safari 要有 touchstart 監聽，:active 樣式才會在觸碰時出現。
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+  document.querySelectorAll<HTMLElement>('.bft-home-hero .actions .sl-link-button.primary').forEach((btn) => {
+    btn.addEventListener('touchstart', () => {}, { passive: true });
+    btn.addEventListener('pointerdown', (e) => {
+      if (reduce.matches) return;
+      const r = btn.getBoundingClientRect();
+      const dot = document.createElement('span');
+      dot.className = 'bft-ripple';
+      dot.style.left = `${e.clientX - r.left}px`;
+      dot.style.top = `${e.clientY - r.top}px`;
+      btn.appendChild(dot);
+      const scale = (Math.hypot(r.width, r.height) / 16) * 1.1;
+      dot
+        .animate(
+          [
+            { transform: 'scale(0.4)', opacity: 0.6 },
+            { transform: `scale(${scale})`, opacity: 0 },
+          ],
+          { duration: 550, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' },
+        )
+        .finished.then(() => dot.remove(), () => dot.remove());
+    });
+  });
+</script>
+
+<style>
+  /* 依 Hero 實際可用寬度決定並排或上下排（側欄打開時可用寬度變窄，不能只看螢幕寬） */
+  .hero-wrap {
+    container: hero / inline-size;
+  }
+  .hero {
+    display: grid;
+    grid-template-columns: 100%;
+    align-items: center;
+    gap: 2rem;
+    padding-bottom: 1rem;
+  }
+  /* 手機上先看到標題與按鈕，動畫在下面 */
+  .hero-art {
+    order: 2;
+    width: min(100%, 34rem);
+    margin-inline: auto;
+  }
+  .stack {
+    flex-direction: column;
+    gap: clamp(1.5rem, calc(1.5rem + 1vw), 2rem);
+    text-align: center;
+  }
+  .copy {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: center;
+  }
+  .copy > * {
+    margin: 0;
+  }
+  .eyebrow {
+    font-size: var(--sl-text-sm);
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    color: var(--sl-color-gray-3);
+  }
+  .tagline {
+    max-width: 30em;
+  }
+  h1 {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    font-family: var(--bft-serif);
+    font-size: clamp(var(--sl-text-3xl), calc(0.25rem + 4.5vw), var(--sl-text-5xl));
+    line-height: 1.25;
+    font-weight: 700;
+    color: var(--sl-color-white);
+    text-wrap: balance;
+  }
+  .h1-sub {
+    font-size: 0.55em;
+    letter-spacing: 0.08em;
+    color: var(--bft-gold);
+  }
+  .tagline {
+    font-size: clamp(var(--sl-text-base), calc(0.0625rem + 2vw), var(--sl-text-xl));
+    line-height: 1.7;
+    color: var(--sl-color-gray-2);
+    text-wrap: pretty;
+  }
+  .name-note {
+    max-width: 30em;
+    margin: 0.75rem 0 0;
+    font-size: var(--sl-text-xs);
+    line-height: 1.7;
+    color: var(--sl-color-gray-3);
+    text-wrap: pretty;
+  }
+  .name-note svg {
+    display: inline-block;
+    width: 1rem;
+    height: 1rem;
+    margin-inline-end: 0.4rem;
+    vertical-align: -0.2em;
+    fill: var(--bft-gold);
+  }
+  .actions {
+    gap: 1rem 2rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  @media (min-width: 50rem) {
+    .hero {
+      padding-block: clamp(2rem, calc(1rem + 6vmin), 5rem);
+    }
+  }
+  @container hero (min-width: 54rem) {
+    .hero {
+      /* 文字與動畫約 5:6，動畫最寬 36rem；可用寬度變窄時兩邊一起縮，文字欄不會被擠成一條 */
+      grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+      gap: 2.5rem;
+    }
+    .hero-art {
+      width: 100%;
+      max-width: 36rem;
+      justify-self: end;
+    }
+    .stack {
+      text-align: start;
+    }
+    .copy {
+      align-items: flex-start;
+    }
+    .actions {
+      justify-content: flex-start;
+    }
+    .name-note {
+      text-align: start;
+    }
+  }
+
+  /* ------------------------------------------------------------------
+     主要按鈕「從入門開始」：金色（與動畫裡的城、favicon 的典故一致）。
+     滑過：微微浮起、箭頭往前；按下（滑鼠或觸碰）：縮到 0.97，並從按下的位置
+     擴散一圈光（下方腳本）。依 Emil Kowalski 的建議：按壓 150ms、只動 transform／opacity。
+     ------------------------------------------------------------------ */
+  .actions :global(.sl-link-button) {
+    white-space: nowrap;
+  }
+  .actions :global(.sl-link-button.primary) {
+    --btn-bg: linear-gradient(135deg, #b5800f, #8f5f05);
+    --btn-fg: #fff;
+    --btn-glow: rgb(176 122 18 / 0.35);
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+    padding: 0.85rem 1.6rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--btn-fg);
+    background: var(--btn-bg);
+    border: 0;
+    border-radius: 999px;
+    box-shadow:
+      0 1px 0 rgb(255 255 255 / 0.25) inset,
+      0 6px 18px -6px var(--btn-glow);
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    transition:
+      transform 150ms cubic-bezier(0.23, 1, 0.32, 1),
+      box-shadow 200ms ease;
+  }
+  :global(:root[data-theme='dark']) .actions :global(.sl-link-button.primary) {
+    --btn-bg: linear-gradient(135deg, #f0c25a, #d29a1f);
+    --btn-fg: #1b1306;
+    --btn-glow: rgb(226 172 63 / 0.45);
+  }
+  .actions :global(.sl-link-button.primary svg) {
+    transition: transform 200ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  .actions :global(.bft-ripple) {
+    position: absolute;
+    z-index: -1;
+    width: 16px;
+    height: 16px;
+    margin: -8px 0 0 -8px;
+    border-radius: 50%;
+    background: rgb(255 255 255 / 0.55);
+    pointer-events: none;
+  }
+  @media (hover: hover) {
+    .actions :global(.sl-link-button.primary:hover) {
+      color: var(--btn-fg);
+      transform: translateY(-1px);
+      box-shadow:
+        0 1px 0 rgb(255 255 255 / 0.25) inset,
+        0 10px 24px -8px var(--btn-glow);
+    }
+    .actions :global(.sl-link-button.primary:hover svg) {
+      transform: translateX(3px);
+    }
+  }
+  .actions :global(.sl-link-button.primary:active) {
+    transform: scale(0.97);
+  }
+  .actions :global(.sl-link-button.primary:focus-visible) {
+    outline: 2px solid var(--sl-color-white);
+    outline-offset: 3px;
+  }
+  /* 次要按鈕：滑過時底線從左長出來 */
+  .actions :global(.sl-link-button.minimal) {
+    background-image: linear-gradient(currentColor, currentColor);
+    background-size: 0% 1px;
+    background-position: 0 85%;
+    background-repeat: no-repeat;
+    transition: background-size 200ms ease;
+  }
+  .actions :global(.sl-link-button.minimal:hover) {
+    background-size: 100% 1px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .actions :global(.sl-link-button.primary),
+    .actions :global(.sl-link-button.primary svg) {
+      transition: none;
+    }
+    .actions :global(.sl-link-button.primary:hover),
+    .actions :global(.sl-link-button.primary:active) {
+      transform: none;
+    }
+  }
+
+  /* 首頁不論側欄開或關都放寬內容（其他頁 47／60rem）；
+     :has() 帶入 .bft-home-hero.hero 的權重，才蓋得過 custom.css 的 html.bft-sidebar-hidden 規則 */
+  @media (min-width: 50rem) {
+    :global(html:has(.bft-home-hero.hero)) {
+      --sl-content-width: 76rem;
+    }
+  }
+</style>
