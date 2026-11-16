@@ -1,5 +1,6 @@
 ---
 title: Narwhal 與 Tusk：把資料傳播和排序拆開
+seoTitle: "Narwhal 與 Tusk 導讀：DAG mempool 與非同步共識"
 description: Narwhal 把交易的傳播與可用性做成一個 DAG 形式的 mempool，讓共識只需要排序很小的憑證；Tusk 在它上面不加任何訊息就完成非同步共識。
 takeaway: "Narwhal 不是共識協議，而是把資料傳播交給一張由憑證連起來的 DAG，共識只排序憑證。Tusk 再用同一張 DAG 與一個 coin 做非同步共識，不增加任何訊息。"
 sidebar:

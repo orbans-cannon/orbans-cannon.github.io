@@ -129,7 +129,7 @@ export default defineConfig({
   integrations: [
     starlight({
       title: { 'zh-TW': '烏爾班大砲', en: 'Orban’s Cannon' },
-      description: '依時序模型分野的拜占庭容錯理論導讀',
+      description: '繁體中文的拜占庭問題與拜占庭容錯（BFT）理論導讀：依同步、部分同步、非同步分野，涵蓋不可能性結果與 DAG-BFT。',
       social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/orbans-cannon/orbans-cannon.github.io' }],
       editLink: { baseUrl: 'https://github.com/orbans-cannon/orbans-cannon.github.io/edit/main/' },
       defaultLocale: 'root',

@@ -1,5 +1,6 @@
 ---
 title: 三種時序模型
+seoTitle: "同步、部分同步、非同步：三種時序模型的定義與比較"
 description: 同步、部分同步、非同步的精確定義、並排比較與常見混淆。
 takeaway: "三個時序模型只差在一件事：$\\delta\\le\\Delta$ 什麼時候成立。同步一直成立，部分同步在 GST 之後成立，非同步沒有 $\\Delta$。所以部分同步協議的 safety 不能依賴時間，只有 liveness 可以等 GST。"
 sidebar:

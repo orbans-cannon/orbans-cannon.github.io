@@ -1,5 +1,6 @@
 ---
 title: DAG-Rider：用 DAG 零額外通訊排序
+seoTitle: "DAG-Rider 導讀：DAG 上的非同步 BFT 共識"
 description: 在非同步網路上，把可靠廣播建成的 DAG 當作訊息歷史，只靠一個 global perfect coin 就在本地算出全序，不需要任何額外的通訊。
 takeaway: "每個節點把可靠廣播的提案連成一張 DAG，每個 wave 結束後才擲 coin 選出 leader，並用 2f+1 條 strong path 判斷能否 commit。排序完全在本地進行，每個誠實節點的提案最終都會被排進全序。"
 sidebar:
