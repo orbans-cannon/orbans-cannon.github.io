@@ -139,6 +139,7 @@ export default defineConfig({
       },
       customCss: ['katex/dist/katex.min.css', './src/styles/custom.css'],
       head: [
+        { tag: 'meta', attrs: { name: 'google-site-verification', content: 'U2TwzOtOWJiSyk-Aj0J7_TywD8BxCwvCjyo4tcPnz-I' } },
         { tag: 'script', content: sidebarAccordionScript },
         { tag: 'script', content: sidebarToggleScript },
         { tag: 'link', attrs: { rel: 'preconnect', href: 'https://fonts.googleapis.com' } },
