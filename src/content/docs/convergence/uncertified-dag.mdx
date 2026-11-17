@@ -1,0 +1,39 @@
+---
+title: 不認證的 DAG：Cordial Miners 與 Mysticeti
+description: 去掉 Reliable Broadcast 與區塊認證之後，DAG-BFT 的延遲能降到多少。
+depth: guide
+sidebar:
+  order: 50
+  badge:
+    text: 規劃中
+    variant: note
+---
+
+import ModelCard from '../../../components/ModelCard.astro';
+import Cite from '../../../components/Cite.astro';
+import References from '../../../components/References.astro';
+
+<ModelCard
+  status="planned"
+  timing="hybrid"
+  crypto="any"
+  faults="byz"
+  determinism="any"
+  problem="SMR"
+  note="含 arXiv 版的原文：Cordial Miners（DISC 2023）、Mysticeti（NDSS 2025）。"
+/>
+
+本頁尚未撰寫。原文見 <Cite id="cordial2023" />、<Cite id="mysticeti2025" />。
+
+## 預計涵蓋
+
+- **延遲從哪來**：certified DAG 的每個區塊要經過 Reliable Broadcast 或 consistent broadcast，多次往返；原文都把這當成 DAG-Rider、Narwhal、Bullshark 一系的主要延遲來源。
+- **Cordial Miners**：去掉 RB，用 blocklace 容納 equivocation，在本地排序時才排除；原文的延遲以「通訊輪」計（含 RB 內部的輪），與本站 DAG 頁的「DAG 輪」不同，預計逐條標明。
+- **Mysticeti**：區塊只簽名不認證，每個區塊獨立 commit，原文聲稱達到 3 個 message round 的下界（引 Martin–Alvisi 的 fast BFT）；Sui 部署時從 Bullshark 換成 Mysticeti-C。
+- **兩者並列**：Mysticeti 說兩者的 DAG 結構相似，但 Cordial Miners 每個 wave 只 commit 一個區塊；兩者不是前後代。
+- **與下界的關係**：延遲下界的完整分類見 [延遲下界](/impossibility/cost/good-case/)。
+- **邊界**：本站核對的兩份原文都是 arXiv 版，內文可能與出版版有差異，寫頁時核對。
+
+## 參考文獻
+
+<References />

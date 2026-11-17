@@ -1,0 +1,39 @@
+---
+title: Pacemaker 與 view synchronization
+description: HotStuff 留下的黑盒：怎麼讓所有正確節點在同一個 view 待夠久，以及它的通訊成本。
+depth: guide
+sidebar:
+  order: 23
+  badge:
+    text: 規劃中
+    variant: note
+---
+
+import ModelCard from '../../../components/ModelCard.astro';
+import Cite from '../../../components/Cite.astro';
+import References from '../../../components/References.astro';
+
+<ModelCard
+  status="planned"
+  timing="partial"
+  crypto="any"
+  faults="byz"
+  determinism="det"
+  problem="tool"
+  note="原文：Cogsworth，Cryptoeconomic Systems 2021；RareSync（Civit 等，Distributed Computing 2024）。"
+/>
+
+本頁尚未撰寫。原文見 <Cite id="cogsworth2021" />、<Cite id="raresync2024" />；缺口出自 <Cite id="hotstuff2019" />。
+
+## 預計涵蓋
+
+- **HotStuff 留下的缺口**：Pacemaker 負責 GST 之後的進展；Cogsworth 指出 HotStuff 把這個邏輯包成一個模組，沒有形式定義也沒有實作。
+- **Cogsworth**：把 view synchronization 抽成獨立問題並形式化，給出樂觀線性通訊、常數延遲的演算法。注意它數的是 messages。
+- **RareSync**：view synchronization 通訊 $O(n^2)$ words、延遲 $O(f\cdot\delta)$，配上與 HotStuff 相同的 view core 得到 SQuad，worst-case 通訊 $O(n^2)$ words；數的是 words，與 Cogsworth、HotStuff 的度量不同，預計逐條標明。
+- **後續**：Lumiere（Lewis-Pye 等，PODC 2024）預計放一小段；這篇本站還沒有收入書目，也還沒讀，寫頁時再處理。
+- **與下界的關係**：RareSync 讓 Dolev–Reischuk 的二次通訊下界在部分同步下追平，見 [通訊下界](/impossibility/cost/dolev-reischuk/)。
+- **邊界**：各論文的複雜度度量（messages、words、authenticators）不能直接相減。
+
+## 參考文獻
+
+<References />

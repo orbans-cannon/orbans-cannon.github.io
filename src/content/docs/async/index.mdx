@@ -1,16 +1,18 @@
 ---
 title: 非同步模型
+seoTitle: "非同步 BFT：從 FLP 到 common coin 與實用 SMR"
 description: FLP 之後，隨機化與可靠廣播如何建出不靠任何時間假設的 BFT。
 sidebar:
   badge:
-    text: 大綱
-    variant: default
+    text: 草稿
+    variant: caution
   order: 30
 ---
 import PartRoute from '../../../components/PartRoute.astro';
 import ModelCard from '../../../components/ModelCard.astro';
+import Lineage from '../../../components/Lineage.astro';
 
-<ModelCard status="outline" timing="async" crypto="any" faults="byz" determinism="rand" problem="BA-SMR" />
+<ModelCard status="draft" timing="async" crypto="any" faults="byz" determinism="rand" problem="BA-SMR" />
 
 :::note[大綱]
 本部分只有大綱，尚未撰寫。以下是規劃。這是本站的重點部分：中文資料裡，非同步 BFT 這一整條線幾乎沒有完整介紹。
@@ -23,12 +25,18 @@ import ModelCard from '../../../components/ModelCard.astro';
 <PartRoute timing="async">
 
 1. **FLP 之後**：不可能性本身在[不可能性與下界](/impossibility/async/flp/)，本部分從它的邊界出發，問放寬哪個假設能繞過去。
-2. **Ben-Or**：隨機化繞過 FLP 的原型，local coin 與期望輪數。
-3. **Bracha 可靠廣播（RBC）**：免簽章、echo／ready 門檻，證明 totality。
+2. **[Ben-Or 到 Canetti–Rabin](/async/ben-or/)**：隨機化繞過 FLP 的原型，local coin、預發 coin，到容錯最佳又期望常數時間。先講它再講 Bracha，是因為 Bracha 的出發點就是 Ben-Or 留下的開放問題：容錯能不能從 $5f<n$ 補到 $3f+1$。
+3. **[Bracha 可靠廣播（RBC）](/async/bracha/)**：免簽章、echo／ready 門檻，證明 totality。
 4. **[Common coin](/async/common-coin/)**：Cachin–Kursawe–Shoup 的門檻簽章實作，以及 DKG 的角色。
-5. **MMR ABA**：免簽章、$O(n^2)$ 訊息的現代非同步 BA。
-6. **VABA**：external validity與期望 $O(n^2)$ 通訊的 BA。
-7. **AVID**：非同步可驗證資料分散，Narwhal 類設計的底層。
-8. **HoneyBadgerBFT 與 Dumbo-NG**：從單次 BA 到實用的非同步 SMR。
+5. **[MMR ABA](/async/mmr/)**：免簽章、$O(n^2)$ 訊息的現代非同步 BA。
+6. **[VABA](/async/vaba/)**：external validity與期望 $O(n^2)$ 通訊的 BA。
+7. **[AVID](/async/avid/)**：非同步可驗證資料分散，Narwhal 類設計的底層。
+8. **[HoneyBadgerBFT](/async/honeybadger/)**：從單次 BA 到實用的非同步 SMR。Dumbo-NG 等原文到了再加。
 
 </PartRoute>
+
+## 概念脈絡
+
+規劃章節的順序是閱讀順序。下面這棵樹換個角度，畫的是「誰站在誰的肩上」。
+
+<Lineage id="async-coin" />

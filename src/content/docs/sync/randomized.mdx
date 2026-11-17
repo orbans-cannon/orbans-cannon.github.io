@@ -1,0 +1,43 @@
+---
+title: 同步下的隨機化：Feldman–Micali 與 Katz–Koo
+description: 確定性協議至少要 f+1 輪；隨機化把期望輪數降到常數，以及它需要什麼假設。
+depth: guide
+sidebar:
+  order: 13
+  badge:
+    text: 規劃中
+    variant: note
+---
+
+import ModelCard from '../../../components/ModelCard.astro';
+import Cite from '../../../components/Cite.astro';
+import References from '../../../components/References.astro';
+
+<ModelCard
+  status="planned"
+  timing="sync"
+  crypto="any"
+  faults="byz"
+  determinism="rand"
+  problem="BA"
+  note="原文：Feldman–Micali，SIAM J. Comput. 1997；Katz–Koo，CRYPTO 2006。"
+/>
+
+本頁尚未撰寫。原文見 <Cite id="fm1997" />、<Cite id="katzkoo2006" />。
+
+## 預計涵蓋
+
+- **為什麼同步下還需要隨機化**：確定性協議至少要 $f+1$ 輪（見 [$f+1$ 輪下界](/impossibility/sync/round-bound/)）；隨機化把期望輪數降成常數，並不違反下界，因為下界只針對確定性協議。
+- **起點：Rabin 的預發 coin**：需要誠實的 dealer（<Cite id="rabin1983" />）。同步版本的陳述在本頁 [Rabin](#rabin) 一段，非同步版本與完整敘述在 [Ben-Or 到 Canetti–Rabin](/async/ben-or/)。
+- **Feldman–Micali**：同步網路下不靠外部可信第三方，期望常數輪、容忍至多 $1/3$ 的故障；原文引入 graded broadcast、graded verifiable secret sharing 與 oblivious common coin 三個新原語。
+- **Katz–Koo**：把容錯推到 $t<n/2$，只靠簽章與 PKI；引入 moderated VSS，也給 Feldman–Micali 較簡單的證明。
+- **往後**：<Cite id="abraham2019fc" /> 把期望輪數降到 10（靜態對手）或 16（強 rushing 適應性對手），但依賴 common coin 與門檻簽章，假設比 Katz–Koo 強。這一篇只放一列說明，不單獨成頁。
+- **邊界**：與非同步 [Common coin](/async/common-coin/) 的差別；各協議的假設（dealer、簽章、PKI、私有通道）逐項對照。
+
+## Rabin
+
+同步版本的陳述寫在這一段。原文同時給同步與非同步兩個結果，都要簽章與事先分發資料的誠實 dealer；原文的 Theorem 1 給出 $t<n/10$，同步與非同步各自確切的容錯條件，寫頁時對照原文逐一核對。非同步版本與完整敘述在 [Ben-Or 到 Canetti–Rabin](/async/ben-or/)，兩頁不重複證明。
+
+## 參考文獻
+
+<References />

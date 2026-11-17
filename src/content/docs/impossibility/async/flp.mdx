@@ -3,6 +3,7 @@ title: FLP：非同步下的不可能性
 seoTitle: "FLP 不可能性定理：非同步共識的證明與直覺"
 description: 完全非同步下，只要有一個 process 可能停止，沒有任何確定性的共識協議能一邊保持 safety，一邊保證每個容許執行都會做出決定。
 takeaway: "在完全非同步的系統裡，你分不出對方是停止了，還是只是慢。協議若為了容忍一個 process 停止而不等它，就得在資訊不完整的時候決定；FLP 證明，只要有一個 process 可能停止，排程就能一直把「即將定案」的那一步往後拖，而拖出來的執行完全合法（訊息只是晚到，最後都會送達），所以沒有確定性協議能同時保證 safety 與 liveness。證明的核心是 bivalent 配置（兩種決定都還有可能）。"
+depth: full
 sidebar:
   order: 1
   badge:

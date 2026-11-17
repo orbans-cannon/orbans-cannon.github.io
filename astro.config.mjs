@@ -181,6 +181,7 @@ export default defineConfig({
             'impossibility/partial-sync/dls',
             'impossibility/cost/dolev-reischuk',
             'impossibility/cost/good-case',
+            'impossibility/gates',
             'impossibility/quorum',
           ],
         },

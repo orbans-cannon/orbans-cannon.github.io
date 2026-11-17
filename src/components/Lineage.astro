@@ -1,0 +1,420 @@
+---
+/**
+ * 概念家族樹：把一條概念主線畫成「誰站在誰的肩上」的圖，圖下面逐條列出每一步改了什麼。
+ * 資料在 src/data/lineage.ts（規則見該檔檔頭與 CLAUDE.md §8）。用法：<Lineage id="async-coin" />
+ *
+ * 建置時檢查（違反就讓 build 失敗）：節點的論文存在於 papers、refs.ts 與 label 的關係、同一欄節點不重疊、
+ * 邊的兩端是這棵樹的節點、碰到 none／abstract 節點的邊只能留空或用 via（via 必須是 body 以上）、
+ * 有內容的邊要有 evidence、key 只能在 refine／respond／tight 上且不超過 8 個字、related 不能有 key。
+ *
+ * 版面：框寬 ≥ 40rem 畫圖（節點絕對定位、邊是 SVG 曲線，方向一律由左到右，不畫箭頭）；
+ * 窄的時候隱藏圖、圖說與圖例，只留一句說明與下面的清單（清單本來就是完整內容，圖只是概覽）。
+ * 顏色：邊用該部分的時序色；邊的類型用線型區分（實線＝改進、虛線＝回應限制、點劃線＝追平、細灰線＝本站畫的對應、
+ * 點線＝待核對），因為顏色只代表時序（design.md）。讀過程度低於 body 的節點是虛線外框。
+ */
+import { lineages, papers, edgeDefs } from '../data/lineage';
+import { refs } from '../data/refs';
+import { renderInline } from '../lib/inline-math';
+
+interface Props {
+  id: string;
+}
+const { id } = Astro.props;
+const data = lineages[id];
+if (!data) throw new Error(`<Lineage>：找不到家族樹「${id}」`);
+
+const en = Astro.locals.starlightRoute.lang?.startsWith('en');
+const L = (zh: string, e: string) => (en ? e : zh);
+
+// ── 建置時檢查 ──
+const WEAK = ['none', 'abstract'];
+const BODY_UP = ['body', 'proof', 'reviewed'];
+const byRef = new Map(data.nodes.map((n) => [n.ref, n]));
+const fail = (msg: string) => {
+  throw new Error(`<Lineage ${id}>：${msg}`);
+};
+for (const n of data.nodes) {
+  const p = papers[n.ref];
+  if (!p) fail(`節點「${n.ref}」不在 papers`);
+  if (p.label ? !!refs[n.ref] : !refs[n.ref]) fail(`節點「${n.ref}」要嘛在 refs.ts（papers 不寫 label），要嘛不在（要寫 label）`);
+  if (p.label && BODY_UP.includes(p.read)) fail(`讀到 body 以上的論文「${n.ref}」必須有 refs.ts 條目`);
+  if (!['spine', 'bridge', 'outer'].includes(n.role)) fail(`節點「${n.ref}」的 role 不對（spine／bridge／outer）`);
+}
+for (const n of data.nodes) {
+  for (const m of data.nodes) {
+    if (m !== n && m.col === n.col && Math.abs(m.row - n.row) * 5.8 < 5) fail(`節點「${n.ref}」與「${m.ref}」在同一欄、列距太近，會重疊`);
+  }
+}
+const edgeList = data.edges.map((k) => {
+  const e = edgeDefs[k];
+  if (!e) fail(`邊「${k}」沒有定義（edgeDefs）`);
+  if (`${e.from}>${e.to}` !== k) fail(`邊「${k}」的鍵與 from／to 不一致`);
+  return e;
+});
+const weak = (r: string) => WEAK.includes(papers[r].read);
+for (const e of edgeList) {
+  const tag = `邊 ${e.from}→${e.to}`;
+  if (!byRef.has(e.from) || !byRef.has(e.to)) fail(`${tag} 的端點不是這棵樹的節點`);
+  const w = weak(e.from) || weak(e.to);
+  if (w && e.change && !e.via) fail(`${tag} 碰到讀過程度低於 body 的節點，只能留空或用 via 轉述 body 以上的論文`);
+  if (e.via && !BODY_UP.includes(papers[e.via]?.read)) fail(`${tag} 的 via「${e.via}」必須是 body 以上的論文`);
+  if (!w && !e.change && e.kind !== 'unchecked') fail(`${tag} 缺「改了什麼」`);
+  if (e.change && !e.evidence) fail(`${tag} 缺 evidence（出處）`);
+  if (e.kind === 'unchecked' && e.change) fail(`${tag} 是 unchecked，不能寫「改了什麼」`);
+  if (w && !e.change && e.kind !== 'unchecked') fail(`${tag} 沒有內容的邊要標 unchecked`);
+  if (e.key && !['refine', 'respond', 'tight'].includes(e.kind)) fail(`${tag} 的 key 只能出現在 refine、respond、tight 上`);
+  if (e.key && [...e.key].length > 8) fail(`${tag} 的 key「${e.key}」太長（約 7 字以內，最多 8 字）`);
+}
+
+// ── 版面 ──
+const cols = Math.max(...data.nodes.map((n) => n.col)) + 1;
+const NODE_W = Math.min(17, 92 / cols); // 百分比；欄數多時節點變窄
+const NODE_H = 5; // rem，主幹與銜接的高度（列的基準）
+const NODE_H_OUTER = 4; // rem，外圍矮一點
+const PITCH = 5.8; // rem，每一列的間距
+const hOf = (n: { role: string }) => (n.role === 'outer' ? NODE_H_OUTER : NODE_H);
+const rowsMax = Math.max(...data.nodes.map((n) => n.row));
+const height = rowsMax * PITCH + NODE_H;
+const leftOf = (c: number) => (cols === 1 ? 0 : (c * (100 - NODE_W)) / (cols - 1));
+const topOf = (r: number) => r * PITCH;
+
+const paths = edgeList.map((e) => {
+  const a = byRef.get(e.from)!;
+  const b = byRef.get(e.to)!;
+  const x1 = leftOf(a.col) + NODE_W;
+  const y1 = topOf(a.row) + NODE_H / 2;
+  const x2 = leftOf(b.col);
+  const y2 = topOf(b.row) + NODE_H / 2;
+  const mx = (x1 + x2) / 2;
+  return { d: `M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`, kind: e.kind };
+});
+
+const kindLabel: Record<string, string> = {
+  refine: L('改進', 'refines'),
+  respond: L('回應限制', 'responds to a limit'),
+  tight: L('追平（同一模型達到下界）', 'meets the bound'),
+  related: L('對應，非繼承', 'parallel, not inherited'),
+  unchecked: L('關係待核對', 'relation unchecked'),
+};
+const keyName = L('關鍵改動', 'Key change');
+const keyNote = data.keyNote ?? '這一步換掉或放寬的東西';
+const label = (r: string) => papers[r].label ?? refs[r].label;
+const hrefOf = (n: { ref: string; href?: string }) => n.href ?? papers[n.ref].href;
+// 每個節點收到的關鍵改動（同一個節點可能有多條邊帶 key）
+const keysOf = (ref: string) => [...new Set(edgeList.filter((e) => e.to === ref && e.key).map((e) => e.key as string))];
+const hasKey = edgeList.some((e) => e.key);
+const hasTight = edgeList.some((e) => e.kind === 'tight');
+const statusLabel = data.status === 'draft' ? L('草稿', 'Draft') : L('已審', 'Reviewed');
+---
+
+<figure class={`bft-lineage not-content ln-${data.timing}`}>
+  <figcaption class="ln-title">
+    <span class="ln-titleline">
+      <strong>{data.title}</strong>
+      <span class="ln-status" data-status={data.status} title={L('這棵樹的內容還沒經作者審查', 'Not yet reviewed by the author')}>{statusLabel}</span>
+    </span>
+    <span set:html={renderInline(data.concept)} />
+  </figcaption>
+
+  <div class="ln-graph" style={`--ln-h:${height}rem`} aria-hidden="true">
+    <svg viewBox={`0 0 100 ${height}`} preserveAspectRatio="none" class="ln-edges">
+      {paths.map((p) => <path d={p.d} class={`ln-edge ln-${p.kind}`} vector-effect="non-scaling-stroke" />)}
+    </svg>
+    {
+      data.nodes.map((n) => {
+        const href = hrefOf(n);
+        const Tag = href ? 'a' : 'div';
+        return (
+          <Tag
+            class:list={['ln-node', `ln-role-${n.role}`, weak(n.ref) && 'ln-unread']}
+            href={href}
+            style={`left:${leftOf(n.col)}%;top:${topOf(n.row) + (NODE_H - hOf(n)) / 2}rem;width:${NODE_W}%;height:${hOf(n)}rem`}
+          >
+            {keysOf(n.ref).length > 0 && <span class="ln-key">{keysOf(n.ref).join('、')}</span>}
+            <span class="ln-name">{label(n.ref)}</span>
+            <span class="ln-tag" set:html={renderInline(n.tag)} />
+          </Tag>
+        );
+      })
+    }
+  </div>
+
+  <p class="ln-mobile-note">{L('窄螢幕不顯示圖，請看下面逐條列出的每一步。', 'The diagram is hidden on narrow screens; see the step-by-step list below.')}</p>
+  <p class="ln-caption" set:html={renderInline(data.caption)} />
+  <p class="ln-legend">
+    <span class="ln-lg ln-lg-A">{L('粗框：主幹', 'Heavy border: spine')}</span>
+    <span class="ln-lg ln-lg-B">{L('細框：銜接', 'Thin border: bridge')}</span>
+    <span class="ln-lg ln-lg-C">{L('小節點：外圍', 'Small node: periphery')}</span>
+    <span class="ln-lg ln-lg-U">{L('虛線框：還沒讀到主要結果', 'Dashed: main results not read')}</span>
+    {hasTight && <span class="ln-lg-tight">{L('點劃線：追平（同一模型下達到下界，不是鬆開假設）', 'Dash-dot: meets the bound in the same model')}</span>}
+    {hasKey && <span class="ln-lg-key">{L(`框上緣的金字：${keyName}（${keyNote}）`, `Gold label: ${keyName}`)}</span>}
+  </p>
+  {
+    data.notes && data.notes.length > 0 && (
+      <ul class="ln-notes">
+        {data.notes.map((t) => <li set:html={renderInline(t)} />)}
+      </ul>
+    )
+  }
+
+  <h4 class="ln-h">{L('每一步改了什麼', 'What each step changed')}</h4>
+  <ol class="ln-steps">
+    {
+      edgeList.map((e) => (
+        <li class={`ln-step ln-${e.kind}`}>
+          <span class="ln-pair">
+            {label(e.from)} → {label(e.to)}
+            <span class="ln-kind">{kindLabel[e.kind]}{e.key ? `　${keyName}：${e.key}` : ''}</span>
+          </span>
+          {e.change ? (
+            <span>
+              {e.via && <span class="ln-via">{L(`（依 ${label(e.via)} 的敘述）`, `(as described in ${label(e.via)}) `)}</span>}
+              <span set:html={renderInline(e.change)} />
+            </span>
+          ) : (
+            <span class="ln-muted">{L('還沒讀到主要結果，不寫兩者的關係。', 'Main results not read yet; no claim about the relation.')}</span>
+          )}
+        </li>
+      ))
+    }
+  </ol>
+
+  {
+    data.cross && data.cross.length > 0 && (
+      <>
+        <h4 class="ln-h">{L('和其他脈絡的連線', 'Links to other lineages')}</h4>
+        <ul class="ln-cross">
+          {data.cross.map((c) => (
+            <li>
+              <span set:html={renderInline(c.text)} />
+              <a href={c.href}>{c.hrefLabel}</a>
+            </li>
+          ))}
+        </ul>
+      </>
+    )
+  }
+
+  <h4 class="ln-h">{L('這條脈絡的四個問題', 'Four questions about this lineage')}</h4>
+  <dl class="ln-qa">
+    {
+      data.qa.map((x) => (
+        <>
+          <dt>{x.q}</dt>
+          <dd set:html={renderInline(x.a)} />
+        </>
+      ))
+    }
+  </dl>
+</figure>
+
+<style is:global>
+  .bft-lineage {
+    --ln-line: var(--bft-any);
+    container-type: inline-size;
+    margin: 1.5rem 0;
+    padding: 0;
+  }
+  .bft-lineage.ln-sync { --ln-line: var(--bft-sync); }
+  .bft-lineage.ln-partial { --ln-line: var(--bft-partial); }
+  .bft-lineage.ln-async { --ln-line: var(--bft-async); }
+  .bft-lineage.ln-hybrid { --ln-line: var(--bft-hybrid); }
+
+  .bft-lineage .ln-titleline {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+  }
+  .bft-lineage .ln-status {
+    padding: 0 0.45rem;
+    border: 1px solid var(--sl-color-gray-3);
+    border-radius: 0.6rem;
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-gray-2);
+    line-height: 1.5;
+  }
+  .bft-lineage .ln-mobile-note { display: none; margin: 0.4rem 0; font-size: var(--sl-text-xs); color: var(--sl-color-gray-3); }
+  @container (max-width: 39.99rem) {
+    .bft-lineage .ln-mobile-note { display: block; }
+    .bft-lineage .ln-caption,
+    .bft-lineage .ln-legend { display: none !important; }
+  }
+  .bft-lineage .ln-title {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    margin-bottom: 0.9rem;
+  }
+  .bft-lineage .ln-title span {
+    font-size: var(--sl-text-sm);
+    color: var(--sl-color-gray-2);
+  }
+
+  /* 圖：窄的時候整張藏起來，只留下面的清單 */
+  .bft-lineage .ln-graph {
+    position: relative;
+    display: none;
+    height: var(--ln-h);
+    margin: 0.5rem 0 0.75rem;
+  }
+  @container (min-width: 40rem) {
+    .bft-lineage .ln-graph { display: block; }
+  }
+  .bft-lineage .ln-edges {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+  .bft-lineage .ln-edge {
+    fill: none;
+    stroke: var(--ln-line);
+    stroke-width: 1.75px;
+    opacity: 0.8;
+  }
+  .bft-lineage .ln-edge.ln-respond { stroke-dasharray: 7 4; }
+  .bft-lineage .ln-edge.ln-tight {
+    stroke-dasharray: 10 3 2 3;
+    stroke-width: 2px;
+  }
+  .bft-lineage .ln-edge.ln-related {
+    stroke: var(--sl-color-gray-3);
+    stroke-width: 1px;
+  }
+  .bft-lineage .ln-edge.ln-unchecked {
+    stroke: var(--sl-color-gray-3);
+    stroke-dasharray: 2 4;
+    opacity: 0.9;
+  }
+
+  .bft-lineage .ln-node {
+    position: absolute;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.1rem;
+    padding: 0.3rem 0.5rem;
+    border: 1.5px solid var(--ln-line);
+    border-radius: 0.4rem;
+    background: var(--sl-color-bg);
+    color: var(--sl-color-white);
+    text-decoration: none;
+    line-height: 1.3;
+  }
+  .bft-lineage a.ln-node:hover { border-color: var(--bft-gold, var(--sl-color-accent)); }
+  .bft-lineage .ln-node.ln-role-spine { border-width: 2.5px; }
+  .bft-lineage .ln-node.ln-role-spine .ln-name { font-size: calc(var(--sl-text-sm) * 1.05); }
+  .bft-lineage .ln-node.ln-role-bridge { border-width: 1.5px; }
+  .bft-lineage .ln-node.ln-role-outer { border-width: 1px; padding: 0.2rem 0.4rem; }
+  .bft-lineage .ln-node.ln-role-outer .ln-name { font-weight: 500; font-size: var(--sl-text-xs); }
+  .bft-lineage .ln-node.ln-role-outer .ln-tag { font-size: calc(var(--sl-text-xs) * 0.9); }
+  .bft-lineage .ln-node.ln-unread {
+    border-style: dashed;
+    border-color: var(--sl-color-gray-3);
+    color: var(--sl-color-gray-2);
+  }
+  .bft-lineage .ln-key {
+    position: absolute;
+    top: -0.62rem;
+    left: 0.4rem;
+    max-width: calc(100% - 0.8rem);
+    padding: 0 0.35rem;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    background: var(--sl-color-bg);
+    border-radius: 0.2rem;
+    font-size: calc(var(--sl-text-xs) * 0.92);
+    color: var(--sl-color-text-accent);
+    line-height: 1.2;
+  }
+  .bft-lineage .ln-name { font-weight: 600; font-size: var(--sl-text-sm); }
+  .bft-lineage .ln-tag { font-size: var(--sl-text-xs); color: var(--sl-color-gray-2); }
+
+  .bft-lineage .ln-caption {
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-gray-3);
+    margin: 0 0 0.5rem;
+  }
+  .bft-lineage .ln-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.2rem 1rem;
+    margin: 0 0 0.5rem;
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-gray-3);
+  }
+  .bft-lineage .ln-lg::before {
+    content: '';
+    display: inline-block;
+    width: 0.9em;
+    height: 0.65em;
+    margin-right: 0.35em;
+    vertical-align: -0.05em;
+    border: 1px solid var(--ln-line);
+    border-radius: 0.15em;
+  }
+  .bft-lineage .ln-lg-key { color: var(--sl-color-text-accent); }
+  .bft-lineage .ln-lg-tight { color: var(--sl-color-gray-2); }
+  .bft-lineage .ln-lg-A::before { border-width: 2.5px; }
+  .bft-lineage .ln-lg-B::before { border-width: 1.5px; }
+  .bft-lineage .ln-lg-C::before { width: 0.65em; height: 0.5em; border-width: 1px; }
+  .bft-lineage .ln-lg-U::before { border-style: dashed; border-color: var(--sl-color-gray-3); }
+  .sl-markdown-content .bft-lineage .ln-notes,
+  .sl-markdown-content .bft-lineage .ln-cross {
+    margin: 0 0 0.5rem;
+    padding-left: 1.1rem;
+    font-size: var(--sl-text-sm);
+    color: var(--sl-color-gray-2);
+  }
+  .sl-markdown-content .bft-lineage .ln-notes li,
+  .sl-markdown-content .bft-lineage .ln-cross li { margin: 0.25rem 0; }
+  .bft-lineage .ln-cross a { margin-left: 0.4em; }
+  .bft-lineage .ln-h {
+    margin: 1.1rem 0 0.4rem;
+    font-size: var(--sl-text-sm);
+    color: var(--sl-color-gray-2);
+    font-weight: 600;
+  }
+  .sl-markdown-content .bft-lineage .ln-steps {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .sl-markdown-content .bft-lineage .ln-step {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    margin: 0;
+    padding: 0.5rem 0 0.5rem 0.9rem;
+    border-left: 2px solid var(--ln-line);
+    font-size: var(--sl-text-sm);
+  }
+  .sl-markdown-content .bft-lineage .ln-step.ln-respond { border-left-style: dashed; }
+  .sl-markdown-content .bft-lineage .ln-step.ln-tight { border-left-style: double; border-left-width: 4px; }
+  .sl-markdown-content .bft-lineage .ln-step.ln-related { border-left: 1px solid var(--sl-color-gray-3); }
+  .sl-markdown-content .bft-lineage .ln-step.ln-unchecked { border-left: 2px dotted var(--sl-color-gray-3); }
+  .bft-lineage .ln-pair { font-weight: 600; }
+  .bft-lineage .ln-kind {
+    margin-left: 0.6em;
+    font-weight: 400;
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-gray-3);
+  }
+  .bft-lineage .ln-via { color: var(--sl-color-gray-3); margin-right: 0.3em; }
+  .bft-lineage .ln-muted { color: var(--sl-color-gray-3); }
+  .sl-markdown-content .bft-lineage .ln-qa { margin: 0; }
+  .sl-markdown-content .bft-lineage .ln-qa dt {
+    margin-top: 0.6rem;
+    font-weight: 600;
+    font-size: var(--sl-text-sm);
+  }
+  .sl-markdown-content .bft-lineage .ln-qa dd {
+    margin: 0.1rem 0 0;
+    font-size: var(--sl-text-sm);
+    color: var(--sl-color-gray-1);
+  }
+</style>

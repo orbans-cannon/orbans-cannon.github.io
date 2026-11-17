@@ -1,0 +1,40 @@
+---
+title: HotStuff：線性 view change 與三階段
+description: 三階段、鎖定規則與 optimistic responsiveness，以及複雜度的精確敘述。
+depth: full
+sidebar:
+  order: 22
+  badge:
+    text: 規劃中
+    variant: note
+---
+
+import ModelCard from '../../../components/ModelCard.astro';
+import Cite from '../../../components/Cite.astro';
+import References from '../../../components/References.astro';
+
+<ModelCard
+  status="planned"
+  timing="partial"
+  crypto="threshold"
+  faults="byz"
+  determinism="det"
+  problem="SMR"
+  resilience="n ≥ 3f+1"
+  note="原文：HotStuff，PODC 2019。"
+/>
+
+本頁尚未撰寫。原文見 <Cite id="hotstuff2019" />；它要改進的對象見 <Cite id="pbft2002" />。
+
+## 預計涵蓋
+
+- **主要結果**：原文稱（to our knowledge）第一個同時有線性 view change 與 optimistic responsiveness 的部分同步 BFT 複製協議；預計逐項寫出它的條件。
+- **三階段與鎖定**：prepare、pre-commit、commit 三階段與 QC；新 leader 只要挑自己知道的最高 QC，就能安全提案。原文用兩階段版本的活性反例說明為什麼需要第三階段，預計沿用。
+- **responsiveness**：什麼是 responsiveness、optimistic responsiveness，以及兩階段版本為什麼要靠等待最大延遲補救（與 [2-chain 與簡化](/partial-sync/two-chain/) 呼應）。
+- **複雜度的精確敘述**：原文數的是 authenticators；GST 之後，任何正確 leader 只送 $O(n)$ 個 authenticator，包括換 leader 的情況，連續 leader 故障的最壞情況是 $O(n^2)$。單位與情境要逐條標明，並說明它不含 view synchronizer 的成本。
+- **Chained HotStuff**：把三階段 pipeline 成每個 view 一個提案。
+- **邊界**：Pacemaker 是黑盒，見 [Pacemaker 與 view synchronization](/partial-sync/pacemaker/)；與 [PBFT](/partial-sync/pbft/) 的 view change 對照。
+
+## 參考文獻
+
+<References />

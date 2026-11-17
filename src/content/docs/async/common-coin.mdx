@@ -3,6 +3,7 @@ title: Common coin 與 CKS：用門檻密碼學繞過 FLP
 seoTitle: "Common coin 與 CKS：非同步 Byzantine Agreement"
 description: Cachin–Kursawe–Shoup 用門檻簽章與一個可隨機存取的 coin，做出實用的非同步 Byzantine Agreement：容錯 t<n/3、期望常數輪、期望 O(n²) 訊息，而且只在 setup 用到 trusted dealer。
 takeaway: "CKS 的核心是一個「名稱到比特」的分散式函數：任何人只要集齊 n−t 份 coin share 就能算出某個名稱的 coin，但在誠實節點揭露足夠多份之前，對手猜中的機率不超過 1/2。ABBA 以它為基礎，每兩輪至少有一輪的結果在 coin 揭曉前就已定案，所以期望常數輪結束。"
+depth: full
 sidebar:
   label: Common coin 與 CKS
   order: 40

@@ -10,8 +10,19 @@
  *   1. 站內連結與 #錨點必須存在（讀 dist；有原始碼行號時一併指出）
  *   2. 頁面的側欄 badge 必須與模型卡的 status 一致
  *   3. 禁用詞：處理過程用語（「資料夾」「我們手上」「欄寫 any」…）、大陸用語（「軟件」「網絡」…）
+ *   7. 家族樹與論文頁面的跨頁檢查（lineage.ts、refs.ts、各頁的 <Cite> 與 frontmatter）：
+ *      a. 每棵樹：節點的論文存在於 papers、role 與 read 的值合法、同一欄節點不重疊、邊的鍵存在且端點是這棵樹的節點
+ *      b. 論文：label 與 refs.ts 的關係、讀到 body 以上的必須有 refs.ts 條目、href（頁面）存在
+ *      c. 邊：碰到 none／abstract 的節點只能留空或用 via（via 必須是 body 以上）、有內容要有 evidence、
+ *         key 只能在 refine／respond／tight 上且不超過 8 個字、related 不能有 key、unchecked 不能有內容
+ *      d. 讀過程度與 refs.ts 備註一致：body 以上不能寫「內容沒讀」，body 以下不能寫「讀過摘要與主要定理」
+ *      e. 任何頁面的 <Cite> 引用的書目：讀過程度至少 body、備註不能是「內容沒讀」
+ *      f. 孤兒頁：論文頁（impossibility、sync、partial-sync、async、convergence 的子頁）必須被某個樹的節點連到；
+ *         概念頁與總覽頁（quorum、overview、gates）在白名單
+ *      g. 家族樹給讀者看的文字不能有處理過程用語（與第 3 條同一份詞表）
+ *      h. 「門與鑰匙」頁引用的模型總覽列號必須存在於 overview.ts
  * 警告（不擋建置，--strict 才擋）：
- *   4. 部分首頁的 badge 低於子頁最高狀態
+ *   （第 4 條「部分首頁 badge 低於子頁」已於 2026-11-17 刪除：badge 只代表首頁自己的狀態，見 CLAUDE.md）
  *   5. 中文頁沒有對應的英文頁；英文頁的 translatedFrom 早於中文頁的修改時間
  *   6. TODO、FIXME
  * 某一行確定要留著禁用詞時，在同一行加上 check-ignore（例如 {/* check-ignore *​/}）。
@@ -19,7 +30,7 @@
  */
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join, relative, dirname, sep } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DOCS = join(ROOT, 'src/content/docs');
@@ -87,19 +98,6 @@ if (runSource) {
     }
   }
 
-  // 4. 部分首頁的 badge 不低於子頁最高狀態（警告）
-  const parts = new Set(pages.filter((p) => !p.isEn).map((p) => p.sub.split('/')[0]).filter((d) => d.includes('.') === false));
-  for (const part of parts) {
-    const idx = pages.find((p) => !p.isEn && /^[^/]+\/index\.mdx?$/.test(p.sub) && p.sub.startsWith(part + '/'));
-    if (!idx || !idx.badge || !statusOfBadge[idx.badge]) continue;
-    const kids = pages.filter((p) => !p.isEn && p.sub.startsWith(part + '/') && p !== idx && p.badge && statusOfBadge[p.badge]);
-    if (kids.length === 0) continue;
-    const top = kids.reduce((a, b) => (rank[statusOfBadge[b.badge]] > rank[statusOfBadge[a.badge]] ? b : a));
-    if (rank[statusOfBadge[idx.badge]] < rank[statusOfBadge[top.badge]]) {
-      warn(rel(idx.file), `部分首頁的 badge「${idx.badge}」低於子頁最高狀態「${top.badge}」（${top.sub}）`);
-    }
-  }
-
   // 5. 中英文頁對應
   const enSubs = new Set(pages.filter((p) => p.isEn).map((p) => p.sub.slice(3).replace(/\.mdx?$/, '')));
   const missing = pages
@@ -120,7 +118,7 @@ if (runSource) {
   // 3、6. 禁用詞
   const rules = [
     // [適用語言, 類別, 詞, 級別]
-    ...['資料夾', '我們手上', '手上沒有', '手上只有', '寫 any', '欄寫', '尚未取得', '已取得', 'PDF 已', 'PDF 還'].map((w) => ['zh', '處理過程用語（讀者不需要知道）', w, 'error']),
+    ...['資料夾', '我們手上', '手上沒有', '手上只有', '寫 any', '欄寫', '尚未取得', '已取得', 'PDF 已', 'PDF 還', 'papers/', '待下載清單', 'refs.ts', 'lineage.ts', 'check.mjs'].map((w) => ['zh', '處理過程用語（讀者不需要知道）', w, 'error']),
     ...['計算機系統', '毛病', '軟件', '網絡', '默認', '信息系統'].map((w) => ['zh', '大陸用語（本站用台灣用語）', w, 'error']),
     ...['papers folder', 'in the folder', 'says any', 'PDF obtained', 'not been obtained'].map((w) => ['en', '處理過程用語（讀者不需要知道）', w, 'error']),
     ...['TODO', 'FIXME'].map((w) => ['both', '未完成的標記', w, 'warn']),
@@ -136,6 +134,146 @@ if (runSource) {
         (level === 'error' ? err : warn)(`${rel(p.file)}:${i + 1}`, `${cat}：「${word}」`);
       }
     });
+  }
+
+  // 7. 家族樹與論文頁面的跨頁檢查（資料在 src/data/lineage.ts、refs.ts）
+  let LIN = null;
+  let REF = null;
+  let OV = null;
+  try {
+    LIN = await import(pathToFileURL(join(ROOT, 'src/data/lineage.ts')).href);
+    REF = await import(pathToFileURL(join(ROOT, 'src/data/refs.ts')).href);
+  } catch (e) {
+    warn('scripts/check.mjs', `無法載入家族樹資料，略過第 7 條檢查（需要 Node 22.18 以上才能直接讀 .ts）：${e.message}`);
+  }
+  try {
+    OV = await import(pathToFileURL(join(ROOT, 'src/data/overview.ts')).href);
+  } catch {
+    OV = null;
+  }
+  if (LIN && REF) {
+    const { lineages, papers, edgeDefs } = LIN;
+    const refs = REF.refs;
+    const LEVELS = ['none', 'abstract', 'body', 'proof', 'reviewed'];
+    const BODY_UP = ['body', 'proof', 'reviewed'];
+    const KINDS = ['refine', 'respond', 'tight', 'related', 'unchecked'];
+    const ROLES = ['spine', 'bridge', 'outer'];
+    const NOT_READ = /內容(還)?沒讀/;
+    const SRC = 'src/data/lineage.ts';
+    const pageExists = (href) => {
+      const p = href.split('#')[0].replace(/^\/|\/$/g, '');
+      return ['mdx', 'md'].some((x) => existsSync(join(DOCS, `${p}.${x}`)) || existsSync(join(DOCS, p, `index.${x}`)));
+    };
+    const processWords = ['資料夾', '手上沒有', '手上只有', '尚未取得', '已取得', 'papers/', '待下載清單', 'refs.ts', 'lineage.ts', 'check.mjs', '研讀清單'];
+    const visibleCheck = (where, text) => {
+      for (const w of processWords) if (text.includes(w)) err(where, `處理過程用語（讀者不需要知道）：「${w}」`);
+    };
+
+    // b. 論文
+    for (const [ref, p] of Object.entries(papers)) {
+      const where = `${SRC}（papers.${ref}）`;
+      if (!LEVELS.includes(p.read)) err(where, `read「${p.read}」不是合法的值（${LEVELS.join('、')}）`);
+      if (p.label ? !!refs[ref] : !refs[ref]) err(where, `要嘛在 refs.ts（不寫 label），要嘛不在（要寫 label）`);
+      if (p.label && BODY_UP.includes(p.read)) err(where, `讀到 ${p.read} 的論文必須有 refs.ts 條目`);
+      if (p.href && !pageExists(p.href)) err(where, `href ${p.href} 指向不存在的頁面`);
+      // d. 讀過程度與 refs 備註
+      const note = refs[ref]?.note ?? '';
+      if (refs[ref]) {
+        if (BODY_UP.includes(p.read) && NOT_READ.test(note)) err(where, `read 是 ${p.read}，但 refs.ts 的備註還寫「內容沒讀」，兩邊要同時改`);
+        if (!BODY_UP.includes(p.read) && note.includes('讀過摘要與主要定理')) err(where, `read 是 ${p.read}，但 refs.ts 的備註寫「讀過摘要與主要定理」，兩邊要同時改`);
+      }
+    }
+
+    // c. 邊
+    const usedEdges = new Set();
+    const weak = (r) => !BODY_UP.includes(papers[r]?.read);
+    for (const [k, e] of Object.entries(edgeDefs)) {
+      const where = `${SRC}（edgeDefs.${k}）`;
+      if (`${e.from}>${e.to}` !== k) err(where, `鍵與 from／to 不一致`);
+      if (!KINDS.includes(e.kind)) err(where, `kind「${e.kind}」不是合法的值`);
+      if (!papers[e.from] || !papers[e.to]) { err(where, `端點不在 papers`); continue; }
+      const w = weak(e.from) || weak(e.to);
+      if (w && e.change && !e.via) err(where, `碰到讀過程度低於 body 的節點，只能留空或用 via 轉述 body 以上的論文`);
+      if (e.via && !BODY_UP.includes(papers[e.via]?.read)) err(where, `via「${e.via}」必須是 body 以上的論文`);
+      if (!w && !e.change && e.kind !== 'unchecked') err(where, `缺「改了什麼」（change）`);
+      if (e.change && !e.evidence) err(where, `有內容的邊缺 evidence（出處）`);
+      if (e.kind === 'unchecked' && e.change) err(where, `unchecked 的邊不能寫內容`);
+      if (w && !e.change && e.kind !== 'unchecked') err(where, `沒有內容的邊要標 unchecked`);
+      if (e.key && !['refine', 'respond', 'tight'].includes(e.kind)) err(where, `key 只能出現在 refine、respond、tight 上（這條是 ${e.kind}）`);
+      if (e.key && [...e.key].length > 8) err(where, `key「${e.key}」太長（約 7 字以內，最多 8 字）`);
+      if (e.change) visibleCheck(where, e.change);
+    }
+
+    // a、g. 每棵樹
+    for (const [tid, t] of Object.entries(lineages)) {
+      const where = `${SRC}（${tid}）`;
+      if (!['draft', 'reviewed'].includes(t.status)) err(where, `status「${t.status}」不是合法的值`);
+      const refsInTree = new Set();
+      for (const n of t.nodes) {
+        if (!papers[n.ref]) { err(where, `節點「${n.ref}」不在 papers`); continue; }
+        refsInTree.add(n.ref);
+        if (!ROLES.includes(n.role)) err(where, `節點「${n.ref}」的 role「${n.role}」不對`);
+        if (!n.tag) err(where, `節點「${n.ref}」缺 tag`);
+        if (n.href && !pageExists(n.href)) err(where, `節點「${n.ref}」的 href ${n.href} 指向不存在的頁面`);
+        for (const m of t.nodes) if (m !== n && m.col === n.col && Math.abs(m.row - n.row) * 5.8 < 5) err(where, `節點「${n.ref}」與「${m.ref}」在同一欄、列距太近，會重疊`);
+        visibleCheck(where, n.tag);
+      }
+      for (const k of t.edges) {
+        const e = edgeDefs[k];
+        if (!e) { err(where, `邊「${k}」沒有定義（edgeDefs）`); continue; }
+        usedEdges.add(k);
+        if (!refsInTree.has(e.from) || !refsInTree.has(e.to)) err(where, `邊「${k}」的端點不是這棵樹的節點`);
+      }
+      for (const text of [t.concept, t.caption, t.keyNote, ...(t.notes ?? []), ...(t.cross ?? []).map((c) => c.text), ...t.qa.flatMap((q) => [q.q, q.a])]) {
+        if (text) visibleCheck(where, text);
+      }
+      for (const c of t.cross ?? []) if (!pageExists(c.href)) err(where, `cross 連結 ${c.href} 指向不存在的頁面`);
+    }
+    for (const k of Object.keys(edgeDefs)) if (!usedEdges.has(k)) warn(`${SRC}（edgeDefs.${k}）`, `這條邊沒有被任何一棵樹使用`);
+
+    // e. 任何頁面的 <Cite>
+    for (const p of pages.filter((x) => !x.isEn)) {
+      for (const m of p.text.matchAll(/<Cite\s+id="([^"]+)"/g)) {
+        const id = m[1];
+        const at = `${rel(p.file)}:${lineOf(p.text, m.index)}`;
+        if (papers[id] && !BODY_UP.includes(papers[id].read)) err(at, `引用的「${id}」讀過程度是 ${papers[id].read}，<Cite> 至少要 body`);
+        if (refs[id] && NOT_READ.test(refs[id].note ?? '')) err(at, `引用的「${id}」在 refs.ts 的備註是「內容沒讀」，不能放進頁面引用`);
+      }
+    }
+
+    // f. 孤兒頁、depth、部分首頁連結
+    const WHITELIST = new Set(['impossibility/quorum', 'impossibility/overview', 'impossibility/gates']);
+    const hrefPaths = new Set();
+    const addHref = (h) => h && hrefPaths.add(h.split('#')[0].replace(/^\/|\/$/g, ''));
+    for (const p of Object.values(papers)) addHref(p.href);
+    for (const t of Object.values(lineages)) for (const n of t.nodes) addHref(n.href);
+    const paperPages = pages.filter((p) => !p.isEn && /^(impossibility|sync|partial-sync|async|convergence)\/[^/]+(\/[^/]+)*\.mdx?$/.test(p.sub) && !/\/index\.mdx?$/.test(p.sub));
+    for (const p of paperPages) {
+      const slug = p.sub.replace(/\.mdx?$/, '');
+      if (WHITELIST.has(slug)) continue;
+      if (!hrefPaths.has(slug)) err(rel(p.file), `孤兒頁：沒有任何家族樹的節點連到這一頁（論文頁必須有樹的節點；概念頁請加進 scripts/check.mjs 的白名單）`);
+      const fm = (p.text.match(/^---\n([\s\S]*?)\n---/) ?? [, ''])[1];
+      if (!/^depth:\s*(full|guide|index)\s*$/m.test(fm)) warn(rel(p.file), `論文頁沒有 depth（full／guide／index）`);
+    }
+    for (const part of ['sync', 'partial-sync', 'async', 'convergence']) {
+      const idx = pages.find((p) => !p.isEn && p.sub === `${part}/index.mdx`);
+      if (!idx) continue;
+      for (const p of paperPages.filter((x) => x.sub.startsWith(part + '/'))) {
+        const slug = '/' + p.sub.replace(/\.mdx?$/, '') + '/';
+        if (!idx.text.includes(`](${slug}`)) warn(rel(idx.file), `部分首頁的規劃章節沒有連到 ${slug}`);
+      }
+    }
+
+    // h. 「門與鑰匙」頁引用的模型總覽列號
+    const gates = pages.find((p) => !p.isEn && p.sub === 'impossibility/gates.mdx');
+    if (gates && OV?.overviewRows) {
+      const ids = new Set(OV.overviewRows.map((r) => r.id));
+      for (const m of gates.text.matchAll(/第\s*([\d、，,\s]+)\s*列/g)) {
+        for (const n of m[1].split(/[、，,\s]+/).filter(Boolean)) {
+          if (!ids.has(Number(n))) err(`${rel(gates.file)}:${lineOf(gates.text, m.index)}`, `引用的模型總覽第 ${n} 列不存在（overview.ts）`);
+        }
+      }
+    }
   }
 }
 

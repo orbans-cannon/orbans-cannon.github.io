@@ -1,0 +1,39 @@
+---
+title: MMR：免簽章、O(n²) 訊息的非同步 BA
+description: 在給定 common coin 時，免簽章、期望常數輪的二元 BA。
+depth: full
+sidebar:
+  order: 50
+  badge:
+    text: 規劃中
+    variant: note
+---
+
+import ModelCard from '../../../components/ModelCard.astro';
+import Cite from '../../../components/Cite.astro';
+import References from '../../../components/References.astro';
+
+<ModelCard
+  status="planned"
+  timing="async"
+  crypto="none"
+  faults="byz"
+  determinism="rand"
+  problem="BA"
+  resilience="f < n/3"
+  note="原文：Mostéfaoui–Moumen–Raynal，J. ACM 2015。二元共識。"
+/>
+
+本頁尚未撰寫。原文見 <Cite id="mmr2015" />；coin 的來源見 <Cite id="cks2000" />。
+
+## 預計涵蓋
+
+- **模型**：非同步、免簽章、$f<n/3$，給定一個 common coin；問題是二元共識。
+- **BV-broadcast**：二元值廣播的 echo 機制，與 Bracha 式的 echo 不同（對每個值而不是每個值加身分）。
+- **主要結果**：期望常數輪、$O(n^2)$ 訊息；預計逐條標明單位與情境。
+- **與 CKS 的分工**：coin 怎麼實作（[Common coin 與 CKS](/async/common-coin/)）與共識那一層怎麼做，是兩個問題；密碼學只留在 coin 那一層。
+- **邊界**：假設有完美的 common coin；沒有 coin 時退回 local coin 的指數期望（見 [Bracha](/async/bracha/)）。
+
+## 參考文獻
+
+<References />

@@ -1,0 +1,40 @@
+---
+title: Sync HotStuff：f<n/2 與約 2Δ 的提交
+description: 同步下的 BFT 狀態機複製：穩定 leader、不需要 lock-step，以及它為什麼不能搬到部分同步。
+depth: guide
+sidebar:
+  order: 12
+  badge:
+    text: 規劃中
+    variant: note
+---
+
+import ModelCard from '../../../components/ModelCard.astro';
+import Cite from '../../../components/Cite.astro';
+import References from '../../../components/References.astro';
+
+<ModelCard
+  status="planned"
+  timing="sync"
+  crypto="sig"
+  faults="byz"
+  determinism="det"
+  problem="SMR"
+  resilience="f < n/2"
+  note="原文：Sync HotStuff，IEEE S&P 2020。"
+/>
+
+本頁尚未撰寫。原文見 <Cite id="synchs2020" />。
+
+## 預計涵蓋
+
+- **模型與問題**：同步、簽章、容忍 $f<n/2$ 的狀態機複製（SMR）；與 [Dolev–Strong](/sync/dolev-strong/) 的 BB 是相關但不同的問題。
+- **穩定狀態的延遲**：原文摘要的主要結果是穩定狀態下約 $2\Delta$ 的 commit 延遲；加上實際延遲 $\delta$ 的版本，寫頁時對照原文核對。
+- **協議結構**：兩階段、由穩定 leader 驅動，借自部分同步協議的設計；不需要 lock-step 執行。
+- **較弱的同步模型**：原文說 safety 在「並非所有 replica 一直滿足同步假設」的較弱模型下仍成立；預計寫出這個模型與它的邊界。
+- **optimistic responsiveness**：原文摘要稱在不到四分之一 replica 無回應時，協議以網路速度前進；預計核對這個條件。
+- **邊界**：為什麼不能搬到部分同步；與 [PBFT](/partial-sync/pbft/)、[HotStuff](/partial-sync/hotstuff/) 的節點數與延遲對照（$2f+1$ 與 $3f+1$）。
+
+## 參考文獻
+
+<References />

@@ -3,6 +3,7 @@ title: Bullshark：好情況兩輪，壞情況退回 DAG-Rider
 seoTitle: "Bullshark 導讀：好情況兩輪的 DAG-BFT"
 description: Bullshark 在 DAG 上同時放進預先指定的 steady-state leader（同步時兩輪 commit）與事後以 coin 選出的 fallback leader（非同步時保證 liveness），並提供公平的垃圾回收。
 takeaway: "每個 wave 有三個 leader：兩個預先指定、同步時兩輪就能 commit 的 steady-state leader，與一個事後由 coin 選出的 fallback leader。每個節點的投票類型寫在 DAG 裡，沒人能說謊，所以不需要 view change。"
+depth: full
 sidebar:
   label: Bullshark
   order: 40
