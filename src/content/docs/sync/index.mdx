@@ -1,16 +1,18 @@
 ---
 title: 同步模型
+seoTitle: "同步模型下的拜占庭容錯：簽章、輪數與演算法脈絡"
 description: 延遲有已知上界 Δ 時，簽章改變了什麼。
 sidebar:
   badge:
-    text: 大綱
-    variant: default
+    text: 草稿
+    variant: caution
   order: 10
 ---
 import PartRoute from '../../../components/PartRoute.astro';
 import ModelCard from '../../../components/ModelCard.astro';
+import Lineage from '../../../components/Lineage.astro';
 
-<ModelCard status="outline" timing="sync" crypto="any" faults="byz" determinism="det" problem="BB-BA" />
+<ModelCard status="draft" timing="sync" crypto="any" faults="byz" determinism="det" problem="BB-BA" />
 
 :::note[大綱]
 本部分只有大綱，尚未撰寫。以下是規劃。
@@ -23,8 +25,15 @@ import ModelCard from '../../../components/ModelCard.astro';
 <PartRoute timing="sync">
 
 1. **本部分的極限**：同步下的不可能性與下界集中在[不可能性與下界](/impossibility/)一部分（$3f+1$ 與連通度、$f+1$ 輪）。本部分直接引用其結論。
-2. **Dolev–Strong**：加簽章後 $f+1$ 輪、容忍任意 $f<n$ 的 BB。
-3. **Sync HotStuff**：$f<n/2$，提交延遲約 $2\Delta$，以及它為什麼不能搬到部分同步。
-4. **同步下的通訊下界**：Dolev–Reischuk 的 $\Omega(f^2)$，與 Momose–Ren 的匹配結果。
+2. **[Dolev–Strong](/sync/dolev-strong/)**：加簽章後 $f+1$ 輪、容忍任意 $f<n$ 的 BB。
+3. **[Sync HotStuff](/sync/sync-hotstuff/)**：$f<n/2$，提交延遲約 $2\Delta$，以及它為什麼不能搬到部分同步。
+4. **[同步下的隨機化](/sync/randomized/)**：Feldman–Micali 與 Katz–Koo，以及確定性 $f+1$ 輪下界怎麼被隨機化繞過。
+5. **[同步下的通訊下界](/impossibility/cost/dolev-reischuk/)**：Dolev–Reischuk 的 $\Omega(f^2)$，與 Momose–Ren 的匹配結果；下界與各協議的距離，寫在不可能性與下界那一章，這裡只連過去。
 
 </PartRoute>
+
+## 概念脈絡
+
+規劃章節按閱讀順序排。下面這棵樹把同步的歷史拆成兩支：簽章鬆開了容錯的門檻，隨機化鬆開了輪數的門檻。
+
+<Lineage id="sync-two-routes" />

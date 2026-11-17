@@ -1,16 +1,18 @@
 ---
 title: 合流：DAG-BFT
+seoTitle: "DAG-BFT 的演進：DAG-Rider、Narwhal 與 Bullshark"
 description: DAG 協議如何同時使用非同步的穩健性與部分同步期的低延遲。
 sidebar:
   badge:
-    text: 大綱
-    variant: default
+    text: 草稿
+    variant: caution
   order: 10
 ---
 import PartRoute from '../../../components/PartRoute.astro';
 import ModelCard from '../../../components/ModelCard.astro';
+import Lineage from '../../../components/Lineage.astro';
 
-<ModelCard status="outline" timing="hybrid" crypto="threshold" faults="byz" determinism="any" problem="SMR" />
+<ModelCard status="draft" timing="hybrid" crypto="threshold" faults="byz" determinism="any" problem="SMR" />
 
 :::note[進度]
 DAG-Rider、Narwhal 與 Tusk、Bullshark 三章已有草稿，其餘章節只有大綱。
@@ -26,7 +28,7 @@ DAG-Rider、Narwhal 與 Tusk、Bullshark 三章已有草稿，其餘章節只有
 2. **[DAG Rider](/convergence/dag-rider/)**：從 DAG 零額外通訊導出排序，coin 與 RBC 的角色。
 3. **[Narwhal 與 Tusk](/convergence/narwhal-tusk/)**：certified DAG 與資料可用性。
 4. **[Bullshark](/convergence/bullshark/)**：保留非同步 liveness、利用同步期 fast path，以及獨立的部分同步版本。
-5. **Cordial Miners 與 Mysticeti**：uncertified DAG 與延遲下界。
+5. **[Cordial Miners 與 Mysticeti](/convergence/uncertified-dag/)**：uncertified DAG 與延遲下界。
 6. **延遲與強健性的演進**：Shoal、Shoal++、Sailfish、Autobahn。以比較表為主，每個協議一列加一小段，說明各自解決 Bullshark 的哪一項限制。
 
 </PartRoute>
@@ -46,3 +48,9 @@ DAG-Rider、Narwhal 與 Tusk、Bullshark 三章已有草稿，其餘章節只有
 | 共識邏輯 safety 的密碼學假設 | 無 | 無，但 Narwhal 的憑證用簽章 | 無，但 Narwhal 的憑證用簽章 |
 
 由上往下，是同一張 DAG 上「好的 commit 規則」逐步改進：期望約 6 輪、4.5 輪、2 輪。細節與證明見各章。
+
+## 概念脈絡
+
+上面的對照表是橫向比較三個協議。下面這棵樹換成縱向：每一步是為了解決上一步留下的什麼問題。
+
+<Lineage id="dag-commit" />

@@ -1,16 +1,18 @@
 ---
 title: 部分同步模型
+seoTitle: "部分同步下的 BFT：從 PBFT 到 HotStuff 的 leader 更換"
 description: GST 之後才有上界時，PBFT 到 HotStuff 這一脈 leader 式協議。
 sidebar:
   badge:
-    text: 大綱
-    variant: default
+    text: 草稿
+    variant: caution
   order: 20
 ---
 import PartRoute from '../../../components/PartRoute.astro';
 import ModelCard from '../../../components/ModelCard.astro';
+import Lineage from '../../../components/Lineage.astro';
 
-<ModelCard status="outline" timing="partial" crypto="any" faults="byz" determinism="det" problem="BA-SMR" />
+<ModelCard status="draft" timing="partial" crypto="any" faults="byz" determinism="det" problem="BA-SMR" />
 
 :::note[大綱]
 本部分只有大綱，尚未撰寫。以下是規劃。
@@ -24,9 +26,15 @@ import ModelCard from '../../../components/ModelCard.astro';
 
 1. **DLS 與 GST 的實作面**：部分同步的定義與下界在[不可能性與下界](/impossibility/partial-sync/dls/)，本部分接著講怎麼設計協議：safety 永遠成立、liveness 依賴 GST。
 2. **[PBFT](/partial-sync/pbft/)**：三階段、prepared 與 view change，以及為什麼拿掉 commit 階段會出事（附反例）。
-3. **HotStuff**：線性 view change、鎖定規則、responsiveness，以及複雜度的精確敘述。
-4. **Pacemaker 與 view synchronization**：Cogsworth 與 RareSync，補上 HotStuff 留下的黑盒。
+3. **[HotStuff](/partial-sync/hotstuff/)**：線性 view change、鎖定規則、responsiveness，以及複雜度的精確敘述。
+4. **[Pacemaker 與 view synchronization](/partial-sync/pacemaker/)**：Cogsworth 與 RareSync，補上 HotStuff 留下的黑盒。
 5. **通訊與延遲**：下界在[不可能性與下界](/impossibility/cost/dolev-reischuk/)，本部分比較各協議離下界多遠。
-6. **2-chain 與簡化**：Jolteon／Ditto 與 Simplex。
+6. **[2-chain 與簡化](/partial-sync/two-chain/)**：Tendermint、Jolteon／Ditto 與 Simplex。
 
 </PartRoute>
+
+## 概念脈絡
+
+規劃章節按閱讀順序排。下面這棵樹只看一件事：leader 壞掉時怎麼換人，每一步是為了解決上一步的什麼成本。
+
+<Lineage id="leader-change" />

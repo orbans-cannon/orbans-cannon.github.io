@@ -1,0 +1,38 @@
+---
+title: 2-chain 與簡化：Tendermint、Jolteon、Simplex
+description: 少一個階段換到什麼、付出什麼，以及幾個「更簡單」的部分同步協議。
+depth: guide
+sidebar:
+  order: 24
+  badge:
+    text: 規劃中
+    variant: note
+---
+
+import ModelCard from '../../../components/ModelCard.astro';
+import Cite from '../../../components/Cite.astro';
+import References from '../../../components/References.astro';
+
+<ModelCard
+  status="planned"
+  timing="partial"
+  crypto="any"
+  faults="byz"
+  determinism="any"
+  problem="SMR"
+  note="含預印本 Tendermint（未審稿）。原文：Jolteon 與 Ditto，FC 2022；Simplex，TCC 2023（另假設 random leader election oracle）。"
+/>
+
+本頁尚未撰寫。原文見 <Cite id="tendermint2018" />、<Cite id="jolteon2022" />、<Cite id="simplex2023" />。
+
+## 預計涵蓋
+
+- **動機**：HotStuff 的三階段讓換 leader 變線性，代價是多一個階段的延遲；兩階段版本需要在 Pacemaker 裡加等待最大延遲，失去 optimistic responsiveness。
+- **Tendermint（預印本，未審稿）**：自述受 PBFT 與 DLS 啟發；每輪換 proposer 是正常流程的一部分，沒有正常與恢復兩種模式的分離。
+- **Jolteon 與 Ditto**：Jolteon 是 HotStuff 的 2-chain 版，用 quadratic 的 view change 換較低的延遲；Ditto 用 asynchronous fallback 取代 view synchronization，與非同步的 [VABA](/async/vaba/) 一脈相連。
+- **Simplex**：以確認時間與區塊時間的取捨框架，比較 PBFT、HotStuff、Jolteon 等；提出一個更簡單的部分同步協議。
+- **邊界**：少一階段付出什麼代價，對照 [PBFT 的反例](/partial-sync/pbft/)（拿掉 commit 階段會出事）。
+
+## 參考文獻
+
+<References />

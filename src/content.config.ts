@@ -20,6 +20,11 @@ export const collections = {
 				 */
 				seoTitle: z.string().optional(),
 				/**
+				 * 論文頁面寫多深（每篇論文一個值，寫在論文的主頁上）：full 完整頁、guide 導讀頁、index 索引項。
+				 * 對應文獻擴充報告 §3 份量預算的三欄；與家族樹的 role 無關。不超過作者動筆時的閱讀深度。
+				 */
+				depth: z.enum(['full', 'guide', 'index']).optional(),
+				/**
 				 * 本頁數學符號的意思（覆蓋 src/data/symbols.ts 的預設；空字串＝本頁不提示）。
 				 * 同一字母在本頁有兩種意思時，兩種都不要宣告。
 				 */

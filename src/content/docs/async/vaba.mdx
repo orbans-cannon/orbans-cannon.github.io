@@ -1,0 +1,39 @@
+---
+title: VABA：external validity 與 O(n²) 通訊
+description: Validated Asynchronous Byzantine Agreement：多值 BA 的通訊如何降到漸近最佳。
+depth: full
+sidebar:
+  order: 60
+  badge:
+    text: 規劃中
+    variant: note
+---
+
+import ModelCard from '../../../components/ModelCard.astro';
+import Cite from '../../../components/Cite.astro';
+import References from '../../../components/References.astro';
+
+<ModelCard
+  status="planned"
+  timing="async"
+  crypto="threshold"
+  faults="byz"
+  determinism="rand"
+  problem="BA"
+  resilience="f < n/3"
+  note="原文：Abraham–Malkhi–Spiegelman，PODC 2019。前身 CKPS，CRYPTO 2001。"
+/>
+
+本頁尚未撰寫。原文見 <Cite id="vaba2019" />；前身見 <Cite id="ckps2001" />。
+
+## 預計涵蓋
+
+- **問題**：external validity 與 multi-valued BA，為什麼狀態機複製需要它（沒有預設值的非平凡決定）。
+- **前身 CKPS**：把 CKS 的二元協議歸約到 VABA，期望通訊 $O(n^3)$ words（這是 VABA 論文對 CKPS 的描述；CKPS 自己數的是訊息數與 bits）。
+- **VABA 的結果**：最佳容錯 $f<n/3$、期望常數時間、期望通訊 $O(n^2)$ words（原文的主要定理針對適應性對手）；預計寫出設計的核心想法與單位。
+- **後續**：DAG-Rider 指出 VABA 與 Dumbo 這條單次共識路線事後忽略一半訊息，見 [DAG-Rider](/convergence/dag-rider/)；Ditto 的 asynchronous fallback 也拿它當比較對象，見 [2-chain 與簡化](/partial-sync/two-chain/)。
+- **邊界**：假設（門檻簽章與 trusted setup）；與單次 BA 到 SMR 的距離。
+
+## 參考文獻
+
+<References />

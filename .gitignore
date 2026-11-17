@@ -3,3 +3,13 @@ dist/
 .astro/
 .DS_Store
 *.pdf
+.claude/
+.env
+.env.*
+*.log
+.vscode/
+.idea/
+papers/
+審查/
+claude專用/
+簡報/

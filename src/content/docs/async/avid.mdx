@@ -1,0 +1,40 @@
+---
+title: AVID：非同步可驗證資訊分散
+description: 把大檔案分散到多個節點又保證一致，以及它給出的省頻寬 reliable broadcast。
+depth: guide
+sidebar:
+  order: 70
+  badge:
+    text: 規劃中
+    variant: note
+---
+
+import ModelCard from '../../../components/ModelCard.astro';
+import Cite from '../../../components/Cite.astro';
+import References from '../../../components/References.astro';
+
+<ModelCard
+  status="planned"
+  timing="async"
+  crypto="any"
+  faults="byz"
+  determinism="det"
+  problem="tool"
+  resilience="f < n/3"
+  note="原文：Cachin–Tessaro，SRDS 2005。假設 collision-resistant hash 與計算有界的對手。"
+/>
+
+本頁尚未撰寫。原文見 <Cite id="avid2005" />。
+
+## 預計涵蓋
+
+- **問題**：把資料分散到 $n$ 個伺服器、其中至多三分之一拜占庭，client 也可能拜占庭，要讓 client 之後總能正確取回，而且儲存的內容彼此一致（可驗證）。簡單的作法是每個伺服器都存一份完整副本，太浪費。
+- **作法**：糾刪碼（erasure code）加上雜湊指紋；預計寫出分散與取回兩個協議，以及儲存與通訊的複雜度。
+- **AVID-RBC**：同一個技術得到新的非同步 reliable broadcast，原文稱在大輸入下，通訊量比標準的 [Bracha 協議](/async/bracha/)低一個數量級。
+- **機密性的版本**：原文另給在適應性對手下保證資料機密的變體。
+- **為什麼後面的頁面會用到**：DAG-Rider 把批次處理與 AVID 類協議結合，當成可靠廣播的積木來達到最佳的攤提通訊，見 [DAG-Rider](/convergence/dag-rider/)。
+- **邊界**：協議用到的假設（雜湊的抗碰撞性、糾刪碼的參數）；與 RBC 的差別。
+
+## 參考文獻
+
+<References />

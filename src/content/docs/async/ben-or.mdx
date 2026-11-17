@@ -1,0 +1,40 @@
+---
+title: Ben-Or 到 Canetti–Rabin：隨機化 BA 的演進
+description: FLP 之後，隨機化如何一步步把非同步 BA 的容錯與速度補齊。
+depth: guide
+sidebar:
+  order: 31
+  badge:
+    text: 規劃中
+    variant: note
+---
+
+import ModelCard from '../../../components/ModelCard.astro';
+import Cite from '../../../components/Cite.astro';
+import References from '../../../components/References.astro';
+
+<ModelCard
+  status="planned"
+  timing="async"
+  crypto="any"
+  faults="byz"
+  determinism="rand"
+  problem="BA"
+  note="原文：Ben-Or 1983、Rabin 1983、Bracha 1987、Canetti–Rabin STOC 1993。"
+/>
+
+本頁尚未撰寫。原文見 <Cite id="benor1983" />、<Cite id="rabin1983" />、<Cite id="bracha1987" />、<Cite id="cr1993" />。
+
+## 預計涵蓋
+
+- **FLP 之後的出口**：確定性不可能（[FLP](/impossibility/async/flp/)），隨機化讓不終止成為機率 0 的事件。
+- **Ben-Or**：local coin，容忍 $5f<n$；原文只說期望輪數可能是指數，$f=O(\sqrt n)$ 時是常數。$f=\Theta(n)$ 時是指數，是 Bracha 的 Theorem 3 對他自己協議的結果。
+- **Rabin**：事先分發 coin，需要誠實的 dealer；這條線同時涉及同步下的隨機化，見 [同步下的隨機化](/sync/randomized/)。
+- **Bracha**：把容錯補到最佳的 $f<n/3$，細節見 [Bracha：可靠廣播與免簽章 BA](/async/bracha/)。
+- **Canetti–Rabin**：第一個容錯最佳、期望常數時間的非同步 BA（原文的條件：以壓倒性機率完成，「完成」的條件下期望常數時間；不需要可信 dealer，用私有通道、faulty player 運算力不設限）；核心是容錯最佳的非同步 verifiable secret sharing（AVSS）。
+- **往後**：coin 如何變便宜，見 [Common coin 與 CKS](/async/common-coin/)。
+- **邊界**：local coin 與 common coin 的差別；各協議的假設逐項對照。
+
+## 參考文獻
+
+<References />
