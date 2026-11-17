@@ -170,7 +170,7 @@ export const edgeDefs: Record<string, Edge> = {
     to: "ds1983",
     kind: "refine",
     key: "簽章",
-    change: "Dolev–Strong 研究的正是 LSP 引入的簽章設定：故障者只能不轉送，不能偽造。他們證明即使如此仍要 $f+1$ 輪，並給出訊息數是 $n$ 與 $f$ 的多項式的演算法，最好的一個是 $f+1$ 輪、$O(nf)$ 訊息（只算正確節點送的訊息）；基本版是 $O(n^2)$ 訊息，但每則訊息最多帶 $f+1$ 個簽章，所以通訊量更大。",
+    change: "Dolev–Strong 研究的是 PSL、LSP 提出的簽章（認證）設定：故障者只能不轉送，不能偽造。他們證明即使如此仍要 $f+1$ 輪，並給出訊息數是 $n$ 與 $f$ 的多項式的演算法，最好的一個是 $f+1$ 輪、$O(nf)$ 訊息（只算正確節點送的訊息）；每個節點最多轉送兩個不同值的限制版是 $O(n^2)$ 訊息（原文 Theorem 3），但每則訊息最多帶 $f+1$ 個簽章，所以通訊量更大（這一點是 Momose–Ren 的說法）。",
     evidence: "Dolev–Strong 摘要與 §1。",
   },
   "fl1982>rabin1983": {
@@ -210,15 +210,15 @@ export const edgeDefs: Record<string, Edge> = {
     to: "momose2021",
     kind: "tight",
     key: "同步追平",
-    change: "Momose–Ren 的引言說二次通訊是 BA 最壞情況的必要條件（Dolev–Reischuk 的下界），在無簽章、$f<n/3$ 時已被 Berman 等人證明是緊的，但簽章、$n/3\\le f<n/2$ 之間仍有缺口：Dolev–Strong 雖然只用二次的訊息數，通訊量卻是三次，因為訊息最多帶 $f+1$ 個簽章。他們給兩個二次通訊的協議：最佳容錯 $f<n/2$（要門檻簽章的 trusted setup），以及在標準 PKI 下接近最佳的 $f\\le(1/2-\\varepsilon)n$。",
+    change: "Momose–Ren 的引言說二次通訊是 BA 最壞情況的必要條件（Dolev–Reischuk 的下界），在無簽章、$f<n/3$ 時已被 Berman 等人證明是緊的，但簽章、$n/3\\le f<n/2$ 之間仍有缺口：Dolev–Strong 雖然只用二次的訊息數，通訊量卻是三次，因為訊息最多帶 $f+1$ 個簽章。他們給兩個二次通訊的協議：最佳容錯 $f<n/2$（要門檻簽章的 trusted setup），以及在標準 PKI 下接近最佳的 $f\\le(1/2-\\varepsilon)n$。度量要分清楚：Dolev–Reischuk 的下界數的是訊息數與簽章數，Momose–Ren 的上界數的是 bits，$O(\\kappa n^2)$，差一個安全參數 $\\kappa$；Momose–Ren 自己說這個二次通訊對應 Dolev–Reischuk 的下界。",
     evidence: "Momose–Ren 摘要與 §1（Dolev-Strong … quadratic messages but cubic communication）。",
   },
   "goodcase2021>simplex2023": {
     from: "goodcase2021",
     to: "simplex2023",
     kind: "related",
-    change: "本站畫的對應：Simplex 的分析框架引用 Good-case Latency，說 proposal confirmation time $3\\delta$ 在 $f\\ge (n+2)/5$ 時是最佳的。Good-case Latency 自己的摘要指出：兩輪的 PBFT 式部分同步 Byzantine broadcast 可能，若且唯若 $n\\ge 5f-1$，也就是說，延遲這道門的鑰匙是節點數。",
-    evidence: "Good-case Latency 摘要；Simplex §1（ANRX21 的引用，$f\\ge (n+2)/5$）。",
+    change: "本站畫的對應：Simplex 的分析框架引用 Good-case Latency，說 proposal confirmation time $3\\delta$ 在 $f\\ge (n+2)/5$ 時是最佳的。Good-case Latency 自己的 Theorem 2 與 Theorem 4：部分同步下兩輪的 Byzantine broadcast 可能，若且唯若 $n\\ge 5f-1$；$f\\ge (n+2)/5$ 時至少要 3 輪。也就是說，延遲這道門的鑰匙是節點數。",
+    evidence: "Good-case Latency 摘要、Theorem 2、Theorem 4；Simplex §1（ANRX21 的引用，$f\\ge (n+2)/5$）。",
   },
   "martin-alvisi>mysticeti2025": {
     from: "martin-alvisi",
@@ -226,7 +226,7 @@ export const edgeDefs: Record<string, Edge> = {
     kind: "tight",
     key: "3 輪下界",
     via: "mysticeti2025",
-    change: "依 Mysticeti 的說法：Mysticeti-C 在已知下界的 3 個 message round 內 commit，這個下界引自 Martin–Alvisi 的 fast BFT。Martin–Alvisi 的原文本站還沒讀。",
+    change: "依 Mysticeti 的說法：Mysticeti-C 在穩態與 crash 故障下，在已知下界的 3 個 message round 內 commit，這個下界引自 Martin–Alvisi 的 fast BFT；Mysticeti 說的最佳是指不用樂觀路徑的情形。這個「3 輪」只在 $n<5f-1$ 的設定成立：本站讀到的 Good-case Latency 指出，$n\\ge 5f-1$ 時部分同步下兩輪就可能。Martin–Alvisi 的原文本站還沒讀。",
     evidence: "Mysticeti 摘要與 §I（committing blocks within the known lower bound [21] of 3 message rounds；[21] = Martin–Alvisi）。",
   },
   "dr1985>raresync2024": {
@@ -234,7 +234,7 @@ export const edgeDefs: Record<string, Edge> = {
     to: "raresync2024",
     kind: "tight",
     key: "部分同步追平",
-    change: "RareSync 論文說 Dolev–Reischuk 的下界是確定性 BA 最壞要二次通訊（words）；同步下已證明是緊的，但部分同步下有沒有二次通訊的協議一直未知，當時最有效率的（HotStuff、binary DBFT）是三次。它給出 view synchronization 協議 RareSync 與基於它的 SQuad，容錯最佳 $f<n/3$，worst-case 通訊 $O(n^2)$ words、延遲 $O(f\\cdot\\delta)$。",
+    change: "RareSync 論文說 Dolev–Reischuk 的下界是確定性 BA 最壞要二次通訊（words）；同步下已證明是緊的，但部分同步下有沒有二次通訊的協議一直未知，當時最有效率的（HotStuff、binary DBFT）是三次。它給出 view synchronization 協議 RareSync 與基於它的 SQuad，容錯最佳 $f<n/3$，worst-case 通訊 $O(n^2)$ words、延遲 $O(f\\cdot\\delta)$（通訊只計 GST 之後送出的 words，延遲自 GST 起算）。",
     evidence: "RareSync 摘要。",
   },
   "ds1983>synchs2020": {
@@ -249,7 +249,7 @@ export const edgeDefs: Record<string, Edge> = {
     to: "momose2021",
     kind: "respond",
     key: "二次通訊",
-    change: "Momose–Ren 的引言說二次通訊是 BA 最壞情況的必要條件（Dolev–Reischuk 的下界），在無簽章、$f<n/3$ 時已被 Berman 等人證明是緊的，但簽章、$n/3\\le f<n/2$ 之間仍有缺口：Dolev–Strong 雖然只用二次的訊息數，通訊量卻是三次，因為訊息最多帶 $f+1$ 個簽章。他們給兩個二次通訊的協議：最佳容錯 $f<n/2$（要門檻簽章的 trusted setup），以及在標準 PKI 下接近最佳的 $f\\le(1/2-\\varepsilon)n$。",
+    change: "Momose–Ren 的引言說二次通訊是 BA 最壞情況的必要條件（Dolev–Reischuk 的下界），在無簽章、$f<n/3$ 時已被 Berman 等人證明是緊的，但簽章、$n/3\\le f<n/2$ 之間仍有缺口：Dolev–Strong 雖然只用二次的訊息數，通訊量卻是三次，因為訊息最多帶 $f+1$ 個簽章。他們給兩個二次通訊的協議：最佳容錯 $f<n/2$（要門檻簽章的 trusted setup），以及在標準 PKI 下接近最佳的 $f\\le(1/2-\\varepsilon)n$。度量要分清楚：Dolev–Reischuk 的下界數的是訊息數與簽章數，Momose–Ren 的上界數的是 bits，$O(\\kappa n^2)$，差一個安全參數 $\\kappa$；Momose–Ren 自己說這個二次通訊對應 Dolev–Reischuk 的下界。",
     evidence: "Momose–Ren 摘要與 §1（Dolev-Strong … quadratic messages but cubic communication）。",
   },
   "fm1997>katzkoo2006": {
@@ -265,7 +265,7 @@ export const edgeDefs: Record<string, Edge> = {
     to: "abraham2019fc",
     kind: "refine",
     key: "10／16 輪",
-    change: "Abraham 等人說同步、簽章、$f<n/2$ 的設定下，已知最好的協議是 Katz–Koo，期望 29 輪（且沒有分析通訊量）。他們做到期望 $O(1)$ 輪與期望 $O(n^2)$ 通訊：期望輪數在靜態對手下是 10、在強 rushing 適應性對手下是 16。但這兩個數字要依賴單輪的 common-coin 協議（16 輪要自適應安全的 coin）與門檻簽章，所以假設比只需簽章與 PKI 的 Katz–Koo 強；原文腳註並指出 Katz–Koo 的協議也可以用門檻簽章達到 $O(n^2)$ 通訊。這是 ePrint 版，不是出版版。",
+    change: "Abraham 等人說同步、簽章、$f<n/2$ 的設定下，已知最好的協議是 Katz–Koo，期望 29 輪（且沒有分析通訊量）。他們做到期望 $O(1)$ 輪與期望 $O(n^2)$ 通訊（以簽章數計）：期望輪數在靜態對手下是 10、在強 rushing 適應性對手下是 16。但這兩個數字要依賴單輪的 common-coin 協議（16 輪要自適應安全的 coin）與門檻簽章，所以假設比只需簽章與 PKI 的 Katz–Koo 強；原文腳註並指出 Katz–Koo 的協議也可以用門檻簽章達到 $O(n^2)$ 通訊。這是 ePrint 版，不是出版版。",
     evidence: "Abraham 等 FC 2019 摘要與 §1（Katz and Koo … expected 29 rounds）。",
   },
   "dls1988>pbft2002": {
@@ -327,7 +327,7 @@ export const edgeDefs: Record<string, Edge> = {
     to: "raresync2024",
     kind: "respond",
     key: "二次同步",
-    change: "RareSync 指出 HotStuff 沒有明說 view synchronizer 怎麼做；採用 all-to-all 的做法時，要經過 $f+1$ 個 view 才遇到正確 leader，每個 view 的同步是 $O(n^2)$ words，整體是 $O(n^3)$，所以 Dolev–Reischuk 的二次下界在部分同步下一直沒被追上。RareSync 的 view synchronization 通訊 $O(n^2)$、延遲 $O(f\\cdot\\delta)$，配上與 HotStuff 相同的 view core 得到 SQuad，worst-case 通訊 $O(n^2)$ words。這裡的 $O(n^3)$ 是 view synchronizer 的成本，與 HotStuff 自己數的 authenticator 度量不同，兩者不矛盾。",
+    change: "RareSync 指出 HotStuff 沒有明說 view synchronizer 怎麼做；採用 all-to-all 的做法時，要經過 $f+1$ 個 view 才遇到正確 leader，每個 view 的同步是 $O(n^2)$ words，整體是 $O(n^3)$（這是 RareSync 對 HotStuff 的歸納，腳註 3 說在 DiemBFT 實作上成立），所以 Dolev–Reischuk 的二次下界在部分同步下一直沒被追上。RareSync 的 view synchronization 通訊 $O(n^2)$、延遲 $O(f\\cdot\\delta)$，配上與 HotStuff 相同的 view core 得到 SQuad，worst-case 通訊 $O(n^2)$ words。這裡的 $O(n^3)$ 是 view synchronizer 的成本，與 HotStuff 自己數的 authenticator 度量不同，兩者不矛盾。",
     evidence: "RareSync 摘要、§1（S = (f+1)·O(n²) = O(n³)；footnote 3：HotStuff does not explicitly state how the view synchronizer works）、§SQuad。",
   },
   "jolteon2022>simplex2023": {
@@ -398,7 +398,7 @@ export const edgeDefs: Record<string, Edge> = {
     to: "ckps2001",
     kind: "refine",
     key: "多值 BA",
-    change: "把 CKS 的二元協議歸約成 multi-valued 的 VABA（external validity），期望通訊 $O(n^3)$ words。",
+    change: "把 CKS 的二元協議歸約成 multi-valued 的 VABA（external validity），期望通訊 $O(n^3)$ words（依 VABA 的轉述；CKPS 原文以 bits 計）。",
     evidence: "VABA §1（Cachin et al. gave a reduction from their binary algorithm to VABA；O(n³)）。",
   },
   "ckps2001>vaba2019": {
@@ -406,7 +406,7 @@ export const edgeDefs: Record<string, Edge> = {
     to: "vaba2019",
     kind: "refine",
     key: "降通訊",
-    change: "回答 CKPS 留下的開放問題：期望通訊從 $O(n^3)$ 降到漸近最佳的 $O(n^2)$ words。",
+    change: "回答 CKPS 留下的開放問題：期望通訊從 $O(n^3)$ 降到漸近最佳的 $O(n^2)$ words（VABA 的度量；CKPS 原文以 bits 計）。",
     evidence: "VABA 摘要（addresses an open question of Cachin et al.; O(n³)→O(n²)）。",
   },
   "ckps2001>honeybadger2016": {
@@ -452,7 +452,7 @@ export const edgeDefs: Record<string, Edge> = {
     to: "bullshark2022",
     kind: "refine",
     key: "同步快路徑",
-    change: "保留 DAG-Rider 的非同步最壞情況 liveness（期望 6 round-trip，與 DAG-Rider 相同）、攤提通訊最佳與 post-quantum safety，另外加上同步期的快路徑：同步期每兩次 commit 之間只需 2 round-trip，原文說比 DAG-Rider 少 75%。",
+    change: "保留 DAG-Rider 的非同步最壞情況 liveness（期望 6 輪，與 DAG-Rider 相同）、攤提通訊最佳與 post-quantum safety，另外加上同步期的快路徑：同步期每兩次 commit 之間只需 2 輪，原文說比 DAG-Rider 少 75%。這裡的「輪」是 DAG 輪（原文引言稱 round-trip），與 Cordial Miners 的通訊輪、Shoal++ 的 message delay 不同。",
     evidence: "Bullshark §1（BullShark needs only 2 roundtrips … 75% improvement compared to DAG-Rider；6 round-trip）。",
   },
   "narwhal2022>bullshark2022": {
@@ -490,7 +490,7 @@ export const edgeDefs: Record<string, Edge> = {
     to: "shoal2024",
     kind: "refine",
     key: "聲譽機制",
-    change: "Shoal 是加在 Narwhal 系共識（原文以 Bullshark 實例化）之上的框架：第一次在 DAG-BFT 引入 leader reputation 與 pipelining，並讓幾乎不必用 timeout（原文稱 prevalent responsiveness）。實驗上比原版 Bullshark 無故障時延遲最多少 40%、有故障時最多少 80%。",
+    change: "Shoal 是加在 Narwhal 系共識（原文以部分同步版的 Bullshark 實例化）之上的框架：第一次在 DAG-BFT 引入 leader reputation 與 pipelining，並讓幾乎不必用 timeout（原文稱 prevalent responsiveness）。實驗上比原版 Bullshark 無故障時延遲最多少 40%、有故障時最多少 80%。",
     evidence: "Shoal 摘要。",
   },
   "shoal2024>shoalpp2025": {
@@ -498,7 +498,7 @@ export const edgeDefs: Record<string, Edge> = {
     to: "shoalpp2025",
     kind: "refine",
     key: "多 anchor",
-    change: "Shoal++ 說 Bullshark 即使無故障也最多要 4 個 DAG 輪才 commit 一個 proposal（無故障下平均 12 message delay），Shoal 縮到 3 輪（期望 10.5 md）。它把延遲拆成排隊、anchoring、anchor commit 三段分別處理，平均降到 4.5 md，對 Bullshark 最多少 60%、對 Mysticeti（原文稱並行工作）最多少 40%。以上依 arXiv v1，內文可能與 NSDI 版不同。",
+    change: "Shoal++ 說 Bullshark 即使無故障也最多要 4 個 DAG 輪才 commit 一個 proposal（無故障下平均 12 message delay），Shoal 縮到 3 輪（期望 10.5 md）。它把延遲拆成排隊、anchoring、anchor commit 三段分別處理，平均降到 4.5 md（無故障、常見情形），對 Bullshark 最多少 60%、對 Mysticeti（原文稱並行工作）最多少 40%。以上依 arXiv v1，內文可能與 NSDI 版不同。",
     evidence: "Shoal++ 摘要、§1、§3.2。",
   },
   "shoal2024>sailfish2025": {
@@ -506,15 +506,15 @@ export const edgeDefs: Record<string, Edge> = {
     to: "sailfish2025",
     kind: "respond",
     key: "leader/輪",
-    change: "依 Sailfish 的評述：現有 DAG-BFT 大多每 2 輪以上才有一個 leader，Shoal 與 Mysticeti 認為每輪都有 leader vertex 很難（這是 Sailfish 對它們的說法，Shoal 與 Mysticeti 自己的論文不是這個立場）。Sailfish 自稱是第一個每輪都有 leader vertex 的：誠實 leader 下，commit leader vertex 要一個 RBC 輪加 $1\\delta$，commit 其他 vertex 只多一個 RBC 輪。",
-    evidence: "Sailfish 摘要。",
+    change: "依 Sailfish 的評述：現有 DAG-BFT 大多每 2 輪以上才有一個 leader，Shoal 與 Mysticeti 認為每輪都有 leader vertex 很難（這是 Sailfish 引用兩篇原話後的說法，兩篇都承認過這個困難，之後各自宣稱解決了）。Sailfish 自稱是第一個每輪都有 leader vertex 的：誠實 leader 下，commit leader vertex 要一個 RBC 輪加 $1\\delta$，commit 其他 vertex 只多一個 RBC 輪。",
+    evidence: "Sailfish 摘要與 Table 1；Sailfish 引言引了 Shoal 與 Mysticeti 的原話。",
   },
   "mysticeti2025>sailfish2025": {
     from: "mysticeti2025",
     to: "sailfish2025",
     kind: "related",
-    change: "本站畫的對應：Sailfish 把 Mysticeti 與 Shoal 並列為「認為每輪都有 leader vertex 很難」的現有工作，這是 Sailfish 的評述，不是 Mysticeti 自己提出的限制。",
-    evidence: "Sailfish 摘要；Mysticeti 全文沒有這個說法（複查報告第 8 項）。",
+    change: "本站畫的對應：Sailfish 引用 Mysticeti 與 Shoal 各自談到 Bullshark 的 commit 規則或 pipelining 時承認的困難，並說它們認為每輪都有 leader vertex「很難，幾乎不可能」；後者是 Sailfish 的加強語氣，不是這兩篇的整體立場，兩篇之後都宣稱自己解決了（Mysticeti 用多狀態 slot，Shoal 重新詮釋 DAG）。",
+    evidence: "Sailfish 摘要；Mysticeti §II-A 有 Sailfish 引的那句；Shoal §1 有 Sailfish 引的那句。",
   },
   "bullshark2022>autobahn2024": {
     from: "bullshark2022",
@@ -569,7 +569,7 @@ export const lineages: Record<string, Lineage> = {
     notes: [
       "PSL 的演算法用 $m+1$ 輪，Fischer–Lynch 證明輪數不能再少，所以右上的輪數門其實接在 PSL 之後；Dolev–Strong 又把這個下界推廣到任何類型的訊息（包括簽章），結論仍是至少 $f+1$ 輪。這兩條關係跨在兩塊之間，圖上沒畫。",
       "Dolev–Reischuk 的引言把 Dolev–Strong 當作當時最好的簽章演算法（$t+1$ 階段、$O(nt+t^2)$ 訊息），然後新增「資訊交換量」這個維度：簽章下至少 $\\Omega(nt)$ 個簽章與 $\\Omega(n+t^2)$ 則訊息。",
-      "延遲這道門只畫了入口：Good-case Latency 跨同步、部分同步、非同步三種時序給出緊界，本站只讀過它的摘要與引言，完整的分類等 `cost/good-case` 頁寫好再補。Mysticeti 引用的 3 個 message round 下界出自 Martin–Alvisi，這篇原文也還沒讀。",
+      "延遲這道門只畫了入口：Good-case Latency 在非同步與部分同步下給出緊界，同步下 $f<n/2$ 的各情形也有緊界，$f\\ge n/2$ 的同步情形上下界仍有差距。本站讀過它的摘要、引言與主要定理的陳述（Theorem 1 到 4），沒讀證明；完整的分類等 `cost/good-case` 頁寫好再補。Mysticeti 引用的 3 個 message round 下界出自 Martin–Alvisi，這篇原文還沒讀。",
       "通訊量這道門的鑰匙還沒有寫：Abraham 等人 PODC 2019（Communication Complexity of Byzantine Agreement, Revisited）的原文還沒到，是否有論文鬆開這道門、鬆開的是哪個假設，要讀原文才能寫，所以這裡不下結論。",
     ],
     cross: [

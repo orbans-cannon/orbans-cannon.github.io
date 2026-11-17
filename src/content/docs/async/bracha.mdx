@@ -21,6 +21,7 @@ import References from '../../../components/References.astro';
   determinism="rand"
   problem="RBC"
   resilience="f < n/3"
+  cells={['async:rand-local']}
   note="原文：Bracha，Information and Computation 1987。互動圖的候選。"
 />
 
@@ -28,10 +29,10 @@ import References from '../../../components/References.astro';
 
 ## 預計涵蓋
 
-- **可靠廣播（RBC）**：定義與性質，特別是 totality；Bracha 的 echo／ready 門檻怎麼保證即使發送者拜占庭，誠實節點也不會輸出不同的值。
-- **免簽章的 BA**：用 RBC 加上 local coin 組出容忍 $f<n/3$ 的非同步 BA；原文的效能結果：$f=\Theta(n)$ 時期望指數，$f=O(\sqrt n)$ 時期望常數。
+- **可靠廣播（RBC）**：定義與性質，特別是 totality（後世的名稱；原文把它寫成：發送者正確則全體同意，發送者故障則全體同意同一個值，或全體都不接受）；Bracha 的 echo／ready 門檻怎麼保證即使發送者拜占庭，誠實節點也不會輸出不同的值。
+- **免簽章的 BA**：用 RBC 加上 local coin 組出容忍 $f<n/3$ 的非同步 BA；原文的效能結果：$f=\Theta(n)$ 時期望指數，$f=O(\sqrt n)$ 時期望常數（與 $n$ 無關，但對常數係數是指數）。
 - **為什麼後面的頁面都依賴它**：DAG 三頁把 RBC 當成基本積木，見 [DAG-Rider](/convergence/dag-rider/)。
-- **邊界**：原文證明確定性的 Byzantine Generals 協議在非同步下不可能，並提出一個較弱的版本；預計核對這一段。
+- **邊界**：原文證明 Byzantine Generals 協議在非同步下不可能（原文的陳述沒有限定確定性，是否涵蓋隨機化協議，寫頁時核對），並提出較弱的版本（weak termination，成立若且唯若 $t<n/3$）。
 - **互動圖（待定）**：切換拜占庭節點、讓發送者對不同節點說不同的話，逐步看 echo 與 ready 的計數。
 
 ## 參考文獻

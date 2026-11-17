@@ -28,8 +28,8 @@ import References from '../../../components/References.astro';
 ## 預計涵蓋
 
 - **問題**：非同步下的原子廣播；原文稱 HoneyBadgerBFT 是第一個漸近最佳的非同步 atomic broadcast。
-- **ACS 的歸約**：RBC 加二元 BA 組成 asynchronous common subset，歸約出自 Ben-Or–Kelmer–Rabin 1994；原文的 ABA 用 Mostéfaoui 等人免簽章、基於 common coin 的協議（見 [MMR](/async/mmr/)）。
-- **門檻加密**：防止審查攻擊，同時去掉節點間的重複工作。
+- **ACS 的歸約**：RBC 加二元 BA 組成 asynchronous common subset，歸約出自 Ben-Or–Kelmer–Rabin 1994；原文的 ABA 用 Mostéfaoui 等人免簽章、基於 common coin 的協議（見 [MMR](/async/mmr/)；原文引的是 MMR 2014 年 PODC 的前作，要求完美的 common coin，與 MMR 頁的 2015 期刊版不同）。
+- **門檻加密**：讓各節點隨機提議以去掉重複工作，但這會讓敵手能針對性地審查；門檻加密讓它在隨機化批次下仍然抗審查。
 - **與 CKPS 的比較**：原文指出 CKPS01 每個節點每筆交易要傳 $O(N^2)$ bits；ACS 走 MVBA 的成本是 $O(N^3|v|)$。
 - **Dumbo-NG**：預計放一小段；這篇本站還沒有收入書目，也還沒讀，寫頁時再處理。
 - **往後**：Aleph 自稱改進 HoneyBadger 的漸近延遲，是 DAG 脈絡的起點，見 [合流](/convergence/)。

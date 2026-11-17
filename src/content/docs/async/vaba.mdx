@@ -29,8 +29,8 @@ import References from '../../../components/References.astro';
 ## 預計涵蓋
 
 - **問題**：external validity 與 multi-valued BA，為什麼狀態機複製需要它（沒有預設值的非平凡決定）。
-- **前身 CKPS**：把 CKS 的二元協議歸約到 VABA，期望通訊 $O(n^3)$ words。
-- **VABA 的結果**：最佳容錯 $f<n/3$、期望常數時間、期望通訊 $O(n^2)$ words；預計寫出設計的核心想法與單位。
+- **前身 CKPS**：把 CKS 的二元協議歸約到 VABA，期望通訊 $O(n^3)$ words（這是 VABA 論文對 CKPS 的描述；CKPS 自己數的是訊息數與 bits）。
+- **VABA 的結果**：最佳容錯 $f<n/3$、期望常數時間、期望通訊 $O(n^2)$ words（原文的主要定理針對適應性對手）；預計寫出設計的核心想法與單位。
 - **後續**：DAG-Rider 指出 VABA 與 Dumbo 這條單次共識路線事後忽略一半訊息，見 [DAG-Rider](/convergence/dag-rider/)；Ditto 的 asynchronous fallback 也拿它當比較對象，見 [2-chain 與簡化](/partial-sync/two-chain/)。
 - **邊界**：假設（門檻簽章與 trusted setup）；與單次 BA 到 SMR 的距離。
 

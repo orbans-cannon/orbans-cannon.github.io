@@ -20,7 +20,7 @@ import References from '../../../components/References.astro';
   faults="byz"
   determinism="det"
   problem="BB"
-  resilience="f < n"
+  resilience="n > f + 1"
   note="原文：Dolev–Strong，SIAM J. Comput. 1983。同步下簽章演算法的基準。"
 />
 
@@ -31,7 +31,7 @@ import References from '../../../components/References.astro';
 - **協議**：發送者簽署並廣播，其他節點逐輪轉發帶簽章鏈的訊息；預計寫出每一輪接受訊息的條件，以及最後如何決定輸出。
 - **為什麼容忍任意 $f<n$**：簽章讓故障者只能不轉送，無法偽造別人的訊息，這正是 <Cite id="lsp1982" /> 引入的設定。對照 [FLM](/impossibility/sync/flm/) 的 Fault 公理：簽章削弱了它，所以那裡的 $3f+1$ 不再成立。
 - **輪數與下界**：$f+1$ 輪，與 [$f+1$ 輪下界](/impossibility/sync/round-bound/) 對照：原文把 <Cite id="fl1982" /> 的下界推廣到任何類型的訊息，包括簽章。
-- **訊息與通訊量**：原文最好的演算法是 $f+1$ 階段、$O(nf)$ 訊息（只算正確節點送的）；基本版的訊息數是二次，但每則訊息最多帶 $f+1$ 個簽章，通訊量更大。<Cite id="momose2021" /> 後來把簽章下的通訊做到二次。
+- **訊息與通訊量**：原文最好的演算法是 $f+1$ 階段、$O(nf)$ 訊息（只算正確節點送的）；每個節點最多轉送兩個不同值的限制版是 $O(n^2)$ 訊息（原文 Theorem 3）。每則訊息最多帶 $f+1$ 個簽章，所以通訊量比訊息數大，這一點是 <Cite id="momose2021" /> 與後來的文獻指出的，不是 Dolev–Strong 自己的說法。Momose–Ren 在 $f<n/2$（要門檻簽章的 trusted setup）或 $f\le(1/2-\varepsilon)n$（標準 PKI）下，把簽章下的通訊做到 $O(\kappa n^2)$ bits。
 - **邊界**：拿掉簽章退回 $3f+1$；同步演算法不能直接搬到部分同步，見 [部分同步](/partial-sync/)。
 
 ## 參考文獻

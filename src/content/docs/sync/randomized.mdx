@@ -31,12 +31,12 @@ import References from '../../../components/References.astro';
 - **起點：Rabin 的預發 coin**：需要誠實的 dealer（<Cite id="rabin1983" />）。同步版本的陳述在本頁 [Rabin](#rabin) 一段，非同步版本與完整敘述在 [Ben-Or 到 Canetti–Rabin](/async/ben-or/)。
 - **Feldman–Micali**：同步網路下不靠外部可信第三方，期望常數輪、容忍至多 $1/3$ 的故障；原文引入 graded broadcast、graded verifiable secret sharing 與 oblivious common coin 三個新原語。
 - **Katz–Koo**：把容錯推到 $t<n/2$，只靠簽章與 PKI；引入 moderated VSS，也給 Feldman–Micali 較簡單的證明。
-- **往後**：<Cite id="abraham2019fc" /> 把期望輪數降到 10（靜態對手）或 16（強 rushing 適應性對手），但依賴 common coin 與門檻簽章，假設比 Katz–Koo 強。這一篇只放一列說明，不單獨成頁。
+- **往後**：<Cite id="abraham2019fc" /> 把期望輪數降到 10（靜態對手）或 16（強 rushing 適應性對手），但額外需要 common coin 與門檻簽章（Katz–Koo 只需簽章與 PKI）。這一篇只放一列說明，不單獨成頁。
 - **邊界**：與非同步 [Common coin](/async/common-coin/) 的差別；各協議的假設（dealer、簽章、PKI、私有通道）逐項對照。
 
 ## Rabin
 
-同步版本的陳述寫在這一段。原文同時給同步與非同步兩個結果，都要簽章與事先分發資料的誠實 dealer；原文的 Theorem 1 給出 $t<n/10$，同步與非同步各自確切的容錯條件，寫頁時對照原文逐一核對。非同步版本與完整敘述在 [Ben-Or 到 Canetti–Rabin](/async/ben-or/)，兩頁不重複證明。
+同步版本的陳述寫在這一段。原文完整處理的是非同步情形（Theorem 1 給出 $t<n/10$）；同步版本只在結論段簡短說明，條件是 $t<n/4$，寫頁時對照原文核對。兩者都要簽章與事先分發資料的誠實 dealer。非同步版本與完整敘述在 [Ben-Or 到 Canetti–Rabin](/async/ben-or/)，兩頁不重複證明。
 
 ## 參考文獻
 
