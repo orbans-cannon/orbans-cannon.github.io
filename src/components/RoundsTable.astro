@@ -1,0 +1,140 @@
+---
+/**
+ * 輪數對照表：資料在 src/data/rounds.ts，一列一個結果。
+ * 每列都帶模型、度量、情況與前提，所以表上不放排序，也不加總；不同列不能直接比大小。
+ */
+import katex from 'katex';
+import Cite from './Cite.astro';
+import { roundsRows } from '../data/rounds';
+import { renderInline } from '../lib/inline-math';
+
+const lang = Astro.locals.starlightRoute.lang?.startsWith('en') ? 'en' : 'zh';
+const L = (zh: string, en: string) => (lang === 'en' ? en : zh);
+
+const timingLabel = { sync: L('同步', 'Synchronous'), async: L('非同步', 'Asynchronous'), 'sync-async': L('同步與非同步', 'Sync and async') };
+const detLabel = { det: L('確定性', 'Deterministic'), rand: L('隨機化', 'Randomized') };
+const measureLabel = { lockstep: L('lock-step 同步輪', 'Lock-step round'), iteration: L('協議迴圈一次', 'One protocol iteration') };
+const caseLabel = { worst: L('最壞情況', 'Worst case'), expected: L('期望值', 'Expected'), good: L('好情況', 'Good case') };
+const boundLabel = { upper: L('上界', 'Upper bound'), lower: L('下界', 'Lower bound'), tight: L('緊界', 'Tight bound') };
+const relOf = { upper: '\\le', lower: '\\ge', tight: '=' };
+
+const rows = roundsRows.map((r) => {
+  if (r.read === 'abstract' && r.value) throw new Error(`<RoundsTable>：「${r.id}」只讀到 abstract 級，不能顯示數值`);
+  const asym = /^\\?(O|Omega|Theta|o|omega)\b/.test((r.value ?? '').trim());
+  const rel = asym ? '=' : relOf[r.bound];
+  return {
+    ...r,
+    resultHtml: renderInline(r.result),
+    conditionHtml: renderInline(r.condition),
+    valueHtml: r.value ? katex.renderToString(`${rel} ${r.value}`, { throwOnError: true }) : '—',
+  };
+});
+---
+
+<div class="rt not-content" role="region" aria-label={L('輪數對照表', 'Rounds comparison table')} tabindex="0">
+  <table>
+    <thead>
+      <tr>
+        <th>{L('結果', 'Result')}</th>
+        <th>{L('模型', 'Model')}</th>
+        <th>{L('度量與情況', 'Measure and case')}</th>
+        <th>{L('數值', 'Value')}</th>
+        <th>{L('前提與說明', 'Condition')}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {
+        rows.map((r) => (
+          <tr>
+            <td>
+              <a href={r.href} set:html={r.resultHtml} /> <Cite id={r.refId} />
+            </td>
+            <td data-label={L('模型', 'Model')}>
+              {timingLabel[r.timing]}<br />
+              {r.crypto}<br />
+              {detLabel[r.determinism]}
+            </td>
+            <td data-label={L('度量與情況', 'Measure and case')}>
+              {measureLabel[r.measure]}<br />
+              {caseLabel[r.case]}，{boundLabel[r.bound]}
+            </td>
+            <td class="rt-val" data-label={L('數值', 'Value')} set:html={r.valueHtml} />
+            <td data-label={L('前提與說明', 'Condition')} set:html={r.conditionHtml} />
+          </tr>
+        ))
+      }
+    </tbody>
+  </table>
+</div>
+
+<style>
+  .rt {
+    margin: 1.5rem 0;
+    overflow-x: auto;
+  }
+  .rt table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+  .rt th,
+  .rt td {
+    padding: 0.55rem 0.7rem;
+    vertical-align: top;
+    text-align: left;
+    border-bottom: 1px solid var(--sl-color-hairline);
+  }
+  .rt th {
+    color: var(--sl-color-gray-2);
+    font-weight: 600;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--sl-color-gray-4);
+  }
+  .rt td:nth-child(2),
+  .rt td:nth-child(3) {
+    min-width: 9rem;
+  }
+  .rt td:last-child {
+    min-width: 14rem;
+  }
+  .rt-val {
+    white-space: nowrap;
+    font-size: 1rem;
+  }
+
+  /* 框寬小於 40rem（手機、側欄打開的窄視窗）：每列改成一張卡，標題在上，下面是「小標＋值」 */
+  .rt {
+    container-type: inline-size;
+  }
+  @container (max-width: 40rem) {
+    .rt table,
+    .rt tbody,
+    .rt tr,
+    .rt td {
+      display: block;
+      width: 100%;
+    }
+    .rt thead {
+      display: none;
+    }
+    .rt tr {
+      padding: 0.6rem 0 0.4rem;
+      border-bottom: 1px solid var(--sl-color-gray-4);
+    }
+    .rt td {
+      padding: 0.25rem 0;
+      border-bottom: 0;
+      min-width: 0 !important;
+    }
+    .rt td[data-label]::before {
+      content: attr(data-label);
+      display: block;
+      font-size: 0.75rem;
+      color: var(--sl-color-gray-3);
+    }
+    .rt td:first-child {
+      font-weight: 600;
+    }
+  }
+</style>

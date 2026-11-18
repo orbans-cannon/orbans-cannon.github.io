@@ -165,6 +165,7 @@ export default defineConfig({
             'intro/problem',
             'intro/models',
             'intro/crypto',
+            'intro/rounds',
             'intro/glossary',
             'impossibility/overview',
             'intro/reading',

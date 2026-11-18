@@ -20,7 +20,7 @@ import TimingTimelines from '../../../widgets/timing-models/TimingTimelines.astr
 
 設 $\delta(m)$ 為<Term id="honest">誠實節點</Term>之間某則訊息 $m$ 從送出到送達的**實際**延遲，$\Delta$ 為協議**事先假設**的延遲上界。
 
-- **$\Delta$**：寫在模型與協議裡的常數，用來設 timeout 或決定一輪有多長。它是一個**假設**。
+- **$\Delta$**：寫在模型與協議裡的常數，用來設 timeout 或決定<Term id="round">一輪</Term>有多長。它是一個**假設**。
 - **$\delta$**：某次執行中訊息真正花的時間，由網路決定，通常遠小於 $\Delta$。
 
 三個時序模型的差別，就在於對 $\delta$ 與 $\Delta$ 的關係保證了什麼：<Term id="sync">同步</Term>保證 $\delta\le\Delta$ 一直成立；<Term id="psync">部分同步</Term>保證 GST 之後 $\delta\le\Delta$；<Term id="async">非同步</Term>沒有 $\Delta$。
@@ -73,14 +73,14 @@ DLS 原文允許訊息在 GST 之前**遺失**（「late or not at all」）。�
 
 結果：無法分辨「對方很慢」與「對方掛了」，timeout 沒有意義。這是 FLP 不可能性的根源。
 
-**複雜度怎麼計？** 不能以秒數計，要以「輪」或「因果鏈長度」計，但**這些詞各論文的定義不同**：
+**複雜度怎麼計？** 不能以秒數計，要以「輪」或「<Term id="message-delay">因果鏈長度</Term>」計，但**這些詞各論文的定義不同**：
 
 - Bracha 1987 的 round 是協議層的概念：每個 process 把訊息送給所有人，等到 $n-t$ 則同一輪的訊息，再改變狀態（<Cite id="bracha1987" />）。
 - MMR 2015 的時間複雜度是彼此有因果關係的最長訊息序列的長度，忽略本地計算（<Cite id="mmr2015" />）。
 - VABA 2019 的 running time 是整個執行的總時間，除以該執行中最長的訊息延遲（沿用 Canetti–Rabin 的定義），約等於把協議放進鎖步模型時的步數（<Cite id="vaba2019" />）。
 - Correia 等人把 asynchronous round 定義為：一個 process 送出訊息，並收到回應它的一或多則訊息（<Cite id="correia2004" />）。
 
-所以比較不同論文的「期望 $O(1)$ 輪」之前，要先確認它的輪是怎麼定義的。本站引用這類數字時會一併註明。
+所以比較不同論文的「期望 $O(1)$ 輪」之前，要先確認它的輪是怎麼定義的；本站引用這類數字時會一併註明，整套比較方式見[「輪數」怎麼比](/intro/rounds/)。
 
 ## 三個模型並排
 

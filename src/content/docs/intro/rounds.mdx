@@ -1,0 +1,82 @@
+---
+title: 「輪數」怎麼比
+seoTitle: "拜占庭共識的「輪數」怎麼比：worst-case、期望值與 good-case"
+description: 讀到「f+1 輪」「期望常數輪」「三階段」時，先問哪個模型、確定性還是隨機、度量什麼、哪種情況。
+takeaway: "一個輪數敘述由四件事決定：時序模型、確定性或隨機、度量（輪、message delay、階段、DAG 輪）、情況（worst、expected、good）。四件事沒有對齊，兩個數字就不能比。"
+sidebar:
+  order: 6
+  badge:
+    text: 草稿
+    variant: caution
+---
+
+import Term from '../../../components/Term.astro';
+import Cite from '../../../components/Cite.astro';
+import Check from '../../../components/Check.astro';
+import Sidenote from '../../../components/Sidenote.astro';
+import RoundsTable from '../../../components/RoundsTable.astro';
+import References from '../../../components/References.astro';
+
+同步模型的下界說最壞情況要 $f+1$ 輪，隨機化協議說期望只要常數輪，PBFT 說三個階段，DAG 協議又說期望常數個 DAG 輪；這幾句話都成立，也不互相矛盾，只是量的不是同一件事。本頁整理讀論文時一再碰到的「輪」，讓之後每一頁的輪數敘述都有地方對照。
+
+## 兩條軸
+
+### 軸一：這是誰的「輪」
+
+| 度量 | 出現在 | 注意 |
+| --- | --- | --- |
+| <Term id="round" />（lock-step 同步輪） | 同步模型的下界與演算法，例如 Fischer–Lynch、Dolev–Strong | 只在同步模型有意義：所有訊息在同一輪送出，也在同一輪收到 |
+| <Term id="message-delay" />（通訊輪） | 部分同步與非同步協議的延遲 | 看的是訊息因果鏈有多長，不是牆上時間；各論文的定義不同，見[三種時序模型](/intro/models/)的「複雜度怎麼計？」 |
+| 階段（phase）、view | PBFT 的三個階段、HotStuff 的鏈 | 是協議自己的結構，不是時間；一個 view 可以失敗，換到下一個 view 再來 |
+| DAG 輪 | DAG-Rider、Narwhal、Bullshark | 一個 DAG 輪不等於一個 message delay，要看該協議怎麼把 DAG 輪對到訊息 |
+
+Ben-Or 與 Rabin 的論文裡，「輪」還有第五種用法：協議的主迴圈跑一次（iteration）。一次迴圈內有幾次訊息往返，依各自的協議而定，不能直接當成一個 lock-step 輪。
+
+### 軸二：這是哪種情況
+
+- **最壞情況（worst case）**：所有執行與對手策略中最慢的那一個。
+- **期望值（expected）**：對協議自己擲的硬幣取平均。<Term id="expected-rounds">期望輪數</Term>是常數，不代表每一次執行都這麼快，只保證永遠不結束的機率是 0，見[密碼學假設與確定性](/intro/crypto/)。
+- **好情況（good case）**：指定的 broadcaster 或 leader 誠實、沒有故障時的延遲，和最壞情況是兩個不同的量，不能混用，見 <Term id="good-case" />。
+
+## 讀到「$k$ 輪」時問四件事
+
+1. **哪個時序模型？** 只有[同步](/intro/models/)才有 lock-step 輪。
+2. **確定性還是隨機？** 隨機化可以用「期望」換掉最壞情況的下界（見[密碼學假設與確定性](/intro/crypto/)）。
+3. **度量是什麼？** lock-step 輪、message delay、階段，還是 DAG 輪。
+4. **情況是什麼？** worst、expected，還是 good。
+
+本站每個複雜度敘述都標出度量與情況，就是把後兩件事寫成必填；前兩件事寫在各頁的模型卡。
+
+## 對照表
+
+<RoundsTable />
+
+不同列不能直接比大小。每一列的模型、度量與情況都不同，放在一起是為了看出差別，不是排名。
+
+表裡只收已對照原文的五個結果，good-case、message delay 與 DAG 輪的列會在對應的頁面完成後補上。
+
+## 為什麼它們不矛盾
+
+Fischer–Lynch 與 Dolev–Strong 的 $f+1$ 是**確定性**演算法、**最壞情況**的下界：不論多聰明的確定性演算法，總有一個執行要跑滿 $f+1$ 輪。Rabin 的期望 4 輪是**隨機化**協議、**期望值**的上界，它不保證每次都在 4 輪內結束，所以不受確定性下界約束。Ben-Or 在論文開頭就拿這個對比當賣點：確定性的解法不可能少於 $t+1$ 輪，而隨機化協議在 $t=O(\sqrt{N})$ 時，期望輪數是常數（<Cite id="benor1983" />，定理 3）。
+
+<Sidenote title="簽章換來的是容錯上界，不是輪數">
+Dolev–Strong 證明，即使用簽章把故障限制成只能不轉發，不論允許哪種訊息與協議，仍然至少要 $t+1$ 個 phase（<Cite id="ds1983" />）。簽章在同步下改變的是<Term id="resilience">容錯上界</Term>（見[密碼學假設與確定性](/intro/crypto/)），輪數的下界沒有變。
+</Sidenote>
+
+## 練習
+
+<Check q="PBFT 說「三個階段」，這是 $f+1$ 輪那樣的下界嗎？">
+不是。階段是協議自己的結構，不是時序模型下的輪，一個 view 還可能失敗後換下一個 view 再跑一遍；$f+1$ 則是同步模型 lock-step 輪的最壞情況下界。兩者的度量不同，不能放在一起比。
+</Check>
+
+<Check q="Rabin 的「期望 4 輪」比 Dolev–Strong 的 $f+1$ 輪好嗎？">
+不能這樣比。前者是隨機化協議的期望值，度量是協議主迴圈跑一次；後者是確定性演算法的最壞情況，度量是 lock-step 輪。Rabin 的結果還需要 dealer 預先分發的秘密分享，不出錯的版本要求 $t<n/10$。
+</Check>
+
+<Check q="某協議宣稱「期望常數個 DAG 輪」，要和別的結果比較，還缺哪兩件事？">
+缺度量的對應與模型：DAG 輪不等於 message delay，要知道一個 DAG 輪在這個協議裡對到幾個訊息往返，也要知道它在哪個時序模型、用什麼密碼學假設下成立。期望值只說明情況是 expected，不是 worst case。
+</Check>
+
+## 參考文獻
+
+<References />

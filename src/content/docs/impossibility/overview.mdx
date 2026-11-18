@@ -73,7 +73,7 @@ import OverviewTable from '../../../widgets/overview/OverviewTable.astro';
 
 **第 1 列。** FLM 證明：容忍 $m$ 個拜占庭故障需要至少 $3m+1$ 個節點，且通訊圖<Term id="connectivity">連通度</Term>至少 $2m+1$（<Cite id="flm1986" loc="Thm. 1" />）。充分性見 <Cite id="psl1980" />：摘要明說問題「當且僅當 $n\ge3m+1$」可解（$m$ 為故障數），並在簽章假設下對任意 $n\ge m\ge0$ 可解；<Cite id="lsp1982" /> 的 oral messages 演算法對應同一個界。$f+1$ 輪下界最早由 <Cite id="fl1982" /> 證明（針對無簽章），Dolev–Strong 的引言明確指出此點。
 
-**第 2 列。** <Cite id="ds1983" /> 把 $f+1$ 輪下界推廣到任何形式的認證，並給出恰好 $f+1$ 輪、$O(nf)$ 訊息的演算法。「可容忍任意數量故障」這句出自 <Cite id="dls1988" /> 的引言（N-resilient），不是 Dolev–Strong 的原話。
+**第 2 列。** <Cite id="ds1983" /> 把 $f+1$ 輪下界推廣到任何形式的認證，並給出恰好 $f+1$ 輪、$O(nf)$ 訊息的演算法。「可容忍任意數量故障」這句出自 <Cite id="dls1988" /> 的引言（N-resilient），不是 Dolev–Strong 的原話。輪數的度量與情況各列不同，比較規則見[「輪數」怎麼比](/intro/rounds/)。
 
 **第 3 列。** <Cite id="fitzi2003" /> 的 Table 1 給出同步網路下 strong consensus（輸出必為某個誠實節點的輸入，即 [validity 對照](/intro/problem/)中的條件 C）所需的節點數：無條件安全為 $n>\max(3,m)t$（Neiger 的下界），**有簽章與 PKI 的計算安全設定為 $n>mt$**，其中 $m$ 是輸入值域的大小；兩個下界都有達到它們的協議。二元時（$m=2$）條件 C 與常見的 strong <Term id="validity">validity</Term> 一致，所以有簽章時的二元 <Term id="ba">BA</Term> 是 $n>2t$，也就是 $f<n/2$。這是下界與協議兩邊都有的結果，不再是「常見說法」。但要注意：它針對 strong consensus；值域大於二時，達到條件 C 的協議也滿足較弱的條件 A，所以 $n>mt$ 對 A 仍是充分的。另外 DLS 的相關說明仍成立：同步加簽章下，容忍任意數量故障的 strong unanimity 只在有一個發送者簽署初始值時才可能（<Cite id="dls1988" />，§6），也就是第 2 列的「任意 $f$」是 BB 設定下的結果。
 

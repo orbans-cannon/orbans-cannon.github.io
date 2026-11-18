@@ -42,7 +42,7 @@ import References from '../../../components/References.astro';
 隨機化在兩種時序模型下的角色不同：
 
 - **非同步**：隨機化是繞過 FLP 的標準手段。
-- **同步**：確定性協議已經可以解（不受 FLP 限制），但最壞情況需要 $f+1$ 輪（<Cite id="fl1982" />）；隨機化協議把期望輪數降到常數（Feldman–Micali，<Cite id="fm1997" />；Rabin，<Cite id="rabin1983" />）。
+- **同步**：確定性協議已經可以解（不受 FLP 限制），但最壞情況需要 $f+1$ <Term id="round">輪</Term>（<Cite id="fl1982" />）；隨機化協議把<Term id="expected-rounds">期望輪數</Term>降到常數（Feldman–Micali，<Cite id="fm1997" />；Rabin，<Cite id="rabin1983" />）。這兩種輪與兩種情況怎麼比，見[「輪數」怎麼比](/intro/rounds/)。
 
 ## 參考文獻
 
