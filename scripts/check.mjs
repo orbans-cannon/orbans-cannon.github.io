@@ -274,6 +274,37 @@ if (runSource) {
         }
       }
     }
+
+    // i. 輪數對照表（src/data/rounds.ts）：詞彙、書目、讀過程度、連結
+    let RD = null;
+    try {
+      RD = await import(pathToFileURL(join(ROOT, 'src/data/rounds.ts')).href);
+    } catch {
+      RD = null;
+    }
+    if (RD?.roundsRows) {
+      const RSRC = 'src/data/rounds.ts';
+      const V = {
+        timing: ['sync', 'async', 'sync-async'],
+        determinism: ['det', 'rand'],
+        measure: ['lockstep', 'iteration'],
+        case: ['worst', 'expected', 'good'],
+        bound: ['upper', 'lower', 'tight'],
+        read: ['abstract', 'body', 'proof', 'reviewed'],
+      };
+      const seen = new Set();
+      for (const r of RD.roundsRows) {
+        const at = `${RSRC}（${r.id}）`;
+        if (seen.has(r.id)) err(at, `列 id 重複`);
+        seen.add(r.id);
+        for (const [k, vals] of Object.entries(V)) if (!vals.includes(r[k])) err(at, `${k} 必須是 ${vals.join(' / ')} 之一，目前是 ${JSON.stringify(r[k])}`);
+        if (!refs[r.refId]) err(at, `refId「${r.refId}」不在 refs.ts`);
+        else if (NOT_READ.test(refs[r.refId].note ?? '')) err(at, `「${r.refId}」在 refs.ts 的備註是「內容沒讀」，不能放進輪數表`);
+        if (r.read === 'abstract' && r.value) err(at, `只讀到 abstract 級的列不能顯示數值`);
+        if (!r.condition) err(at, `condition 必填（前提與原文用語的說明）`);
+        if (!pageExists(r.href)) err(at, `href「${r.href}」對不到頁面`);
+      }
+    }
   }
 }
 

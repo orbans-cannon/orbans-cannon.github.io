@@ -31,7 +31,7 @@ import Term from '../../../components/Term.astro';
 
 1. `any` **[3f+1 與連通度](/impossibility/sync/flm/)**：Fischer–Lynch–Merritt 1986。<Term id="covering">覆蓋圖論證</Term>，<Term id="ba">BA</Term> 所需的節點數與<Term id="connectivity">連通度</Term>，不限定時序模型。
 2. `async` **[FLP](/impossibility/async/flp/)**：Fischer–Lynch–Paterson 1985。非同步下確定性協議無法同時保證 <Term id="safety">safety</Term> 與 <Term id="liveness">liveness</Term>，用 bivalence 論證。
-3. `sync` **[$f+1$ 輪下界](/impossibility/sync/round-bound/)**：Fischer–Lynch 1982；Dolev–Strong 1983。同步下的輪數下界，與<Term id="signature">簽章</Term>無關。
+3. `sync` **[$f+1$ 輪下界](/impossibility/sync/round-bound/)**：Fischer–Lynch 1982；Dolev–Strong 1983。同步下的輪數下界，與<Term id="signature">簽章</Term>無關；輪的各種度量與情況怎麼比，見[「輪數」怎麼比](/intro/rounds/)。
 4. `partial` **[部分同步與 $3f+1$](/impossibility/partial-sync/dls/)**：Dwork–Lynch–Stockmeyer 1988。safety 與 termination 的分解。
 5. `comm` **[延遲下界（good-case latency）](/impossibility/cost/good-case/)**：Abraham–Nayak–Ren–Xiang，PODC 2021。
 6. `comm` **[通訊下界](/impossibility/cost/dolev-reischuk/)**：Dolev–Reischuk 1985。確定性 BA 的訊息數下界。
