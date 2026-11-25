@@ -526,3 +526,8 @@ body {
 .im {
   white-space: nowrap;
 }
+
+/* 首頁簡介：內容寬 76rem，這段不拉滿，維持一行約 30 字 */
+.home-intro {
+  max-width: 47rem;
+}

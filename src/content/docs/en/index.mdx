@@ -1,7 +1,7 @@
 ---
 title: "Orban’s Cannon: Breaching Byzantium"
 seoTitle: "Orban’s Cannon | Byzantine Fault Tolerance: A Theory Guide"
-description: "A theory-first guide to the Byzantine Generals Problem and Byzantine fault tolerance (BFT), organized by timing model: impossibility results (FLP, FLM), synchrony, partial synchrony, asynchrony, and DAG-BFT."
+description: "A theory guide to Byzantine fault tolerance (BFT), sorted by timing model: what is possible and impossible under synchrony, partial synchrony and asynchrony, from FLP to DAG-BFT."
 tableOfContents: false
 hero:
   tagline: Pin down the model before the algorithm. “Consensus” under different synchrony assumptions is a different problem each time.
@@ -16,11 +16,17 @@ hero:
 
 import RouteMap from '../../../components/RouteMap.astro';
 
+<p class="home-intro">Byzantine fault tolerance (BFT) asks how the remaining nodes can still agree when some nodes lie or send arbitrary messages. This site walks from the Byzantine Generals Problem through impossibility results such as FLP and FLM to asynchronous BFT and DAG-BFT. Each protocol and theorem page carries a model card stating whether the result holds under synchrony, partial synchrony or asynchrony.</p>
+
 ## The route through this site
 
 First separate the three timing models, then see what each one makes possible. The partial-synchrony and asynchrony lines eventually converge in DAG-BFT.
 
+<div data-nosnippet>
+
 <RouteMap lang="en" />
+
+</div>
 
 :::note[English edition]
 The site is written in Traditional Chinese first. Pages not yet translated show the Chinese text with a notice.
